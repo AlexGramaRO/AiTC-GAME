@@ -217,30 +217,81 @@ def init_db():
             conn.execute(stmt)
 
 
+def _admin_env_credentials():
+    """Railway / production admin login from environment variables.
+
+    Primary (set these in Railway):
+      AITC_ADMIN_EMAIL      — admin sign-in email
+      AITC_ADMIN_PASSWORD   — admin sign-in password (min 8 characters)
+
+    Optional:
+      AITC_ADMIN_DISPLAY_NAME — shown in admin UI (default: Administrator)
+
+    Legacy aliases (still supported):
+      BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_DISPLAY_NAME
+    """
+    email = (
+        os.environ.get('AITC_ADMIN_EMAIL')
+        or os.environ.get('BOOTSTRAP_ADMIN_EMAIL')
+        or ''
+    ).strip().lower()
+    password = (
+        os.environ.get('AITC_ADMIN_PASSWORD')
+        or os.environ.get('BOOTSTRAP_ADMIN_PASSWORD')
+        or ''
+    ).strip()
+    display_name = (
+        os.environ.get('AITC_ADMIN_DISPLAY_NAME')
+        or os.environ.get('BOOTSTRAP_ADMIN_DISPLAY_NAME')
+        or 'Administrator'
+    ).strip() or 'Administrator'
+    return email, password, display_name
+
+
 def bootstrap_admin_user():
-    email = (os.environ.get('BOOTSTRAP_ADMIN_EMAIL') or '').strip().lower()
-    password = (os.environ.get('BOOTSTRAP_ADMIN_PASSWORD') or '').strip()
+    """Create or update the Railway-configured admin account on every app start."""
+    email, password, display_name = _admin_env_credentials()
     if not email or not password:
         return
+    if len(password) < 8:
+        return
+
+    password_hash = generate_password_hash(password)
+    now = _now_utc()
+    existing = _fetch_user_by_email(email)
 
     with _db_conn() as conn:
-        if _USE_POSTGRES:
-            cur = conn.cursor()
-            cur.execute('SELECT COUNT(*) FROM users WHERE is_admin = TRUE')
-            count = cur.fetchone()[0]
-            cur.close()
-        else:
-            row = conn.execute('SELECT COUNT(*) AS c FROM users WHERE is_admin = 1').fetchone()
-            count = row['c']
-
-        if count:
+        if existing:
+            user_id = existing['id']
+            if _USE_POSTGRES:
+                cur = conn.cursor()
+                cur.execute(
+                    '''UPDATE users SET
+                        password_hash = %s,
+                        display_name = %s,
+                        status = 'approved',
+                        is_admin = TRUE,
+                        approved_at = COALESCE(approved_at, %s),
+                        updated_at = %s
+                       WHERE id = %s''',
+                    (password_hash, display_name, now, now, user_id),
+                )
+                cur.close()
+            else:
+                conn.execute(
+                    '''UPDATE users SET
+                        password_hash = ?,
+                        display_name = ?,
+                        status = 'approved',
+                        is_admin = 1,
+                        approved_at = COALESCE(approved_at, ?),
+                        updated_at = ?
+                       WHERE id = ?''',
+                    (password_hash, display_name, now.isoformat(), now.isoformat(), user_id),
+                )
             return
 
         user_id = _new_user_id()
-        now = _now_utc()
-        password_hash = generate_password_hash(password)
-        display_name = (os.environ.get('BOOTSTRAP_ADMIN_DISPLAY_NAME') or 'Administrator').strip()
-
         if _USE_POSTGRES:
             cur = conn.cursor()
             cur.execute(
