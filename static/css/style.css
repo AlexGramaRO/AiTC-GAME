@@ -10061,10 +10061,59 @@ body.auth-page {
     color: #fde68a;
 }
 
-.container .button-row .btn.platform-locked,
 .container .button-row a.btn.platform-locked {
     opacity: 0.45;
     pointer-events: none;
     cursor: not-allowed;
     transform: none;
+}
+
+.platform-access-link {
+    color: #fde68a;
+    font-weight: 600;
+    margin-left: 0.35rem;
+}
+
+.subscribe-shell {
+    max-width: 520px;
+}
+
+.subscribe-plan-box {
+    text-align: left;
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(120, 140, 170, 0.25);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.subscribe-plan-box h2 {
+    font-size: 1.25rem;
+    margin-bottom: 0.35rem;
+}
+
+.subscribe-plan-detail {
+    opacity: 0.85;
+    margin-bottom: 0.75rem;
+}
+
+.subscribe-plan-features {
+    margin-left: 1.1rem;
+    line-height: 1.55;
+    opacity: 0.9;
+}
+
+.subscribe-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.subscribe-actions .btn,
+.subscribe-actions a.btn {
+    width: 100%;
+    text-decoration: none;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
 }

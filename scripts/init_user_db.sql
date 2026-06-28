@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     status TEXT NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending', 'approved', 'rejected', 'disabled')),
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    stripe_customer_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     approved_at TIMESTAMPTZ,
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     status TEXT NOT NULL DEFAULT 'active'
         CHECK (status IN ('active', 'expired', 'cancelled')),
     notes TEXT,
+    stripe_subscription_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -41,3 +43,6 @@ CREATE INDEX IF NOT EXISTS idx_users_status ON users (status);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions (user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions (status);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_end_date ON subscriptions (end_date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
+    ON subscriptions (stripe_subscription_id)
+    WHERE stripe_subscription_id IS NOT NULL;

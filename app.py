@@ -23,6 +23,7 @@ from flask import Flask, render_template, request, jsonify, send_from_directory,
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from user_auth import auth_before_request, init_user_auth
+from stripe_billing import init_stripe_billing
 
 app = Flask(__name__)
 
@@ -101,6 +102,7 @@ EN_MGMT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'EN-MGMT'
 ADMIN_SETTINGS_FILE = os.path.join(DATA_DIR, 'admin_settings.json')
 
 init_user_auth(app, DATA_DIR)
+init_stripe_billing(app)
 
 
 @app.before_request

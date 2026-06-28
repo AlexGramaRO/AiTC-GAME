@@ -130,6 +130,7 @@ def init_db():
                 status TEXT NOT NULL DEFAULT 'pending'
                     CHECK (status IN ('pending', 'approved', 'rejected', 'disabled')),
                 is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+                stripe_customer_id TEXT,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 approved_at TIMESTAMPTZ,
@@ -148,6 +149,7 @@ def init_db():
                 status TEXT NOT NULL DEFAULT 'active'
                     CHECK (status IN ('active', 'expired', 'cancelled')),
                 notes TEXT,
+                stripe_subscription_id TEXT,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 created_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -168,6 +170,7 @@ def init_db():
             for stmt in indexes:
                 cur.execute(stmt)
             cur.close()
+        _migrate_schema()
         return
 
     ddl_users = '''
@@ -179,6 +182,7 @@ def init_db():
             status TEXT NOT NULL DEFAULT 'pending'
                 CHECK (status IN ('pending', 'approved', 'rejected', 'disabled')),
             is_admin INTEGER NOT NULL DEFAULT 0,
+            stripe_customer_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             approved_at TEXT,
@@ -197,6 +201,7 @@ def init_db():
             status TEXT NOT NULL DEFAULT 'active'
                 CHECK (status IN ('active', 'expired', 'cancelled')),
             notes TEXT,
+            stripe_subscription_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             created_by TEXT,
@@ -215,6 +220,39 @@ def init_db():
         conn.execute(ddl_subs)
         for stmt in indexes:
             conn.execute(stmt)
+
+    _migrate_schema()
+
+
+def _sqlite_has_column(conn, table, column):
+    rows = conn.execute(f'PRAGMA table_info({table})').fetchall()
+    return any(row['name'] == column for row in rows)
+
+
+def _migrate_schema():
+    """Add Stripe-related columns to existing deployments."""
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT')
+            cur.execute('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT')
+            cur.execute(
+                '''CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
+                   ON subscriptions (stripe_subscription_id)
+                   WHERE stripe_subscription_id IS NOT NULL'''
+            )
+            cur.close()
+            return
+
+        if not _sqlite_has_column(conn, 'users', 'stripe_customer_id'):
+            conn.execute('ALTER TABLE users ADD COLUMN stripe_customer_id TEXT')
+        if not _sqlite_has_column(conn, 'subscriptions', 'stripe_subscription_id'):
+            conn.execute('ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id TEXT')
+        conn.execute(
+            '''CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
+               ON subscriptions (stripe_subscription_id)
+               WHERE stripe_subscription_id IS NOT NULL'''
+        )
 
 
 def _admin_env_credentials():
@@ -381,6 +419,8 @@ def _subscription_to_api(sub):
         'endDate': _iso_dt(sub.get('end_date')),
         'status': sub.get('status') or 'active',
         'notes': sub.get('notes') or '',
+        'stripeSubscriptionId': sub.get('stripe_subscription_id') or '',
+        'source': 'stripe' if sub.get('stripe_subscription_id') else 'admin',
     }
 
 
@@ -445,8 +485,160 @@ def _platform_access_reason(user):
     if user.get('is_admin'):
         return None
     if not _fetch_active_subscription(user['id']):
-        return 'No active subscription. Contact an administrator to restore platform access.'
+        return 'Subscribe to unlock the AiTC platform. Your account is approved but has no active subscription.'
     return None
+
+
+def set_user_stripe_customer_id(user_id, stripe_customer_id):
+    now = _now_utc()
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                'UPDATE users SET stripe_customer_id = %s, updated_at = %s WHERE id = %s',
+                (stripe_customer_id, now, user_id),
+            )
+            cur.close()
+        else:
+            conn.execute(
+                'UPDATE users SET stripe_customer_id = ?, updated_at = ? WHERE id = ?',
+                (stripe_customer_id, now.isoformat(), user_id),
+            )
+
+
+def fetch_user_by_stripe_customer_id(stripe_customer_id):
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor(cursor_factory=_pg.extras.RealDictCursor)
+            cur.execute('SELECT * FROM users WHERE stripe_customer_id = %s', (stripe_customer_id,))
+            row = cur.fetchone()
+            cur.close()
+            return _row_to_dict(row)
+
+        row = conn.execute('SELECT * FROM users WHERE stripe_customer_id = ?', (stripe_customer_id,)).fetchone()
+        return _row_to_dict(row)
+
+
+def fetch_subscription_by_stripe_id(stripe_subscription_id):
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor(cursor_factory=_pg.extras.RealDictCursor)
+            cur.execute('SELECT * FROM subscriptions WHERE stripe_subscription_id = %s', (stripe_subscription_id,))
+            row = cur.fetchone()
+            cur.close()
+            return _row_to_dict(row)
+
+        row = conn.execute(
+            'SELECT * FROM subscriptions WHERE stripe_subscription_id = ?',
+            (stripe_subscription_id,),
+        ).fetchone()
+        return _row_to_dict(row)
+
+
+def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_date, plan_name='stripe-monthly'):
+    if isinstance(start_date, datetime):
+        start_date = start_date.date()
+    if isinstance(end_date, datetime):
+        end_date = end_date.date()
+    now = _now_utc()
+    existing = fetch_subscription_by_stripe_id(stripe_subscription_id)
+    with _db_conn() as conn:
+        if existing:
+            if _USE_POSTGRES:
+                cur = conn.cursor()
+                cur.execute(
+                    '''UPDATE subscriptions SET
+                        start_date = %s, end_date = %s, status = 'active',
+                        plan_name = %s, updated_at = %s
+                       WHERE id = %s''',
+                    (start_date, end_date, plan_name, now, existing['id']),
+                )
+                cur.close()
+            else:
+                conn.execute(
+                    '''UPDATE subscriptions SET
+                        start_date = ?, end_date = ?, status = 'active',
+                        plan_name = ?, updated_at = ?
+                       WHERE id = ?''',
+                    (start_date.isoformat(), end_date.isoformat(), plan_name, now.isoformat(), existing['id']),
+                )
+            return fetch_subscription_by_stripe_id(stripe_subscription_id)
+
+        sub_id = _new_user_id()
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO subscriptions (
+                    id, user_id, plan_name, start_date, end_date, status, notes,
+                    created_at, updated_at, created_by, stripe_subscription_id
+                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, NULL, %s)''',
+                (
+                    sub_id, user_id, plan_name, start_date, end_date,
+                    'Stripe recurring subscription (31-day billing period)',
+                    now, now, stripe_subscription_id,
+                ),
+            )
+            cur.close()
+        else:
+            conn.execute(
+                '''INSERT INTO subscriptions (
+                    id, user_id, plan_name, start_date, end_date, status, notes,
+                    created_at, updated_at, created_by, stripe_subscription_id
+                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, NULL, ?)''',
+                (
+                    sub_id, user_id, plan_name, start_date.isoformat(), end_date.isoformat(),
+                    'Stripe recurring subscription (31-day billing period)',
+                    now.isoformat(), now.isoformat(), stripe_subscription_id,
+                ),
+            )
+        return fetch_subscription_by_stripe_id(stripe_subscription_id)
+
+
+def cancel_subscription_by_stripe_id(stripe_subscription_id):
+    now = _now_utc()
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''UPDATE subscriptions SET status = 'cancelled', updated_at = %s
+                   WHERE stripe_subscription_id = %s AND status = 'active' ''',
+                (now, stripe_subscription_id),
+            )
+            updated = cur.rowcount
+            cur.close()
+        else:
+            cur = conn.execute(
+                '''UPDATE subscriptions SET status = 'cancelled', updated_at = ?
+                   WHERE stripe_subscription_id = ? AND status = 'active' ''',
+                (now.isoformat(), stripe_subscription_id),
+            )
+            updated = cur.rowcount
+    return updated > 0
+
+
+def fetch_active_stripe_subscription_ids_for_user(user_id):
+    today = date.today()
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''SELECT stripe_subscription_id FROM subscriptions
+                   WHERE user_id = %s AND status = 'active' AND stripe_subscription_id IS NOT NULL
+                     AND start_date <= %s AND end_date >= %s''',
+                (user_id, today, today),
+            )
+            rows = [r[0] for r in cur.fetchall() if r and r[0]]
+            cur.close()
+            return rows
+
+        today_s = today.isoformat()
+        rows = conn.execute(
+            '''SELECT stripe_subscription_id FROM subscriptions
+               WHERE user_id = ? AND status = 'active' AND stripe_subscription_id IS NOT NULL
+                 AND start_date <= ? AND end_date >= ?''',
+            (user_id, today_s, today_s),
+        ).fetchall()
+        return [row['stripe_subscription_id'] for row in rows if row['stripe_subscription_id']]
 
 
 def login_required(view):
@@ -491,6 +683,16 @@ PUBLIC_EXACT_PATHS = frozenset({
     '/api/auth/signup',
     '/api/auth/logout',
     '/api/auth/me',
+    '/api/billing/stripe/webhook',
+})
+
+BILLING_APPROVED_PATHS = frozenset({
+    '/subscribe',
+    '/subscribe/success',
+    '/api/billing/config',
+    '/api/billing/status',
+    '/api/billing/create-checkout-session',
+    '/api/billing/customer-portal',
 })
 
 PUBLIC_PREFIXES = (
@@ -517,7 +719,9 @@ def auth_before_request():
 
     if path in ('/login', '/signup'):
         if user_is_approved(user):
-            return redirect(url_for('index'))
+            if user_can_access_platform(user):
+                return redirect(url_for('index'))
+            return redirect(url_for('stripe_billing.subscribe_page'))
         return None
 
     if path.startswith('/admin') or path.startswith('/api/admin/user-accounts'):
@@ -533,13 +737,18 @@ def auth_before_request():
             return jsonify({'ok': False, 'error': 'Account not approved for access'}), 403
         return redirect(url_for('user_auth.login_page', reason=reason))
 
+    if path in BILLING_APPROVED_PATHS:
+        return None
+
     if path == '/':
+        if not user_can_access_platform(user):
+            return redirect(url_for('stripe_billing.subscribe_page'))
         return None
 
     if not user_can_access_platform(user):
         if path.startswith('/api/'):
             return jsonify({'ok': False, 'error': _platform_access_reason(user) or 'Platform access denied'}), 403
-        return redirect(url_for('index', access='locked'))
+        return redirect(url_for('stripe_billing.subscribe_page'))
 
     return None
 
@@ -569,7 +778,9 @@ def init_user_auth(app, data_dir):
 def login_page():
     user = get_current_user()
     if user and user_is_approved(user):
-        return redirect(url_for('index'))
+        if user_can_access_platform(user):
+            return redirect(url_for('index'))
+        return redirect(url_for('stripe_billing.subscribe_page'))
     return render_template(
         'login.html',
         mode='login',
@@ -582,7 +793,9 @@ def login_page():
 def signup_page():
     user = get_current_user()
     if user and user_is_approved(user):
-        return redirect(url_for('index'))
+        if user_can_access_platform(user):
+            return redirect(url_for('index'))
+        return redirect(url_for('stripe_billing.subscribe_page'))
     return render_template(
         'login.html',
         mode='signup',
@@ -672,10 +885,13 @@ def api_auth_login():
         return jsonify({'ok': False, 'error': 'Account is not approved for access'}), 403
 
     next_url = (body.get('next') or '').strip()
-    if next_url.startswith('/') and not next_url.startswith('//'):
-        payload['redirect'] = next_url
+    if user_can_access_platform(user):
+        if next_url.startswith('/') and not next_url.startswith('//'):
+            payload['redirect'] = next_url
+        else:
+            payload['redirect'] = url_for('index')
     else:
-        payload['redirect'] = url_for('index')
+        payload['redirect'] = url_for('stripe_billing.subscribe_page')
 
     return jsonify(payload)
 
@@ -970,6 +1186,14 @@ def api_admin_revoke_subscription(subscription_id):
         return jsonify({'ok': False, 'error': 'Subscription could not be revoked'}), 400
 
     user_id = str(target_sub['user_id'])
+    stripe_sub_id = target_sub.get('stripe_subscription_id')
+    if stripe_sub_id:
+        try:
+            from stripe_billing import cancel_stripe_subscription
+            cancel_stripe_subscription(stripe_sub_id)
+        except Exception:
+            pass
+
     return jsonify({
         'ok': True,
         'subscription': _subscription_to_api({**_row_to_dict(target_sub), 'status': 'cancelled'}),
@@ -984,9 +1208,17 @@ def api_admin_revoke_active_subscriptions(user_id):
     if not target:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
 
+    stripe_ids = fetch_active_stripe_subscription_ids_for_user(user_id)
     count = _revoke_active_subscriptions_for_user(user_id)
     if count <= 0:
         return jsonify({'ok': False, 'error': 'No active subscription to revoke'}), 400
+
+    for stripe_sub_id in stripe_ids:
+        try:
+            from stripe_billing import cancel_stripe_subscription
+            cancel_stripe_subscription(stripe_sub_id)
+        except Exception:
+            pass
 
     return jsonify({
         'ok': True,

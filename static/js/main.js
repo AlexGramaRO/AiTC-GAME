@@ -57421,14 +57421,23 @@ async function initUserSessionBar() {
 function applyPlatformAccessGate(authData) {
     const canAccess = authData && authData.canAccessPlatform === true;
     const banner = document.getElementById('platformAccessBanner');
+    function escapeHtml(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
     if (banner) {
         if (canAccess) {
             banner.style.display = 'none';
             banner.textContent = '';
         } else {
             banner.style.display = 'block';
-            banner.textContent = authData?.platformAccessReason
+            const reason = authData?.platformAccessReason
                 || 'Platform access is not available for your account. Contact an administrator.';
+            banner.innerHTML = escapeHtml(reason)
+                + ' <a href="/subscribe" class="platform-access-link">Subscribe with Stripe</a>';
         }
     }
 

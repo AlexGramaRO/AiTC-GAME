@@ -3,3 +3,4 @@ Werkzeug==3.0.1
 gunicorn==22.0.0
 faster-whisper
 psycopg2-binary==2.9.10
+stripe==11.4.0
