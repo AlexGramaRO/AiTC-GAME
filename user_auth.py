@@ -832,6 +832,49 @@ def fetch_active_stripe_subscription_ids_for_user(user_id):
         return [row['stripe_subscription_id'] for row in rows if row['stripe_subscription_id']]
 
 
+def _fetch_active_subscriptions_for_user(user_id):
+    """All subscriptions that currently grant access (monthly and/or one-day)."""
+    subs = _fetch_user_subscriptions(user_id)
+    now = _now_utc()
+    return [sub for sub in subs if _subscription_covers_now(sub, now)]
+
+
+def _fetch_active_subscription_by_type(user_id, pass_type):
+    for sub in _fetch_active_subscriptions_for_user(user_id):
+        current_type = (sub.get('pass_type') or PASS_TYPE_MONTHLY).strip().lower()
+        if current_type == pass_type:
+            return sub
+    return None
+
+
+def _cancel_subscription_record(sub):
+    """Cancel one subscription row and linked Stripe subscription when present."""
+    if not sub or sub.get('status') != 'active':
+        return False
+    subscription_id = sub.get('id')
+    if not _revoke_subscription(subscription_id):
+        return False
+    stripe_sub_id = sub.get('stripe_subscription_id')
+    if stripe_sub_id:
+        try:
+            from stripe_billing import cancel_stripe_subscription
+            cancel_stripe_subscription(stripe_sub_id)
+        except Exception:
+            pass
+    return True
+
+
+def _cancel_active_by_pass_type(user_id, pass_type):
+    cancelled = 0
+    for sub in list(_fetch_active_subscriptions_for_user(user_id)):
+        current_type = (sub.get('pass_type') or PASS_TYPE_MONTHLY).strip().lower()
+        if current_type != pass_type:
+            continue
+        if _cancel_subscription_record(sub):
+            cancelled += 1
+    return cancelled
+
+
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -1146,6 +1189,10 @@ def api_admin_list_users():
         entry = _user_to_api(user, include_subscription=True)
         subs = _fetch_user_subscriptions(user['id'])
         entry['subscriptions'] = [_subscription_to_api(s) for s in subs]
+        monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
+        one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
+        entry['activeMonthlySubscription'] = _subscription_to_api(monthly)
+        entry['activeOneDayPass'] = _subscription_to_api(one_day)
         users_out.append(entry)
 
     return jsonify({'ok': True, 'users': users_out})
@@ -1286,9 +1333,9 @@ def api_admin_create_subscription(user_id):
             cur.execute(
                 '''INSERT INTO subscriptions (
                     id, user_id, plan_name, start_date, end_date, status, notes,
-                    created_at, updated_at, created_by
-                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, %s)''',
-                (sub_id, user_id, plan_name, start, end, notes, now, now, actor['id']),
+                    created_at, updated_at, created_by, pass_type
+                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, %s, %s)''',
+                (sub_id, user_id, plan_name, start, end, notes, now, now, actor['id'], PASS_TYPE_MONTHLY),
             )
             cur.close()
         else:
@@ -1296,9 +1343,9 @@ def api_admin_create_subscription(user_id):
             conn.execute(
                 '''INSERT INTO subscriptions (
                     id, user_id, plan_name, start_date, end_date, status, notes,
-                    created_at, updated_at, created_by
-                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)''',
-                (sub_id, user_id, plan_name, start.isoformat(), end.isoformat(), notes, now_s, now_s, actor['id']),
+                    created_at, updated_at, created_by, pass_type
+                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)''',
+                (sub_id, user_id, plan_name, start.isoformat(), end.isoformat(), notes, now_s, now_s, actor['id'], PASS_TYPE_MONTHLY),
             )
 
     sub_row = None
@@ -1397,21 +1444,55 @@ def api_admin_revoke_subscription(subscription_id):
     if target_sub.get('status') != 'active':
         return jsonify({'ok': False, 'error': 'Subscription is not active'}), 400
 
-    if not _revoke_subscription(subscription_id):
-        return jsonify({'ok': False, 'error': 'Subscription could not be revoked'}), 400
+    if not _cancel_subscription_record(_row_to_dict(target_sub)):
+        return jsonify({'ok': False, 'error': 'Subscription could not be cancelled'}), 400
 
     user_id = str(target_sub['user_id'])
-    stripe_sub_id = target_sub.get('stripe_subscription_id')
-    if stripe_sub_id:
-        try:
-            from stripe_billing import cancel_stripe_subscription
-            cancel_stripe_subscription(stripe_sub_id)
-        except Exception:
-            pass
-
     return jsonify({
         'ok': True,
         'subscription': _subscription_to_api({**_row_to_dict(target_sub), 'status': 'cancelled'}),
+        'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
+    })
+
+
+@auth_bp.route('/api/admin/user-accounts/<user_id>/cancel-subscription', methods=['POST'])
+@admin_required
+def api_admin_cancel_subscription(user_id):
+    """Cancel the user's active monthly subscription (admin or Stripe)."""
+    target = _fetch_user_by_id(user_id)
+    if not target:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    if target.get('is_admin'):
+        return jsonify({'ok': False, 'error': 'Admin accounts do not have subscriptions'}), 400
+
+    count = _cancel_active_by_pass_type(user_id, PASS_TYPE_MONTHLY)
+    if count <= 0:
+        return jsonify({'ok': False, 'error': 'No active monthly subscription to cancel'}), 400
+
+    return jsonify({
+        'ok': True,
+        'cancelledCount': count,
+        'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
+    })
+
+
+@auth_bp.route('/api/admin/user-accounts/<user_id>/cancel-one-day-pass', methods=['POST'])
+@admin_required
+def api_admin_cancel_one_day_pass(user_id):
+    """Cancel the user's active One Day Pass."""
+    target = _fetch_user_by_id(user_id)
+    if not target:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    if target.get('is_admin'):
+        return jsonify({'ok': False, 'error': 'Admin accounts do not have passes'}), 400
+
+    count = _cancel_active_by_pass_type(user_id, PASS_TYPE_ONE_DAY)
+    if count <= 0:
+        return jsonify({'ok': False, 'error': 'No active One Day Pass to cancel'}), 400
+
+    return jsonify({
+        'ok': True,
+        'cancelledCount': count,
         'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
     })
 
@@ -1423,20 +1504,19 @@ def api_admin_revoke_active_subscriptions(user_id):
     if not target:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
 
-    stripe_ids = fetch_active_stripe_subscription_ids_for_user(user_id)
-    count = _revoke_active_subscriptions_for_user(user_id)
-    if count <= 0:
-        return jsonify({'ok': False, 'error': 'No active subscription to revoke'}), 400
+    active = _fetch_active_subscriptions_for_user(user_id)
+    if not active:
+        return jsonify({'ok': False, 'error': 'No active subscription or pass to cancel'}), 400
 
-    for stripe_sub_id in stripe_ids:
-        try:
-            from stripe_billing import cancel_stripe_subscription
-            cancel_stripe_subscription(stripe_sub_id)
-        except Exception:
-            pass
+    cancelled = 0
+    for sub in active:
+        if _cancel_subscription_record(sub):
+            cancelled += 1
+    if cancelled <= 0:
+        return jsonify({'ok': False, 'error': 'Could not cancel active access'}), 400
 
     return jsonify({
         'ok': True,
-        'revokedCount': count,
+        'cancelledCount': cancelled,
         'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
     })

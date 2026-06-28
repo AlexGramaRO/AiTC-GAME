@@ -29,13 +29,16 @@
     }
 
     function subscriptionSummary(user) {
-        const active = user.activeSubscription;
-        if (active) {
-            if (active.passType === 'one_day') {
-                return active.planName + ' · until ' + formatDateTime(active.expiresAt || active.endDate) + ' (24h pass)';
-            }
-            return active.planName + ' · ' + formatDate(active.startDate) + ' → ' + formatDate(active.endDate) + ' (active)';
+        const parts = [];
+        if (user.activeMonthlySubscription) {
+            const m = user.activeMonthlySubscription;
+            parts.push(m.planName + ' · ' + formatDate(m.startDate) + ' → ' + formatDate(m.endDate) + ' (monthly)');
         }
+        if (user.activeOneDayPass) {
+            const d = user.activeOneDayPass;
+            parts.push(d.planName + ' · until ' + formatDateTime(d.expiresAt || d.endDate) + ' (24h pass)');
+        }
+        if (parts.length) return parts.join(' · ');
         const subs = user.subscriptions || [];
         if (!subs.length) return 'None';
         const latest = subs[0];
@@ -67,8 +70,14 @@
             parts.push(actionButton('disable', id, 'Disable', false));
             parts.push(actionButton('subscription', id, 'Add 31-day sub', false));
             parts.push(actionButton('one-day-pass', id, 'Add 24h pass', false));
-            if (user.activeSubscription) {
-                parts.push(actionButton('revoke-active', id, 'Revoke access', false));
+            if (user.activeMonthlySubscription) {
+                parts.push(actionButton('cancel-subscription', id, 'Cancel subscription', false));
+            }
+            if (user.activeOneDayPass) {
+                parts.push(actionButton('cancel-one-day-pass', id, 'Cancel One Day Pass', false));
+            }
+            if (user.activeMonthlySubscription && user.activeOneDayPass) {
+                parts.push(actionButton('revoke-active', id, 'Cancel all access', false));
             }
         }
 
@@ -129,6 +138,10 @@
         } else if (action === 'one-day-pass') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/one-day-pass';
             body = JSON.stringify({ planName: 'admin-one-day-pass' });
+        } else if (action === 'cancel-subscription') {
+            url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/cancel-subscription';
+        } else if (action === 'cancel-one-day-pass') {
+            url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/cancel-one-day-pass';
         } else if (action === 'revoke-active') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/subscriptions/revoke-active';
         }
@@ -145,6 +158,19 @@
         return data;
     }
 
+    function confirmAction(action) {
+        if (action === 'cancel-subscription') {
+            return window.confirm('Cancel this user\'s active monthly subscription? They will lose subscription-based access immediately.');
+        }
+        if (action === 'cancel-one-day-pass') {
+            return window.confirm('Cancel this user\'s active One Day Pass? They will lose pass-based access immediately.');
+        }
+        if (action === 'revoke-active') {
+            return window.confirm('Cancel all active subscriptions and passes for this user?');
+        }
+        return true;
+    }
+
     tableBody?.addEventListener('click', async function (event) {
         const btn = event.target.closest('.admin-user-action');
         if (!btn) return;
@@ -152,10 +178,8 @@
         const userId = btn.getAttribute('data-id');
         if (!action || !userId) return;
 
-        if (action === 'revoke-active') {
-            if (!window.confirm('Revoke active access for this user? They will lose platform access immediately.')) {
-                return;
-            }
+        if (!confirmAction(action)) {
+            return;
         }
 
         btn.disabled = true;
