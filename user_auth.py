@@ -19,6 +19,9 @@ auth_bp = Blueprint('user_auth', __name__)
 
 _EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 _SUBSCRIPTION_MONTH_DAYS = 31
+_ONE_DAY_PASS_HOURS = 24
+PASS_TYPE_MONTHLY = 'monthly'
+PASS_TYPE_ONE_DAY = 'one_day'
 
 _USE_POSTGRES = False
 _DB_PATH = None
@@ -46,6 +49,57 @@ def subscription_end_date(start):
     if isinstance(start, str):
         start = date.fromisoformat(start)
     return start + timedelta(days=_SUBSCRIPTION_MONTH_DAYS)
+
+
+def one_day_pass_expires_at(start=None):
+    """One Day Pass = 24 hours of platform access from activation."""
+    start = start or _now_utc()
+    if isinstance(start, date) and not isinstance(start, datetime):
+        start = datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc)
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    return start + timedelta(hours=_ONE_DAY_PASS_HOURS)
+
+
+def _parse_dt(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith('Z'):
+        text = text[:-1] + '+00:00'
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _subscription_covers_now(sub, now=None):
+    if not sub or sub.get('status') != 'active':
+        return False
+    now = now or _now_utc()
+    pass_type = (sub.get('pass_type') or PASS_TYPE_MONTHLY).strip().lower()
+    if pass_type == PASS_TYPE_ONE_DAY:
+        expires = _parse_dt(sub.get('expires_at'))
+        return bool(expires and expires > now)
+    today = now.date()
+    start = sub.get('start_date')
+    end = sub.get('end_date')
+    if isinstance(start, str):
+        start = date.fromisoformat(start)
+    if isinstance(end, str):
+        end = date.fromisoformat(end)
+    return bool(start and end and start <= today <= end)
 
 
 def _normalize_database_url(url):
@@ -150,6 +204,9 @@ def init_db():
                     CHECK (status IN ('active', 'expired', 'cancelled')),
                 notes TEXT,
                 stripe_subscription_id TEXT,
+                pass_type TEXT NOT NULL DEFAULT 'monthly',
+                expires_at TIMESTAMPTZ,
+                stripe_checkout_session_id TEXT,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 created_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -202,6 +259,9 @@ def init_db():
                 CHECK (status IN ('active', 'expired', 'cancelled')),
             notes TEXT,
             stripe_subscription_id TEXT,
+            pass_type TEXT NOT NULL DEFAULT 'monthly',
+            expires_at TEXT,
+            stripe_checkout_session_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             created_by TEXT,
@@ -236,10 +296,18 @@ def _migrate_schema():
             cur = conn.cursor()
             cur.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT')
             cur.execute('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT')
+            cur.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS pass_type TEXT NOT NULL DEFAULT 'monthly'")
+            cur.execute('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ')
+            cur.execute('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_checkout_session_id TEXT')
             cur.execute(
                 '''CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
                    ON subscriptions (stripe_subscription_id)
                    WHERE stripe_subscription_id IS NOT NULL'''
+            )
+            cur.execute(
+                '''CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_checkout_session_id
+                   ON subscriptions (stripe_checkout_session_id)
+                   WHERE stripe_checkout_session_id IS NOT NULL'''
             )
             cur.close()
             return
@@ -248,10 +316,21 @@ def _migrate_schema():
             conn.execute('ALTER TABLE users ADD COLUMN stripe_customer_id TEXT')
         if not _sqlite_has_column(conn, 'subscriptions', 'stripe_subscription_id'):
             conn.execute('ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id TEXT')
+        if not _sqlite_has_column(conn, 'subscriptions', 'pass_type'):
+            conn.execute("ALTER TABLE subscriptions ADD COLUMN pass_type TEXT NOT NULL DEFAULT 'monthly'")
+        if not _sqlite_has_column(conn, 'subscriptions', 'expires_at'):
+            conn.execute('ALTER TABLE subscriptions ADD COLUMN expires_at TEXT')
+        if not _sqlite_has_column(conn, 'subscriptions', 'stripe_checkout_session_id'):
+            conn.execute('ALTER TABLE subscriptions ADD COLUMN stripe_checkout_session_id TEXT')
         conn.execute(
             '''CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
                ON subscriptions (stripe_subscription_id)
                WHERE stripe_subscription_id IS NOT NULL'''
+        )
+        conn.execute(
+            '''CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_checkout_session_id
+               ON subscriptions (stripe_checkout_session_id)
+               WHERE stripe_checkout_session_id IS NOT NULL'''
         )
 
 
@@ -381,32 +460,54 @@ def _fetch_user_by_email(email):
 
 
 def _fetch_active_subscription(user_id):
-    today = date.today()
+    now = _now_utc()
+    today = now.date()
     with _db_conn() as conn:
         if _USE_POSTGRES:
             cur = conn.cursor(cursor_factory=_pg.extras.RealDictCursor)
             cur.execute(
                 '''SELECT * FROM subscriptions
                    WHERE user_id = %s AND status = 'active'
-                     AND start_date <= %s AND end_date >= %s
-                   ORDER BY end_date DESC
+                     AND (
+                       (pass_type = 'one_day' AND expires_at IS NOT NULL AND expires_at > %s)
+                       OR (
+                         COALESCE(pass_type, 'monthly') <> 'one_day'
+                         AND start_date <= %s AND end_date >= %s
+                       )
+                     )
+                   ORDER BY
+                     CASE
+                       WHEN pass_type = 'one_day' THEN expires_at
+                       ELSE (end_date::timestamp AT TIME ZONE 'UTC')
+                     END DESC
                    LIMIT 1''',
-                (user_id, today, today),
+                (user_id, now, today, today),
             )
             row = cur.fetchone()
             cur.close()
-            return _row_to_dict(row)
+            sub = _row_to_dict(row)
+            return sub if _subscription_covers_now(sub, now) else None
 
+        now_s = now.isoformat()
         today_s = today.isoformat()
-        row = conn.execute(
+        rows = conn.execute(
             '''SELECT * FROM subscriptions
                WHERE user_id = ? AND status = 'active'
-                 AND start_date <= ? AND end_date >= ?
-               ORDER BY end_date DESC
-               LIMIT 1''',
-            (user_id, today_s, today_s),
-        ).fetchone()
-        return _row_to_dict(row)
+                 AND (
+                   (pass_type = 'one_day' AND expires_at IS NOT NULL AND expires_at > ?)
+                   OR (
+                     COALESCE(pass_type, 'monthly') <> 'one_day'
+                     AND start_date <= ? AND end_date >= ?
+                   )
+                 )
+               ORDER BY expires_at DESC, end_date DESC''',
+            (user_id, now_s, today_s, today_s),
+        ).fetchall()
+        for row in rows:
+            sub = _row_to_dict(row)
+            if _subscription_covers_now(sub, now):
+                return sub
+        return None
 
 
 def _subscription_to_api(sub):
@@ -415,12 +516,14 @@ def _subscription_to_api(sub):
     return {
         'id': str(sub['id']),
         'planName': sub.get('plan_name') or 'standard',
+        'passType': (sub.get('pass_type') or PASS_TYPE_MONTHLY),
         'startDate': _iso_dt(sub.get('start_date')),
         'endDate': _iso_dt(sub.get('end_date')),
+        'expiresAt': _iso_dt(sub.get('expires_at')),
         'status': sub.get('status') or 'active',
         'notes': sub.get('notes') or '',
         'stripeSubscriptionId': sub.get('stripe_subscription_id') or '',
-        'source': 'stripe' if sub.get('stripe_subscription_id') else 'admin',
+        'source': 'stripe' if (sub.get('stripe_subscription_id') or sub.get('stripe_checkout_session_id')) else 'admin',
     }
 
 
@@ -535,6 +638,94 @@ def fetch_subscription_by_stripe_id(stripe_subscription_id):
         return _row_to_dict(row)
 
 
+def fetch_subscription_by_checkout_session_id(stripe_checkout_session_id):
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor(cursor_factory=_pg.extras.RealDictCursor)
+            cur.execute(
+                'SELECT * FROM subscriptions WHERE stripe_checkout_session_id = %s',
+                (stripe_checkout_session_id,),
+            )
+            row = cur.fetchone()
+            cur.close()
+            return _row_to_dict(row)
+
+        row = conn.execute(
+            'SELECT * FROM subscriptions WHERE stripe_checkout_session_id = ?',
+            (stripe_checkout_session_id,),
+        ).fetchone()
+        return _row_to_dict(row)
+
+
+def create_one_day_pass(
+    user_id,
+    plan_name='one-day-pass',
+    notes=None,
+    created_by=None,
+    stripe_checkout_session_id=None,
+    activated_at=None,
+):
+    """Grant 24 hours of platform access."""
+    if stripe_checkout_session_id:
+        existing = fetch_subscription_by_checkout_session_id(stripe_checkout_session_id)
+        if existing:
+            return existing
+
+    start = activated_at or _now_utc()
+    expires = one_day_pass_expires_at(start)
+    start_date = start.date() if isinstance(start, datetime) else start
+    end_date = expires.date()
+    sub_id = _new_user_id()
+    now = _now_utc()
+    notes = notes or 'One Day Pass (24 hours of platform access)'
+
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO subscriptions (
+                    id, user_id, plan_name, start_date, end_date, status, notes,
+                    created_at, updated_at, created_by, pass_type, expires_at,
+                    stripe_checkout_session_id
+                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, %s, %s, %s, %s)''',
+                (
+                    sub_id, user_id, plan_name, start_date, end_date, notes,
+                    now, now, created_by, PASS_TYPE_ONE_DAY, expires, stripe_checkout_session_id,
+                ),
+            )
+            cur.close()
+        else:
+            conn.execute(
+                '''INSERT INTO subscriptions (
+                    id, user_id, plan_name, start_date, end_date, status, notes,
+                    created_at, updated_at, created_by, pass_type, expires_at,
+                    stripe_checkout_session_id
+                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?)''',
+                (
+                    sub_id, user_id, plan_name, start_date.isoformat(), end_date.isoformat(), notes,
+                    now.isoformat(), now.isoformat(), created_by, PASS_TYPE_ONE_DAY,
+                    expires.isoformat(), stripe_checkout_session_id,
+                ),
+            )
+
+    if stripe_checkout_session_id:
+        return fetch_subscription_by_checkout_session_id(stripe_checkout_session_id)
+    return _fetch_subscription_by_id(sub_id)
+
+
+def _fetch_subscription_by_id(subscription_id):
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor(cursor_factory=_pg.extras.RealDictCursor)
+            cur.execute('SELECT * FROM subscriptions WHERE id = %s', (subscription_id,))
+            row = cur.fetchone()
+            cur.close()
+            return _row_to_dict(row)
+
+        row = conn.execute('SELECT * FROM subscriptions WHERE id = ?', (subscription_id,)).fetchone()
+        return _row_to_dict(row)
+
+
 def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_date, plan_name='stripe-monthly'):
     if isinstance(start_date, datetime):
         start_date = start_date.date()
@@ -549,18 +740,18 @@ def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_
                 cur.execute(
                     '''UPDATE subscriptions SET
                         start_date = %s, end_date = %s, status = 'active',
-                        plan_name = %s, updated_at = %s
+                        plan_name = %s, pass_type = %s, updated_at = %s, expires_at = NULL
                        WHERE id = %s''',
-                    (start_date, end_date, plan_name, now, existing['id']),
+                    (start_date, end_date, plan_name, PASS_TYPE_MONTHLY, now, existing['id']),
                 )
                 cur.close()
             else:
                 conn.execute(
                     '''UPDATE subscriptions SET
                         start_date = ?, end_date = ?, status = 'active',
-                        plan_name = ?, updated_at = ?
+                        plan_name = ?, pass_type = ?, updated_at = ?, expires_at = NULL
                        WHERE id = ?''',
-                    (start_date.isoformat(), end_date.isoformat(), plan_name, now.isoformat(), existing['id']),
+                    (start_date.isoformat(), end_date.isoformat(), plan_name, PASS_TYPE_MONTHLY, now.isoformat(), existing['id']),
                 )
             return fetch_subscription_by_stripe_id(stripe_subscription_id)
 
@@ -570,12 +761,12 @@ def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_
             cur.execute(
                 '''INSERT INTO subscriptions (
                     id, user_id, plan_name, start_date, end_date, status, notes,
-                    created_at, updated_at, created_by, stripe_subscription_id
-                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, NULL, %s)''',
+                    created_at, updated_at, created_by, stripe_subscription_id, pass_type
+                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, NULL, %s, %s)''',
                 (
                     sub_id, user_id, plan_name, start_date, end_date,
                     'Stripe recurring subscription (31-day billing period)',
-                    now, now, stripe_subscription_id,
+                    now, now, stripe_subscription_id, PASS_TYPE_MONTHLY,
                 ),
             )
             cur.close()
@@ -583,12 +774,12 @@ def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_
             conn.execute(
                 '''INSERT INTO subscriptions (
                     id, user_id, plan_name, start_date, end_date, status, notes,
-                    created_at, updated_at, created_by, stripe_subscription_id
-                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, NULL, ?)''',
+                    created_at, updated_at, created_by, stripe_subscription_id, pass_type
+                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, NULL, ?, ?)''',
                 (
                     sub_id, user_id, plan_name, start_date.isoformat(), end_date.isoformat(),
                     'Stripe recurring subscription (31-day billing period)',
-                    now.isoformat(), now.isoformat(), stripe_subscription_id,
+                    now.isoformat(), now.isoformat(), stripe_subscription_id, PASS_TYPE_MONTHLY,
                 ),
             )
         return fetch_subscription_by_stripe_id(stripe_subscription_id)
@@ -1117,6 +1308,30 @@ def api_admin_create_subscription(user_id):
             break
 
     return jsonify({'ok': True, 'subscription': _subscription_to_api(sub_row)})
+
+
+@auth_bp.route('/api/admin/user-accounts/<user_id>/one-day-pass', methods=['POST'])
+@admin_required
+def api_admin_create_one_day_pass(user_id):
+    """Grant 24 hours of manual platform access."""
+    actor = get_current_user()
+    target = _fetch_user_by_id(user_id)
+    if not target:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    if target.get('is_admin'):
+        return jsonify({'ok': False, 'error': 'Admin accounts do not require a pass'}), 400
+
+    body = request.get_json(silent=True) or {}
+    plan_name = (body.get('planName') or 'admin-one-day-pass').strip() or 'admin-one-day-pass'
+    sub = create_one_day_pass(user_id, plan_name=plan_name, created_by=actor['id'])
+    if not sub:
+        return jsonify({'ok': False, 'error': 'Could not create One Day Pass'}), 500
+
+    return jsonify({
+        'ok': True,
+        'subscription': _subscription_to_api(sub),
+        'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
+    })
 
 
 def _revoke_subscription(subscription_id):

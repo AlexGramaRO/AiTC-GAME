@@ -1,12 +1,15 @@
 """
-Stripe Checkout + webhooks for AiTC monthly subscriptions (31-day recurring billing).
+Stripe Checkout + webhooks for AiTC subscriptions.
 
 Railway environment variables:
-  STRIPE_SECRET_KEY          — Stripe secret key (sk_live_... or sk_test_...)
-  STRIPE_PUBLISHABLE_KEY     — Stripe publishable key (pk_...) for the subscribe page
-  STRIPE_WEBHOOK_SECRET      — Signing secret from the Stripe webhook endpoint (whsec_...)
-  STRIPE_PRICE_ID            — Recurring Price id (price_...) billed every 31 days
-  APP_BASE_URL               — Public app URL, e.g. https://your-app.up.railway.app
+  STRIPE_SECRET_KEY              — Stripe secret key (sk_live_... or sk_test_...)
+  STRIPE_PUBLISHABLE_KEY         — Stripe publishable key (pk_...)
+  STRIPE_WEBHOOK_SECRET          — Webhook signing secret (whsec_...)
+  STRIPE_PRICE_ID                — Recurring monthly price (31-day interval) — price_...
+  STRIPE_PLAN_NAME                 — Display name for monthly plan (optional)
+  STRIPE_ONE_DAY_PRICE_ID          — One-time One Day Pass price — price_...
+  STRIPE_ONE_DAY_PLAN_NAME         — Display name for One Day Pass (optional)
+  APP_BASE_URL                     — Public app URL, e.g. https://your-app.up.railway.app
 """
 
 import os
@@ -15,7 +18,9 @@ from datetime import date, datetime, timezone
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 from user_auth import (
+    PASS_TYPE_ONE_DAY,
     cancel_subscription_by_stripe_id,
+    create_one_day_pass,
     fetch_subscription_by_stripe_id,
     fetch_user_by_stripe_customer_id,
     get_current_user,
@@ -25,7 +30,6 @@ from user_auth import (
     user_can_access_platform,
     user_is_approved,
     _fetch_active_subscription,
-    _fetch_user_by_id,
     _subscription_to_api,
     _user_to_api,
 )
@@ -47,11 +51,32 @@ def _stripe_client():
     return _stripe
 
 
+def _monthly_price_id():
+    return (os.environ.get('STRIPE_PRICE_ID') or '').strip()
+
+
+def _one_day_price_id():
+    return (os.environ.get('STRIPE_ONE_DAY_PRICE_ID') or '').strip()
+
+
+def stripe_monthly_configured():
+    return bool((os.environ.get('STRIPE_SECRET_KEY') or '').strip() and _monthly_price_id())
+
+
+def stripe_one_day_configured():
+    return bool((os.environ.get('STRIPE_SECRET_KEY') or '').strip() and _one_day_price_id())
+
+
 def stripe_configured():
-    return bool(
-        (os.environ.get('STRIPE_SECRET_KEY') or '').strip()
-        and (os.environ.get('STRIPE_PRICE_ID') or '').strip()
-    )
+    return stripe_monthly_configured() or stripe_one_day_configured()
+
+
+def _monthly_plan_name():
+    return (os.environ.get('STRIPE_PLAN_NAME') or 'AiTC Monthly').strip() or 'AiTC Monthly'
+
+
+def _one_day_plan_name():
+    return (os.environ.get('STRIPE_ONE_DAY_PLAN_NAME') or 'One Day Pass').strip() or 'One Day Pass'
 
 
 def _app_base_url():
@@ -60,6 +85,23 @@ def _app_base_url():
         return base
     host = request.host_url.rstrip('/') if request else ''
     return host
+
+
+def _billing_products_payload():
+    return {
+        'monthly': {
+            'available': stripe_monthly_configured(),
+            'planName': _monthly_plan_name(),
+            'billingPeriodDays': 31,
+            'autoRenew': True,
+        },
+        'oneDay': {
+            'available': stripe_one_day_configured(),
+            'planName': _one_day_plan_name(),
+            'accessHours': 24,
+            'autoRenew': False,
+        },
+    }
 
 
 def _stripe_period_dates(stripe_subscription):
@@ -82,12 +124,13 @@ def cancel_stripe_subscription(stripe_subscription_id):
     return True
 
 
-def _resolve_user_id_from_stripe_subscription(stripe_subscription):
-    metadata = stripe_subscription.get('metadata') or {}
+def _resolve_user_id_from_metadata(metadata, client_reference_id=None, customer_id=None):
+    metadata = metadata or {}
     user_id = (metadata.get('user_id') or '').strip()
     if user_id:
         return user_id
-    customer_id = stripe_subscription.get('customer')
+    if client_reference_id:
+        return str(client_reference_id).strip() or None
     if customer_id:
         user = fetch_user_by_stripe_customer_id(customer_id)
         if user:
@@ -100,7 +143,10 @@ def _sync_stripe_subscription(stripe_subscription):
     if not stripe_sub_id:
         return None
 
-    user_id = _resolve_user_id_from_stripe_subscription(stripe_subscription)
+    user_id = _resolve_user_id_from_metadata(
+        stripe_subscription.get('metadata'),
+        customer_id=stripe_subscription.get('customer'),
+    )
     if not user_id:
         return None
 
@@ -110,8 +156,44 @@ def _sync_stripe_subscription(stripe_subscription):
         return fetch_subscription_by_stripe_id(stripe_sub_id)
 
     start, end = _stripe_period_dates(stripe_subscription)
-    plan_name = (os.environ.get('STRIPE_PLAN_NAME') or 'stripe-monthly').strip() or 'stripe-monthly'
+    plan_name = _monthly_plan_name()
     return upsert_stripe_subscription(user_id, stripe_sub_id, start, end, plan_name=plan_name)
+
+
+def _handle_checkout_completed(session_obj):
+    stripe = _stripe_client()
+    if not stripe:
+        return
+
+    mode = session_obj.get('mode')
+    metadata = session_obj.get('metadata') or {}
+    user_id = _resolve_user_id_from_metadata(
+        metadata,
+        client_reference_id=session_obj.get('client_reference_id'),
+        customer_id=session_obj.get('customer'),
+    )
+    customer_id = session_obj.get('customer')
+    if customer_id and user_id:
+        set_user_stripe_customer_id(user_id, customer_id)
+
+    if mode == 'subscription':
+        subscription_id = session_obj.get('subscription')
+        if subscription_id:
+            stripe_sub = stripe.Subscription.retrieve(subscription_id)
+            _sync_stripe_subscription(stripe_sub)
+        return
+
+    if mode == 'payment':
+        pass_type = (metadata.get('pass_type') or metadata.get('planType') or '').strip().lower()
+        if pass_type not in (PASS_TYPE_ONE_DAY, 'one_day', 'oneday'):
+            pass_type = PASS_TYPE_ONE_DAY
+        if pass_type == PASS_TYPE_ONE_DAY and user_id:
+            create_one_day_pass(
+                user_id,
+                plan_name=_one_day_plan_name(),
+                notes='Stripe One Day Pass (24 hours of platform access)',
+                stripe_checkout_session_id=session_obj.get('id'),
+            )
 
 
 def _ensure_stripe_customer(user):
@@ -147,14 +229,15 @@ def subscribe_page():
         return redirect(url_for('index'))
 
     active = _fetch_active_subscription(user['id'])
+    products = _billing_products_payload()
     return render_template(
         'subscribe.html',
         stripe_publishable_key=(os.environ.get('STRIPE_PUBLISHABLE_KEY') or '').strip(),
         stripe_configured=stripe_configured(),
-        plan_name=(os.environ.get('STRIPE_PLAN_NAME') or 'AiTC Monthly').strip(),
-        billing_period_days=31,
+        products=products,
         active_subscription=_subscription_to_api(active),
         cancelled=request.args.get('cancelled') == '1',
+        success=False,
     )
 
 
@@ -165,13 +248,14 @@ def subscribe_success_page():
         return redirect(url_for('user_auth.login_page', next='/subscribe'))
     if user_can_access_platform(user):
         return redirect(url_for('index'))
+
+    products = _billing_products_payload()
     return render_template(
         'subscribe.html',
         success=True,
         stripe_publishable_key=(os.environ.get('STRIPE_PUBLISHABLE_KEY') or '').strip(),
         stripe_configured=stripe_configured(),
-        plan_name=(os.environ.get('STRIPE_PLAN_NAME') or 'AiTC Monthly').strip(),
-        billing_period_days=31,
+        products=products,
         active_subscription=_subscription_to_api(_fetch_active_subscription(user['id'])),
         cancelled=False,
     )
@@ -179,11 +263,13 @@ def subscribe_success_page():
 
 @billing_bp.route('/api/billing/config', methods=['GET'])
 def api_billing_config():
+    products = _billing_products_payload()
     return jsonify({
         'ok': True,
         'configured': stripe_configured(),
         'publishableKey': (os.environ.get('STRIPE_PUBLISHABLE_KEY') or '').strip(),
-        'planName': (os.environ.get('STRIPE_PLAN_NAME') or 'AiTC Monthly').strip(),
+        'products': products,
+        'planName': products['monthly']['planName'],
         'billingPeriodDays': 31,
     })
 
@@ -212,36 +298,70 @@ def api_create_checkout_session():
     if user.get('is_admin'):
         return jsonify({'ok': False, 'error': 'Admin accounts do not require a subscription'}), 400
 
+    body = request.get_json(silent=True) or {}
+    plan_type = (body.get('planType') or body.get('passType') or 'monthly').strip().lower()
+    if plan_type in ('one_day', 'oneday', 'one-day', 'day'):
+        plan_type = PASS_TYPE_ONE_DAY
+    else:
+        plan_type = 'monthly'
+
     stripe = _stripe_client()
-    price_id = (os.environ.get('STRIPE_PRICE_ID') or '').strip()
-    if not stripe or not price_id:
+    if not stripe:
         return jsonify({'ok': False, 'error': 'Stripe billing is not configured on this server'}), 503
 
     try:
         customer_id = _ensure_stripe_customer(user)
         base = _app_base_url()
-        checkout_session = stripe.checkout.Session.create(
-            mode='subscription',
-            customer=customer_id,
-            client_reference_id=str(user['id']),
-            line_items=[{'price': price_id, 'quantity': 1}],
-            success_url=f'{base}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}',
-            cancel_url=f'{base}/subscribe?cancelled=1',
-            metadata={'user_id': str(user['id'])},
-            subscription_data={
-                'metadata': {'user_id': str(user['id'])},
-            },
-            allow_promotion_codes=True,
-        )
+
+        if plan_type == PASS_TYPE_ONE_DAY:
+            price_id = _one_day_price_id()
+            if not price_id:
+                return jsonify({'ok': False, 'error': 'One Day Pass is not configured (STRIPE_ONE_DAY_PRICE_ID)'}), 503
+            checkout_session = stripe.checkout.Session.create(
+                mode='payment',
+                customer=customer_id,
+                client_reference_id=str(user['id']),
+                line_items=[{'price': price_id, 'quantity': 1}],
+                success_url=f'{base}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}',
+                cancel_url=f'{base}/subscribe?cancelled=1',
+                metadata={
+                    'user_id': str(user['id']),
+                    'pass_type': PASS_TYPE_ONE_DAY,
+                    'plan_type': PASS_TYPE_ONE_DAY,
+                },
+                allow_promotion_codes=True,
+            )
+        else:
+            price_id = _monthly_price_id()
+            if not price_id:
+                return jsonify({'ok': False, 'error': 'Monthly plan is not configured (STRIPE_PRICE_ID)'}), 503
+            checkout_session = stripe.checkout.Session.create(
+                mode='subscription',
+                customer=customer_id,
+                client_reference_id=str(user['id']),
+                line_items=[{'price': price_id, 'quantity': 1}],
+                success_url=f'{base}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}',
+                cancel_url=f'{base}/subscribe?cancelled=1',
+                metadata={'user_id': str(user['id']), 'plan_type': 'monthly'},
+                subscription_data={
+                    'metadata': {'user_id': str(user['id']), 'plan_type': 'monthly'},
+                },
+                allow_promotion_codes=True,
+            )
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 502
 
-    return jsonify({'ok': True, 'url': checkout_session.url, 'sessionId': checkout_session.id})
+    return jsonify({
+        'ok': True,
+        'url': checkout_session.url,
+        'sessionId': checkout_session.id,
+        'planType': plan_type,
+    })
 
 
 @billing_bp.route('/api/billing/customer-portal', methods=['POST'])
 def api_customer_portal():
-    """Stripe Customer Portal — cancel or update payment method."""
+    """Stripe Customer Portal — cancel monthly subscription or update payment method."""
     user = get_current_user()
     if not user:
         return jsonify({'ok': False, 'error': 'Authentication required'}), 401
@@ -289,15 +409,7 @@ def api_stripe_webhook():
 
     try:
         if event_type == 'checkout.session.completed':
-            if data_object.get('mode') == 'subscription':
-                subscription_id = data_object.get('subscription')
-                customer_id = data_object.get('customer')
-                user_id = (data_object.get('metadata') or {}).get('user_id') or data_object.get('client_reference_id')
-                if customer_id and user_id:
-                    set_user_stripe_customer_id(user_id, customer_id)
-                if subscription_id:
-                    stripe_sub = stripe.Subscription.retrieve(subscription_id)
-                    _sync_stripe_subscription(stripe_sub)
+            _handle_checkout_completed(data_object)
 
         elif event_type in ('customer.subscription.created', 'customer.subscription.updated'):
             _sync_stripe_subscription(data_object)

@@ -21,9 +21,19 @@
         return d.toLocaleDateString();
     }
 
+    function formatDateTime(value) {
+        if (!value) return '—';
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return d.toLocaleString();
+    }
+
     function subscriptionSummary(user) {
         const active = user.activeSubscription;
         if (active) {
+            if (active.passType === 'one_day') {
+                return active.planName + ' · until ' + formatDateTime(active.expiresAt || active.endDate) + ' (24h pass)';
+            }
             return active.planName + ' · ' + formatDate(active.startDate) + ' → ' + formatDate(active.endDate) + ' (active)';
         }
         const subs = user.subscriptions || [];
@@ -56,8 +66,9 @@
         } else if (user.status === 'approved') {
             parts.push(actionButton('disable', id, 'Disable', false));
             parts.push(actionButton('subscription', id, 'Add 31-day sub', false));
+            parts.push(actionButton('one-day-pass', id, 'Add 24h pass', false));
             if (user.activeSubscription) {
-                parts.push(actionButton('revoke-active', id, 'Revoke subscription', false));
+                parts.push(actionButton('revoke-active', id, 'Revoke access', false));
             }
         }
 
@@ -115,6 +126,9 @@
         if (action === 'subscription') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/subscriptions';
             body = JSON.stringify({ planName: 'standard' });
+        } else if (action === 'one-day-pass') {
+            url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/one-day-pass';
+            body = JSON.stringify({ planName: 'admin-one-day-pass' });
         } else if (action === 'revoke-active') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/subscriptions/revoke-active';
         }
@@ -139,7 +153,7 @@
         if (!action || !userId) return;
 
         if (action === 'revoke-active') {
-            if (!window.confirm('Revoke the active subscription for this user? They will lose platform access immediately.')) {
+            if (!window.confirm('Revoke active access for this user? They will lose platform access immediately.')) {
                 return;
             }
         }

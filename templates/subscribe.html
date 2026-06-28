@@ -13,62 +13,84 @@
     </style>
 </head>
 <body class="auth-page subscribe-page">
-    <div class="auth-shell subscribe-shell">
+    <div class="auth-shell subscribe-shell subscribe-shell-wide">
         <div class="auth-card subscribe-card">
             <div class="auth-brand">
                 <h1>AiTC<sup class="reg-mark">&reg;</sup></h1>
-                <p class="auth-tagline">Platform subscription</p>
+                <p class="auth-tagline">Choose your access plan</p>
             </div>
 
             {% if success %}
             <div class="auth-banner auth-banner-info" id="subscribeSuccessBanner">
-                Payment received. Your subscription is being activated — this usually takes a few seconds.
+                Payment received. Your access is being activated — this usually takes a few seconds.
             </div>
             {% elif cancelled %}
             <div class="auth-banner auth-banner-warn">Checkout was cancelled. You can try again when ready.</div>
             {% endif %}
 
-            <div class="subscribe-plan-box">
-                <h2>{{ plan_name }}</h2>
-                <p class="subscribe-plan-detail">Monthly access · billed every {{ billing_period_days }} days</p>
-                <ul class="subscribe-plan-features">
-                    <li>Full simulator access (Start Simulation, Settings, Playback)</li>
-                    <li>Automatic renewal every {{ billing_period_days }} days via Stripe</li>
-                    <li>Cancel anytime from the Stripe customer portal</li>
-                </ul>
-            </div>
-
             {% if active_subscription and active_subscription.status == 'active' %}
-            <div class="auth-banner auth-banner-info">
-                Active until {{ active_subscription.endDate }}.
+            <div class="auth-banner auth-banner-info" id="activeSubscriptionBanner">
+                {% if active_subscription.passType == 'one_day' %}
+                One Day Pass active until {{ active_subscription.expiresAt or active_subscription.endDate }}.
+                {% else %}
+                Monthly access active until {{ active_subscription.endDate }}.
                 {% if active_subscription.source == 'stripe' %}
                 Manage billing below to cancel auto-renewal.
                 {% endif %}
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="subscribe-plans-grid">
+                {% if products.monthly.available %}
+                <div class="subscribe-plan-box">
+                    <h2>{{ products.monthly.planName }}</h2>
+                    <p class="subscribe-plan-detail">Full access · billed every {{ products.monthly.billingPeriodDays }} days</p>
+                    <ul class="subscribe-plan-features">
+                        <li>Full simulator access</li>
+                        <li>Automatic renewal via Stripe</li>
+                        <li>Cancel anytime from billing portal</li>
+                    </ul>
+                    <button type="button" class="btn btn-primary auth-submit subscribe-plan-btn" data-plan-type="monthly">
+                        Subscribe monthly
+                    </button>
+                </div>
+                {% endif %}
+
+                {% if products.oneDay.available %}
+                <div class="subscribe-plan-box">
+                    <h2>{{ products.oneDay.planName }}</h2>
+                    <p class="subscribe-plan-detail">Full access · {{ products.oneDay.accessHours }} hours</p>
+                    <ul class="subscribe-plan-features">
+                        <li>Full simulator access for 24 hours</li>
+                        <li>One-time payment (no auto-renewal)</li>
+                        <li>Starts immediately after payment</li>
+                    </ul>
+                    <button type="button" class="btn btn-secondary auth-submit subscribe-plan-btn" data-plan-type="one_day">
+                        Buy One Day Pass
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if not stripe_configured %}
+            <div class="auth-banner auth-banner-warn">
+                Online billing is not configured on this server yet. Contact an administrator.
             </div>
             {% endif %}
 
             <div id="subscribeMessage" class="auth-message" style="display:none;"></div>
 
             <div class="subscribe-actions">
-                {% if stripe_configured %}
-                <button type="button" class="btn btn-primary auth-submit" id="subscribeCheckoutBtn">
-                    {% if active_subscription and active_subscription.status == 'active' %}Renew / update via Stripe{% else %}Subscribe with Stripe{% endif %}
-                </button>
                 <button type="button" class="btn btn-secondary auth-submit" id="subscribePortalBtn" style="display:none;">
-                    Manage billing
+                    Manage monthly billing
                 </button>
-                {% else %}
-                <div class="auth-banner auth-banner-warn">
-                    Online billing is not configured on this server yet. Contact an administrator.
-                </div>
-                {% endif %}
                 <a href="{{ url_for('index') }}" class="btn btn-secondary auth-submit" id="subscribeHomeBtn" style="display:none;">Go to simulator</a>
                 <button type="button" class="btn btn-secondary auth-submit" id="subscribeLogoutBtn">Sign out</button>
             </div>
 
             <p class="auth-footnote">
-                Your account must be approved by an administrator before subscribing.
-                After payment, Stripe renews automatically every {{ billing_period_days }} days unless cancelled.
+                Your account must be approved by an administrator before purchasing access.
             </p>
         </div>
     </div>

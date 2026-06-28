@@ -10079,6 +10079,21 @@ body.auth-page {
     max-width: 520px;
 }
 
+.subscribe-shell-wide {
+    max-width: 820px;
+}
+
+.subscribe-plans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.subscribe-plan-btn {
+    margin-top: 0.75rem;
+}
+
 .subscribe-plan-box {
     text-align: left;
     margin-bottom: 1.25rem;

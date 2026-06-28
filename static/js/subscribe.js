@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const checkoutBtn = document.getElementById('subscribeCheckoutBtn');
+    const planButtons = document.querySelectorAll('.subscribe-plan-btn');
     const portalBtn = document.getElementById('subscribePortalBtn');
     const homeBtn = document.getElementById('subscribeHomeBtn');
     const logoutBtn = document.getElementById('subscribeLogoutBtn');
@@ -15,10 +15,11 @@
         messageEl.className = 'auth-message' + (kind ? ' auth-message-' + kind : '');
     }
 
-    async function postJson(url) {
+    async function postJson(url, body) {
         const resp = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined,
         });
         let data = {};
         try {
@@ -38,7 +39,7 @@
             if (data.canAccessPlatform) {
                 if (homeBtn) homeBtn.style.display = 'inline-flex';
                 if (successBanner) {
-                    successBanner.textContent = 'Subscription active. You can use the simulator now.';
+                    successBanner.textContent = 'Access active. You can use the simulator now.';
                 }
                 if (window.AITC_SUBSCRIBE && window.AITC_SUBSCRIBE.success) {
                     window.setTimeout(function () {
@@ -48,7 +49,7 @@
             }
 
             const sub = data.activeSubscription;
-            if (sub && sub.source === 'stripe' && portalBtn) {
+            if (sub && sub.passType !== 'one_day' && sub.stripeSubscriptionId && portalBtn) {
                 portalBtn.style.display = 'inline-flex';
             }
             return data;
@@ -57,21 +58,24 @@
         }
     }
 
-    checkoutBtn?.addEventListener('click', async function () {
-        setMessage('');
-        checkoutBtn.disabled = true;
-        try {
-            const { resp, data } = await postJson('/api/billing/create-checkout-session');
-            if (!resp.ok || !data.ok || !data.url) {
-                setMessage(data.error || 'Could not start checkout.', 'error');
-                return;
+    planButtons.forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            const planType = btn.getAttribute('data-plan-type') || 'monthly';
+            setMessage('');
+            btn.disabled = true;
+            try {
+                const { resp, data } = await postJson('/api/billing/create-checkout-session', { planType: planType });
+                if (!resp.ok || !data.ok || !data.url) {
+                    setMessage(data.error || 'Could not start checkout.', 'error');
+                    return;
+                }
+                window.location.href = data.url;
+            } catch (_) {
+                setMessage('Network error. Try again.', 'error');
+            } finally {
+                btn.disabled = false;
             }
-            window.location.href = data.url;
-        } catch (_) {
-            setMessage('Network error. Try again.', 'error');
-        } finally {
-            checkoutBtn.disabled = false;
-        }
+        });
     });
 
     portalBtn?.addEventListener('click', async function () {

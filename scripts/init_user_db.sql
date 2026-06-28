@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS subscriptions (
         CHECK (status IN ('active', 'expired', 'cancelled')),
     notes TEXT,
     stripe_subscription_id TEXT,
+    pass_type TEXT NOT NULL DEFAULT 'monthly',
+    expires_at TIMESTAMPTZ,
+    stripe_checkout_session_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -46,3 +49,6 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_end_date ON subscriptions (end_date
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
     ON subscriptions (stripe_subscription_id)
     WHERE stripe_subscription_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_checkout_session_id
+    ON subscriptions (stripe_checkout_session_id)
+    WHERE stripe_checkout_session_id IS NOT NULL;
