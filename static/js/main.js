@@ -57410,10 +57410,50 @@ async function initUserSessionBar() {
         bar.style.display = 'flex';
         if (emailEl) emailEl.textContent = data.user.email || '';
         if (adminLink) adminLink.style.display = data.user.isAdmin ? 'inline-flex' : 'none';
+        applyPlatformAccessGate(data);
     } catch (_) {}
     logoutBtn?.addEventListener('click', async function () {
         await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/login';
+    });
+}
+
+function applyPlatformAccessGate(authData) {
+    const canAccess = authData && authData.canAccessPlatform === true;
+    const banner = document.getElementById('platformAccessBanner');
+    if (banner) {
+        if (canAccess) {
+            banner.style.display = 'none';
+            banner.textContent = '';
+        } else {
+            banner.style.display = 'block';
+            banner.textContent = authData?.platformAccessReason
+                || 'Platform access is not available for your account. Contact an administrator.';
+        }
+    }
+
+    const platformControlIds = [
+        'startSimulationBtn',
+        'settingsBtn',
+        'playbackBtn',
+        'vccsLinkBtn',
+        'userManualDemoBtn',
+    ];
+
+    platformControlIds.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (canAccess) {
+            el.classList.remove('platform-locked');
+            el.removeAttribute('aria-disabled');
+            if (el.tagName === 'BUTTON') el.disabled = false;
+            if (el.tagName === 'A') el.tabIndex = 0;
+        } else {
+            el.classList.add('platform-locked');
+            el.setAttribute('aria-disabled', 'true');
+            if (el.tagName === 'BUTTON') el.disabled = true;
+            if (el.tagName === 'A') el.tabIndex = -1;
+        }
     });
 }
 

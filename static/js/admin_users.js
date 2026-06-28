@@ -24,7 +24,7 @@
     function subscriptionSummary(user) {
         const active = user.activeSubscription;
         if (active) {
-            return active.planName + ' · ' + formatDate(active.startDate) + ' → ' + formatDate(active.endDate);
+            return active.planName + ' · ' + formatDate(active.startDate) + ' → ' + formatDate(active.endDate) + ' (active)';
         }
         const subs = user.subscriptions || [];
         if (!subs.length) return 'None';
@@ -32,17 +32,35 @@
         return latest.planName + ' · ' + formatDate(latest.startDate) + ' → ' + formatDate(latest.endDate) + ' (' + latest.status + ')';
     }
 
+    function actionButton(action, userId, label, primary) {
+        const cls = primary ? 'btn btn-primary admin-user-action' : 'btn btn-secondary admin-user-action';
+        return '<button type="button" class="' + cls + '" data-action="' + action + '" data-id="' + escapeHtml(userId) + '">' + escapeHtml(label) + '</button>';
+    }
+
     function actionButtons(user) {
         const id = user.id;
         const parts = [];
+
+        if (user.isAdmin) {
+            return '<span class="hint-text">Admin account</span>';
+        }
+
         if (user.status === 'pending') {
-            parts.push('<button type="button" class="btn btn-primary admin-user-action" data-action="approve" data-id="' + id + '">Approve</button>');
-            parts.push('<button type="button" class="btn btn-secondary admin-user-action" data-action="reject" data-id="' + id + '">Reject</button>');
+            parts.push(actionButton('approve', id, 'Approve', true));
+            parts.push(actionButton('reject', id, 'Reject', false));
+        } else if (user.status === 'rejected') {
+            parts.push(actionButton('approve', id, 'Approve', true));
+            parts.push(actionButton('disable', id, 'Disable', false));
+        } else if (user.status === 'disabled') {
+            parts.push(actionButton('approve', id, 'Move to approved', true));
+        } else if (user.status === 'approved') {
+            parts.push(actionButton('disable', id, 'Disable', false));
+            parts.push(actionButton('subscription', id, 'Add 31-day sub', false));
+            if (user.activeSubscription) {
+                parts.push(actionButton('revoke-active', id, 'Revoke subscription', false));
+            }
         }
-        if (user.status === 'approved' && !user.isAdmin) {
-            parts.push('<button type="button" class="btn btn-secondary admin-user-action" data-action="disable" data-id="' + id + '">Disable</button>');
-            parts.push('<button type="button" class="btn btn-secondary admin-user-action" data-action="subscription" data-id="' + id + '">Add 31-day sub</button>');
-        }
+
         if (!parts.length) return '<span class="hint-text">—</span>';
         return '<div class="admin-user-actions">' + parts.join('') + '</div>';
     }
@@ -93,10 +111,14 @@
     async function runAction(action, userId) {
         let url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/' + action;
         let body = undefined;
+
         if (action === 'subscription') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/subscriptions';
             body = JSON.stringify({ planName: 'standard' });
+        } else if (action === 'revoke-active') {
+            url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/subscriptions/revoke-active';
         }
+
         const resp = await fetch(url, {
             method: 'POST',
             headers: body ? { 'Content-Type': 'application/json' } : undefined,
@@ -115,6 +137,13 @@
         const action = btn.getAttribute('data-action');
         const userId = btn.getAttribute('data-id');
         if (!action || !userId) return;
+
+        if (action === 'revoke-active') {
+            if (!window.confirm('Revoke the active subscription for this user? They will lose platform access immediately.')) {
+                return;
+            }
+        }
+
         btn.disabled = true;
         try {
             await runAction(action, userId);

@@ -413,15 +413,40 @@ def get_current_user():
     return _fetch_user_by_id(uid)
 
 
-def user_can_access_simulator(user):
-    if not user:
-        return False
-    if user.get('status') != 'approved':
+def user_is_approved(user):
+    return bool(user) and user.get('status') == 'approved'
+
+
+def user_can_access_platform(user):
+    """Approved users with an active subscription may use simulator platform features. Admins always may."""
+    if not user_is_approved(user):
         return False
     if user.get('is_admin'):
         return True
-    # Subscription enforcement can be tightened later; for now approved users may access.
-    return True
+    return _fetch_active_subscription(user['id']) is not None
+
+
+def user_can_access_simulator(user):
+    """Alias kept for existing callers."""
+    return user_can_access_platform(user)
+
+
+def _platform_access_reason(user):
+    if not user:
+        return 'Sign in required.'
+    if user.get('status') == 'pending':
+        return 'Your account is awaiting administrator approval.'
+    if user.get('status') == 'rejected':
+        return 'Your sign-up was not approved.'
+    if user.get('status') == 'disabled':
+        return 'Your account has been disabled.'
+    if not user_is_approved(user):
+        return 'Your account is not approved for access.'
+    if user.get('is_admin'):
+        return None
+    if not _fetch_active_subscription(user['id']):
+        return 'No active subscription. Contact an administrator to restore platform access.'
+    return None
 
 
 def login_required(view):
@@ -491,7 +516,7 @@ def auth_before_request():
         return redirect(url_for('user_auth.login_page', next=path))
 
     if path in ('/login', '/signup'):
-        if user_can_access_simulator(user):
+        if user_is_approved(user):
             return redirect(url_for('index'))
         return None
 
@@ -502,10 +527,19 @@ def auth_before_request():
             return jsonify({'ok': False, 'error': 'Admin access required'}), 403
         return redirect(url_for('index'))
 
-    if not user_can_access_simulator(user):
+    if not user_is_approved(user):
+        reason = user.get('status') or 'pending'
         if path.startswith('/api/'):
-            return jsonify({'ok': False, 'error': 'Account pending admin approval'}), 403
-        return redirect(url_for('user_auth.login_page', reason='pending'))
+            return jsonify({'ok': False, 'error': 'Account not approved for access'}), 403
+        return redirect(url_for('user_auth.login_page', reason=reason))
+
+    if path == '/':
+        return None
+
+    if not user_can_access_platform(user):
+        if path.startswith('/api/'):
+            return jsonify({'ok': False, 'error': _platform_access_reason(user) or 'Platform access denied'}), 403
+        return redirect(url_for('index', access='locked'))
 
     return None
 
@@ -534,7 +568,7 @@ def init_user_auth(app, data_dir):
 @auth_bp.route('/login')
 def login_page():
     user = get_current_user()
-    if user and user_can_access_simulator(user):
+    if user and user_is_approved(user):
         return redirect(url_for('index'))
     return render_template(
         'login.html',
@@ -547,7 +581,7 @@ def login_page():
 @auth_bp.route('/signup')
 def signup_page():
     user = get_current_user()
-    if user and user_can_access_simulator(user):
+    if user and user_is_approved(user):
         return redirect(url_for('index'))
     return render_template(
         'login.html',
@@ -660,7 +694,10 @@ def api_auth_me():
     return jsonify({
         'ok': True,
         'authenticated': True,
-        'canAccessSimulator': user_can_access_simulator(user),
+        'isApproved': user_is_approved(user),
+        'canAccessPlatform': user_can_access_platform(user),
+        'canAccessSimulator': user_can_access_platform(user),
+        'platformAccessReason': _platform_access_reason(user),
         'user': _user_to_api(user, include_subscription=True),
     })
 
@@ -864,3 +901,95 @@ def api_admin_create_subscription(user_id):
             break
 
     return jsonify({'ok': True, 'subscription': _subscription_to_api(sub_row)})
+
+
+def _revoke_subscription(subscription_id):
+    now = _now_utc()
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''UPDATE subscriptions SET status = 'cancelled', updated_at = %s
+                   WHERE id = %s AND status = 'active' ''',
+                (now, subscription_id),
+            )
+            updated = cur.rowcount
+            cur.close()
+        else:
+            cur = conn.execute(
+                '''UPDATE subscriptions SET status = 'cancelled', updated_at = ?
+                   WHERE id = ? AND status = 'active' ''',
+                (now.isoformat(), subscription_id),
+            )
+            updated = cur.rowcount
+    return updated > 0
+
+
+def _revoke_active_subscriptions_for_user(user_id):
+    now = _now_utc()
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''UPDATE subscriptions SET status = 'cancelled', updated_at = %s
+                   WHERE user_id = %s AND status = 'active' ''',
+                (now, user_id),
+            )
+            updated = cur.rowcount
+            cur.close()
+        else:
+            cur = conn.execute(
+                '''UPDATE subscriptions SET status = 'cancelled', updated_at = ?
+                   WHERE user_id = ? AND status = 'active' ''',
+                (now.isoformat(), user_id),
+            )
+            updated = cur.rowcount
+    return updated
+
+
+@auth_bp.route('/api/admin/user-accounts/subscriptions/<subscription_id>/revoke', methods=['POST'])
+@admin_required
+def api_admin_revoke_subscription(subscription_id):
+    target_sub = None
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor(cursor_factory=_pg.extras.RealDictCursor)
+            cur.execute('SELECT * FROM subscriptions WHERE id = %s', (subscription_id,))
+            target_sub = cur.fetchone()
+            cur.close()
+        else:
+            row = conn.execute('SELECT * FROM subscriptions WHERE id = ?', (subscription_id,)).fetchone()
+            target_sub = _row_to_dict(row)
+
+    if not target_sub:
+        return jsonify({'ok': False, 'error': 'Subscription not found'}), 404
+    if target_sub.get('status') != 'active':
+        return jsonify({'ok': False, 'error': 'Subscription is not active'}), 400
+
+    if not _revoke_subscription(subscription_id):
+        return jsonify({'ok': False, 'error': 'Subscription could not be revoked'}), 400
+
+    user_id = str(target_sub['user_id'])
+    return jsonify({
+        'ok': True,
+        'subscription': _subscription_to_api({**_row_to_dict(target_sub), 'status': 'cancelled'}),
+        'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
+    })
+
+
+@auth_bp.route('/api/admin/user-accounts/<user_id>/subscriptions/revoke-active', methods=['POST'])
+@admin_required
+def api_admin_revoke_active_subscriptions(user_id):
+    target = _fetch_user_by_id(user_id)
+    if not target:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+
+    count = _revoke_active_subscriptions_for_user(user_id)
+    if count <= 0:
+        return jsonify({'ok': False, 'error': 'No active subscription to revoke'}), 400
+
+    return jsonify({
+        'ok': True,
+        'revokedCount': count,
+        'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
+    })

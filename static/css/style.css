@@ -10047,3 +10047,24 @@ body.auth-page {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.platform-access-banner {
+    max-width: 720px;
+    margin: 0 auto 1.25rem;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    background: rgba(234, 179, 8, 0.16);
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    color: #fde68a;
+}
+
+.container .button-row .btn.platform-locked,
+.container .button-row a.btn.platform-locked {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: not-allowed;
+    transform: none;
+}
