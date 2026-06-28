@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "savedAt": "2026-06-16T10:35:52.431377+00:00",
+  "routes": [
+    {
+      "id": 1,
+      "name": "L768",
+      "originalName": "L768",
+      "mergeGroupId": null,
+      "identifierRows": [
+        {
+          "identTokens": [
+            "A453"
+          ],
+          "remarks": "A453"
+        },
+        {
+          "identTokens": [
+            "L768"
+          ],
+          "remarks": "L768"
+        }
+      ],
+      "ruleRows": [
+        {
+          "ruleTokens": [
+            "IF",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            ">",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "\n",
+            "THEN",
+            "IF",
+            "Aircraft A (Mach_min)",
+            ">",
+            "Aircraft B (Mach_Max)",
+            "\n",
+            "THEN",
+            "IF",
+            "Aircraft A (Mach_S)",
+            "<=",
+            "Aircraft B (Mach_S)",
+            "\n",
+            "THEN",
+            "VERIFY",
+            "|",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            "-",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "|",
+            ">",
+            "10",
+            "\n",
+            "ELSE",
+            "VERIFY",
+            "Aircraft A (Time from)",
+            "ULADA",
+            "-",
+            "Aircraft B (Time from)",
+            "ULADA",
+            ">",
+            "5",
+            "\n",
+            "CLOSE IF",
+            "\n",
+            "ELSE",
+            "VERIFY",
+            "|",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            "-",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "|",
+            ">",
+            "10",
+            "\n",
+            "CLOSE IF"
+          ]
+        },
+        {
+          "ruleTokens": [
+            "IF",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            "<",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "\n",
+            "THEN",
+            "IF",
+            "Aircraft B (Mach_min)",
+            ">",
+            "Aircraft A (Mach_Max)",
+            "\n",
+            "THEN",
+            "IF",
+            "Aircraft A (Mach_S)",
+            ">=",
+            "Aircraft B (Mach_S)",
+            "\n",
+            "THEN",
+            "VERIFY",
+            "|",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            "-",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "|",
+            ">",
+            "10",
+            "\n",
+            "ELSE",
+            "VERIFY",
+            "Aircraft B (Time from)",
+            "ULADA",
+            "-",
+            "Aircraft A (Time from)",
+            "ULADA",
+            ">",
+            "5",
+            "\n",
+            "CLOSE IF",
+            "\n",
+            "ELSE",
+            "VERIFY",
+            "|",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            "-",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "|",
+            ">",
+            "10",
+            "\n",
+            "CLOSE IF"
+          ]
+        }
+      ],
+      "levels": [
+        "300",
+        "320",
+        "340",
+        "360",
+        "380",
+        "400"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "L602-M600",
+      "originalName": "L602-M600",
+      "mergeGroupId": null,
+      "identifierRows": [
+        {
+          "identTokens": [
+            "L602",
+            "AND",
+            "EGNIM"
+          ],
+          "remarks": "L602"
+        },
+        {
+          "identTokens": [
+            "M600",
+            "AND",
+            "EGNIM"
+          ],
+          "remarks": "M600"
+        }
+      ],
+      "ruleRows": [
+        {
+          "ruleTokens": []
+        }
+      ],
+      "levels": [
+        "300",
+        "340",
+        "360",
+        "380",
+        "400"
+      ]
+    }
+  ],
+  "mergeGroups": [],
+  "routeNextId": 5,
+  "mergeGroupNextId": 2
+}

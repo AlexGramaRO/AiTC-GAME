@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "savedAt": "2026-06-15T07:44:11.442614+00:00",
+  "routes": [
+    {
+      "id": 1,
+      "name": "L768",
+      "originalName": "L768",
+      "mergeGroupId": null,
+      "identifierRows": [
+        {
+          "identTokens": [
+            "L768"
+          ],
+          "remarks": "L768"
+        }
+      ],
+      "ruleRows": [
+        {
+          "ruleTokens": [
+            "IF",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            ">",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "\n",
+            "THEN",
+            "IF",
+            "Aircraft A (Mach_min)",
+            ">",
+            "Aircraft B (Mach_Max)",
+            "\n",
+            "THEN",
+            "VERIFY",
+            "Aircraft A (Time from)",
+            "ULADA",
+            "-",
+            "Aircraft B (Time from)",
+            "ULADA",
+            ">",
+            "5",
+            "\n",
+            "ELSE",
+            "VERIFY",
+            "|",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            "-",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "|",
+            ">",
+            "10",
+            "\n",
+            "CLOSE IF",
+            "\n",
+            "CLOSE IF"
+          ]
+        }
+      ],
+      "levels": [
+        "300",
+        "320",
+        "340",
+        "360",
+        "380",
+        "400"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "L602 merged with M600",
+      "originalName": "L602",
+      "mergeGroupId": 1,
+      "identifierRows": [
+        {
+          "identTokens": [
+            "L602"
+          ],
+          "remarks": "L602"
+        }
+      ],
+      "ruleRows": [
+        {
+          "ruleTokens": []
+        }
+      ],
+      "levels": [
+        "280",
+        "300",
+        "340",
+        "360",
+        "380",
+        "400"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "M600 merged with L602",
+      "originalName": "M600",
+      "mergeGroupId": 1,
+      "identifierRows": [
+        {
+          "identTokens": [
+            "M600"
+          ],
+          "remarks": "M600"
+        }
+      ],
+      "ruleRows": [
+        {
+          "ruleTokens": []
+        }
+      ],
+      "levels": [
+        "280",
+        "300",
+        "340",
+        "360",
+        "380",
+        "400"
+      ]
+    }
+  ],
+  "mergeGroups": [
+    {
+      "id": 1,
+      "routeIds": [
+        "2",
+        "3"
+      ]
+    }
+  ],
+  "routeNextId": 4,
+  "mergeGroupNextId": 2
+}

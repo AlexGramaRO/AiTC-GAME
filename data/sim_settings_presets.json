@@ -1,0 +1,495 @@
+[
+  {
+    "id": "default",
+    "name": "Default_Settings",
+    "createdAt": "default",
+    "settings": {
+      "simulationSettings": {
+        "radarUpdateSeconds": 6,
+        "historyDots": 7,
+        "spvEnabled": true,
+        "spvMinutes": 1,
+        "ttsEnabled": false,
+        "trajectoryDisplayMode": "turn_radius",
+        "trajectoryShowLabels": "estimates_and_fl",
+        "zoomSensitivity": 2,
+        "labelMoveButton": "middle",
+        "headingSelectIncrement": 5,
+        "minLocApproachDistNm": 5,
+        "probingLevelMode": "same_route",
+        "probingHighlightColor": "#c7621a",
+        "probingDimColor": "#737373",
+        "stcaGeneralNm": 5,
+        "stcaLookAheadSeconds": 120,
+        "stcaType": "on_track",
+        "stcaShowTrigger": "off",
+        "labelSetupId": "",
+        "labelLayout": [
+          [
+            {
+              "field": "CALLSIGN",
+              "freeText": ""
+            },
+            {
+              "field": "RWY",
+              "freeText": ""
+            },
+            {
+              "field": "EXIT_WAYPOINT",
+              "freeText": ""
+            },
+            {
+              "field": "AIRCRAFT_TYPE",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            }
+          ],
+          [
+            {
+              "field": "MODE_C_ALT",
+              "freeText": ""
+            },
+            {
+              "field": "GS",
+              "freeText": ""
+            },
+            {
+              "field": "HDG_DCT",
+              "freeText": ""
+            },
+            {
+              "field": "DESTINATION",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            }
+          ],
+          [
+            {
+              "field": "ALV",
+              "freeText": ""
+            },
+            {
+              "field": "MODE_S_ALT",
+              "freeText": ""
+            },
+            {
+              "field": "IAS",
+              "freeText": ""
+            },
+            {
+              "field": "ROC",
+              "freeText": ""
+            },
+            {
+              "field": "EXIT_LEVEL",
+              "freeText": ""
+            }
+          ],
+          [
+            {
+              "field": "FREE_TEXT",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            }
+          ],
+          [
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            }
+          ]
+        ],
+        "flightStatusColors": {
+          "CIN": {
+            "primary": "#e57d06",
+            "secondary": "#ffb8ff"
+          },
+          "COU": {
+            "primary": "#add8e6",
+            "secondary": "#add8e6"
+          },
+          "TIN": {
+            "primary": "#ff00ff",
+            "secondary": "#ff00ff"
+          },
+          "TOU": {
+            "primary": "#8b008b",
+            "secondary": "#8b008b"
+          },
+          "ASM": {
+            "primary": "#22c55e",
+            "secondary": "#22c55e"
+          },
+          "UOU": {
+            "primary": "#006400",
+            "secondary": "#006400"
+          },
+          "UIN": {
+            "primary": "#ffffff",
+            "secondary": "#ffffff"
+          }
+        },
+        "selectedAircraftRingColor": "#2563eb",
+        "selectedAircraftRingThicknessPx": 3
+      },
+      "simulationMap": {
+        "waypointNames": {
+          "enabled": true,
+          "size": 10
+        },
+        "waypointTriangles": {
+          "enabled": true,
+          "size": 4
+        },
+        "labelSize": 13,
+        "routes": {
+          "enabled": true,
+          "selectedKeys": null
+        },
+        "boundaries": {
+          "enabled": true
+        },
+        "latLonLines": {
+          "enabled": false
+        },
+        "centerWaypoint": {
+          "enabled": false
+        },
+        "airports": {
+          "enabled": true,
+          "selectedIcaos": null
+        },
+        "runways": {
+          "enabled": true,
+          "selectedKeys": null
+        }
+      },
+      "simulationStyle": {
+        "waypoints": {
+          "color": "#757575",
+          "alpha": 0.52
+        },
+        "routes": {
+          "color": "#d3e7c5",
+          "alpha": 0.33,
+          "width": 1
+        },
+        "boundaries": {
+          "color": "#0000ff",
+          "alpha": 0.72,
+          "width": 1
+        },
+        "background": {
+          "color": "#080808"
+        },
+        "labels": {
+          "textColor": "#27aa2f",
+          "backgroundColor": "#454545"
+        },
+        "modeS": {
+          "color": "#9ca3af"
+        },
+        "aircraft": {
+          "targetColor": "#04951c"
+        },
+        "trajectory": {
+          "color": "#a6bb07"
+        }
+      }
+    }
+  },
+  {
+    "id": "1780738410697",
+    "name": "Testv2",
+    "createdAt": "1780738410697",
+    "settings": {
+      "simulationSettings": {
+        "radarUpdateSeconds": 6,
+        "historyDots": 7,
+        "spvEnabled": false,
+        "spvMinutes": 1,
+        "ttsEnabled": true,
+        "trajectoryDisplayMode": "turn_radius",
+        "trajectoryShowLabels": "estimates_and_fl",
+        "zoomSensitivity": 2,
+        "labelMoveButton": "middle",
+        "headingSelectIncrement": 5,
+        "minLocApproachDistNm": 5,
+        "probingLevelMode": "same_route",
+        "probingHighlightColor": "#c7621a",
+        "probingDimColor": "#737373",
+        "stcaGeneralNm": 2.9,
+        "stcaLookAheadSeconds": 120,
+        "stcaType": "on_track",
+        "stcaShowTrigger": "off",
+        "labelSetupId": "",
+        "labelLayout": [
+          [
+            {
+              "field": "CALLSIGN",
+              "freeText": ""
+            },
+            {
+              "field": "RWY",
+              "freeText": ""
+            },
+            {
+              "field": "EXIT_WAYPOINT",
+              "freeText": ""
+            },
+            {
+              "field": "AIRCRAFT_TYPE",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            }
+          ],
+          [
+            {
+              "field": "MODE_C_ALT",
+              "freeText": ""
+            },
+            {
+              "field": "GS",
+              "freeText": ""
+            },
+            {
+              "field": "HDG_DCT",
+              "freeText": ""
+            },
+            {
+              "field": "DESTINATION",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            }
+          ],
+          [
+            {
+              "field": "ALV",
+              "freeText": ""
+            },
+            {
+              "field": "MODE_S_ALT",
+              "freeText": ""
+            },
+            {
+              "field": "IAS",
+              "freeText": ""
+            },
+            {
+              "field": "ROC",
+              "freeText": ""
+            },
+            {
+              "field": "EXIT_LEVEL",
+              "freeText": ""
+            }
+          ],
+          [
+            {
+              "field": "FREE_TEXT",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            }
+          ],
+          [
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            },
+            {
+              "field": "",
+              "freeText": ""
+            }
+          ]
+        ],
+        "flightStatusColors": {
+          "CIN": {
+            "primary": "#06d043",
+            "secondary": "#ff00ff"
+          },
+          "COU": {
+            "primary": "#add8e6",
+            "secondary": "#add8e6"
+          },
+          "TIN": {
+            "primary": "#296ddb",
+            "secondary": "#286ddb"
+          },
+          "TOU": {
+            "primary": "#286ddb",
+            "secondary": "#286ddb"
+          },
+          "ASM": {
+            "primary": "#22c55e",
+            "secondary": "#22c55e"
+          },
+          "UOU": {
+            "primary": "#006400",
+            "secondary": "#006400"
+          },
+          "UIN": {
+            "primary": "#ffffff",
+            "secondary": "#ffffff"
+          }
+        },
+        "selectedAircraftRingColor": "#2563eb",
+        "selectedAircraftRingThicknessPx": 3
+      },
+      "simulationMap": {
+        "waypointNames": {
+          "enabled": true,
+          "size": 12
+        },
+        "waypointTriangles": {
+          "enabled": true,
+          "size": 4
+        },
+        "labelSize": 14,
+        "routes": {
+          "enabled": true,
+          "selectedKeys": null
+        },
+        "boundaries": {
+          "enabled": true
+        },
+        "latLonLines": {
+          "enabled": false
+        },
+        "centerWaypoint": {
+          "enabled": false
+        },
+        "airports": {
+          "enabled": false,
+          "selectedIcaos": null
+        },
+        "runways": {
+          "enabled": true,
+          "namesEnabled": false,
+          "selectedKeys": null
+        },
+        "areas": {
+          "enabled": true,
+          "selectedIds": null
+        },
+        "holdings": {
+          "enabled": true,
+          "selectedIds": null
+        },
+        "runwayExtendedCenterline": {
+          "enabled": true,
+          "startNm": 1,
+          "endNm": 15,
+          "smallTickEveryNm": 1,
+          "largeTickEveryNm": 5,
+          "smallTickSizeNm": 0.3,
+          "largeTickSizeNm": 0.5,
+          "centerlineThickness": 1,
+          "smallTickThickness": 1,
+          "largeTickThickness": 2
+        }
+      },
+      "simulationStyle": {
+        "waypoints": {
+          "color": "#757575",
+          "alpha": 0.52
+        },
+        "routes": {
+          "color": "#d3e7c5",
+          "alpha": 0.3,
+          "width": 1
+        },
+        "boundaries": {
+          "color": "#0000ff",
+          "alpha": 0.72,
+          "width": 1
+        },
+        "background": {
+          "color": "#080808"
+        },
+        "labels": {
+          "textColor": "#27aa2f",
+          "backgroundColor": "#454545"
+        },
+        "modeS": {
+          "color": "#9ca3af"
+        },
+        "aircraft": {
+          "targetColor": "#04951c"
+        },
+        "trajectory": {
+          "color": "#a6bb07"
+        }
+      }
+    }
+  }
+]

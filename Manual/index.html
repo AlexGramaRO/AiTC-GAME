@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AiTC — User Manual</title>
+  <link rel="stylesheet" href="/manual/css/manual.css" />
+</head>
+<body>
+  <div class="manual-layout">
+    <nav class="manual-nav" aria-label="Table of contents">
+      <h1>AiTC Manual</h1>
+      <div class="version">Web ATC Simulator</div>
+      <ul>
+        <li><a href="#overview">1. Overview</a></li>
+        <li><a href="#start-screen">2. Home &amp; entry</a></li>
+        <li><a href="#settings">3. Settings hub</a></li>
+        <li><a href="#settings-reference">3a. Settings — every button &amp; mouse action</a></li>
+        <li><a href="#sectors-exercises">4. Airspace &amp; exercises</a></li>
+        <li><a href="#aircraft-db">5. Aircraft database</a></li>
+        <li><a href="#run-workflow">6. Starting a simulation</a></li>
+        <li><a href="#multi-station">7. Multi-station operation (host / join)</a></li>
+        <li><a href="#sim-strip">8. Simulation control strip</a></li>
+        <li><a href="#sim-canvas">9. Radar &amp; map</a></li>
+        <li><a href="#mouse-labels">10. Mouse &amp; label interactions</a></li>
+        <li><a href="#label-fields">11. Label layout &amp; fields</a></li>
+        <li><a href="#sim-settings">12. SIM Settings options</a></li>
+        <li><a href="#modes">13. Operation modes</a></li>
+        <li><a href="#tips">14. Tips</a></li>
+      </ul>
+    </nav>
+
+    <main class="manual-main">
+      <a class="back-link" href="/">← Back to AiTC</a>
+
+      <section id="overview">
+        <h2>1. Overview</h2>
+        <p><strong>AiTC</strong> is a browser-based air traffic control training simulator. You prepare <strong>sectors</strong> (waypoints, routes, boundaries) and <strong>exercises</strong> (traffic scenarios), then run a <strong>simulation</strong> with a radar-style display, aircraft labels, and data-link style commands.</p>
+        <p>This manual describes what you see on screen, which buttons to use, and how settings behave. The built-in <strong>default settings</strong> are assumed unless you have changed them (for example in SIM Settings or by loading a saved preset).</p>
+      </section>
+
+      <section id="start-screen">
+        <h2>2. Home &amp; entry</h2>
+        <h3>2.1 Main screen</h3>
+        <div class="figure">
+          <div class="figure-title">Figure — Home buttons (conceptual)</div>
+          <div class="mock-strip">
+            <span class="mock-btn">▶ Start Simulation</span>
+            <span class="mock-btn">⚙ Settings</span>
+          </div>
+        </div>
+        <ul>
+          <li><strong>Start Simulation</strong> — Opens exercise selection, then the <strong>Run type</strong> choice (Host / Join / Single user).</li>
+          <li><strong>Settings</strong> — Opens the Settings modal for airspace, exercise, and aircraft tools.</li>
+        </ul>
+      </section>
+
+      <section id="settings">
+        <h2>3. Settings hub</h2>
+        <p>The modal shows buttons grouped as:</p>
+        <ul>
+          <li><strong>Create Airspace, Edit Airspace, Delete Airspace</strong> — Airspace geometry, waypoints, routes, map layers.</li>
+          <li><strong>Create Exercise, Edit Exercise, Delete Exercise</strong> — Links an exercise to a sector and defines traffic.</li>
+          <li><strong>Edit Aircraft database</strong> — Overrides performance data; optional <strong>Turn Radius</strong> editor.</li>
+        </ul>
+        <p>Your changes are saved in the application and are available the next time you open Settings or start a run.</p>
+      </section>
+
+      <section id="settings-reference">
+        <h2>3a. Settings — every screen, button, and mouse action</h2>
+        <p>All interactions below use the <strong>primary (left) mouse button</strong> for normal clicks unless stated otherwise. Modals close with the <strong>×</strong> in the header where present. <strong>Create Flows</strong> and <strong>Load Flows</strong> in Edit Exercise are omitted here as requested.</p>
+
+        <h3>3a.1 Main Settings modal</h3>
+        <div class="manual-table-wrap">
+          <table class="manual-table">
+            <thead><tr><th>Control</th><th>Action</th><th>Mouse</th></tr></thead>
+            <tbody>
+              <tr><td><strong>×</strong> (close)</td><td>Close Settings.</td><td>Left-click.</td></tr>
+              <tr><td><strong>Create Airspace</strong></td><td>Open Create Airspace form.</td><td>Left-click.</td></tr>
+              <tr><td><strong>Edit Airspace</strong></td><td>Open full-screen Edit Airspace (sector editor).</td><td>Left-click.</td></tr>
+              <tr><td><strong>Delete Airspace</strong></td><td>Open list of airspaces; each row has <strong>Delete</strong> (confirm dialog).</td><td>Left-click button; then left-click row <strong>Delete</strong>.</td></tr>
+              <tr><td><strong>Edit Aircraft database</strong></td><td>Open aircraft DB editor (see 3a.8).</td><td>Left-click.</td></tr>
+              <tr><td><strong>Create Exercise</strong></td><td>Open Create Exercise form.</td><td>Left-click.</td></tr>
+              <tr><td><strong>Edit Exercise</strong></td><td>Open full-screen Edit Exercise (see 3a.7).</td><td>Left-click.</td></tr>
+              <tr><td><strong>Delete Exercise</strong></td><td>Open list of exercises; each row has <strong>Delete</strong> (confirm dialog).</td><td>Left-click button; then left-click row <strong>Delete</strong>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>3a.2 Create Airspace</h3>
+        <ul>
+          <li><strong>×</strong> / <strong>Cancel</strong> — close without creating (left-click).</li>
+          <li><strong>Create Airspace</strong> (submit) — validates name and creates the airspace (left-click).</li>
+          <li>Form fields are filled with the keyboard; no special mouse behaviour.</li>
+        </ul>
+
+        <h3>3a.3 Delete Airspace (list modal)</h3>
+        <ul>
+          <li><strong>×</strong> — close (left-click).</li>
+          <li>Per airspace row: <strong>Delete</strong> — confirmation, then removes sector and all linked exercises (left-click).</li>
+        </ul>
+
+        <h3>3a.4 Create Exercise</h3>
+        <ul>
+          <li><strong>×</strong> / <strong>Cancel</strong> — close (left-click).</li>
+          <li><strong>Create Exercise</strong> (submit) — saves new exercise (left-click).</li>
+          <li><strong>Airspace</strong> dropdown — left-click to open; choose sector with left-click.</li>
+        </ul>
+
+        <h3>3a.5 Delete Exercise (list modal)</h3>
+        <ul>
+          <li><strong>×</strong> — close (left-click).</li>
+          <li>Per exercise row: <strong>Delete</strong> — confirm, then removes that exercise only (left-click).</li>
+        </ul>
+
+        <h3>3a.6 Edit Airspace (full-screen sector editor)</h3>
+        <h4>Top strip — buttons (all left-click)</h4>
+        <ul>
+          <li><strong>Airspace</strong> dropdown — select which sector you are editing.</li>
+          <li><strong>Add Waypoint</strong> — opens add-waypoint modal (coordinates can be typed or taken from map placement flows).</li>
+          <li><strong>Add Multiple Waypoints</strong> — bulk import dialog.</li>
+          <li><strong>Add Route</strong> — opens add-route dialog.</li>
+          <li><strong>Add Multiple Routes</strong> — bulk routes import.</li>
+          <li><strong>ATC Sectors</strong> — opens ATC sectors manager (boundaries + vertical limits per sector).</li>
+          <li><strong>Add Airports</strong> — opens airports / runways / approaches editor.</li>
+          <li><strong>Save Airspace</strong> — persists current sector data.</li>
+          <li><strong>Duplicate Airspace</strong> — opens name dialog; <strong>Create</strong> / <strong>Cancel</strong> are left-click.</li>
+          <li><strong>BG opacity</strong> slider — drag with left mouse to change stacked map-background opacity.</li>
+          <li><strong>+ / −</strong> zoom buttons — zoom in/out (left-click).</li>
+          <li><strong>Reset view</strong> (toolbar, house icon) — fit/center map on the airspace (left-click).</li>
+          <li><strong>#</strong> — toggle grid overlay (left-click).</li>
+        </ul>
+        <h4>Map area (<code>sectorCanvas</code>)</h4>
+        <ul>
+          <li><strong>Pan:</strong> <strong>Left-drag</strong> on the map (when not in a placement/delete/edit/picking mode that uses the crosshair).</li>
+          <li><strong>Zoom:</strong> <strong>Mouse wheel</strong> over the map (zoom is centred on the map centre / CENTRE waypoint logic in code).</li>
+          <li><strong>Measure distance:</strong> <strong>Middle mouse button</strong> down on the map → drag → release to finish; a coloured line and label appear. <strong>Left-click</strong> a measurement’s text label to remove that measurement.</li>
+          <li><strong>Context menu (waypoints, routes, ATC, backgrounds):</strong> <strong>Right-click</strong> on the <strong>visualization</strong> area around the map while Edit Airspace is open and <em>not</em> already inside a special map mode (placement, delete waypoint, edit waypoint, add-route picking, route delete/edit, add/delete ATC sector). A custom menu opens; hover submenus (<strong>Waypoints</strong>, <strong>Routes</strong>, <strong>ATC Sector</strong>, <strong>Background</strong>) then <strong>left-click</strong> a command. Commands start modes or open modals as follows:
+            <ul>
+              <li><strong>Add Waypoint:</strong> cursor crosshair; <strong>left-click</strong> the map to drop a point → opens Add Waypoint with coordinates filled.</li>
+              <li><strong>Delete Waypoint:</strong> crosshair; <strong>left-click</strong> a waypoint to delete (with confirmation).</li>
+              <li><strong>Edit Waypoint:</strong> crosshair; <strong>left-click</strong> a waypoint → opens edit form.</li>
+              <li><strong>Add Route:</strong> crosshair; <strong>left-click</strong> waypoints in order to build the chain; <strong>middle-click</strong> a waypoint removes the <em>last</em> occurrence of that waypoint from the chain; <strong>right-click</strong> opens a small menu to save or cancel the route.</li>
+              <li><strong>Delete Route:</strong> crosshair; hover route segments; <strong>left-click</strong> to pick a route to delete (disambiguation panel if needed).</li>
+              <li><strong>Edit Route:</strong> crosshair; click-drag on map to edit geometry per app rules.</li>
+              <li><strong>Add ATC Sector / Delete ATC Sector / Edit ATC Sectors:</strong> enter the corresponding polygon pick or list flows; use <strong>left-click</strong> on the map or dialogs as prompted; <strong>right-click</strong> may open a cancel/context menu while a mode is active.</li>
+              <li><strong>ADD / Delete / Edit Background:</strong> opens pick lists or editors; list items are chosen with <strong>left-click</strong> (see on-screen hints in those modals).</li>
+            </ul>
+          </li>
+        </ul>
+        <h4>“CLICK HERE for WAYPOINTS, ROUTES and ATC SECTORS”</h4>
+        <p><strong>Left-click</strong> this bar to scroll the page focus to the bottom panels.</p>
+        <h4>Bottom panels</h4>
+        <ul>
+          <li><strong>Search</strong> fields — type with keyboard; lists filter.</li>
+          <li>Waypoint / route / ATC sector rows — <strong>left-click</strong> row actions (edit, delete, etc.) as rendered per item.</li>
+        </ul>
+        <h4>Unsaved changes</h4>
+        <p>Closing Edit Airspace with pending changes can open <strong>Unsaved changes</strong>: <strong>Save</strong> / <strong>Exit without saving</strong> / <strong>×</strong> — all left-click.</p>
+
+        <h3>3a.7 Edit Exercise (full-screen; excluding Create Flows &amp; Load Flows)</h3>
+        <h4>Header</h4>
+        <ul>
+          <li><strong>×</strong> — close Edit Exercise (left-click).</li>
+        </ul>
+        <h4>Sidebar — selection</h4>
+        <ul>
+          <li><strong>Airspace</strong> / <strong>Exercise</strong> dropdowns — left-click to open; left-click option.</li>
+        </ul>
+        <h4>Sidebar — actions (left-click unless noted)</h4>
+        <ul>
+          <li><strong>Add Flight</strong> — opens Add/Edit Flight modal (enabled when an exercise is selected).</li>
+          <li><strong>Add Multiple Flights</strong> — opens bulk paste/import modal.</li>
+          <li><strong>Save Exercise</strong> — saves flights for the current exercise.</li>
+          <li><strong>Preview</strong> time <strong>slider</strong> — drag with left mouse to scrub preview time; clock updates.</li>
+        </ul>
+        <h4>Flights section (collapsible)</h4>
+        <ul>
+          <li><strong>Flights (n)</strong> header row — <strong>left-click</strong> the toggle (chevron + title) to expand or collapse the list.</li>
+          <li><strong>all flights listed</strong> — opens a read-only text modal with one line per flight; <strong>Copy</strong> / <strong>Close</strong> are left-click.</li>
+          <li><strong>Export</strong> — downloads a CSV of flight plans (left-click).</li>
+          <li>Each flight row: <strong>left-click</strong> the row to select it. Buttons on the row (e.g. Edit / Duplicate / Delete) — <strong>left-click</strong> (Delete may confirm).</li>
+        </ul>
+        <h4>Exercise editor map (<code>exerciseEditorCanvas</code>)</h4>
+        <ul>
+          <li><strong>Pan:</strong> <strong>left-drag</strong> on empty map.</li>
+          <li><strong>Zoom:</strong> <strong>mouse wheel</strong> (zoom keeps the point under the cursor).</li>
+          <li><strong>Drag preview label:</strong> uses the same <strong>Label move</strong> setting as the simulation (<strong>SIM Settings</strong>): <strong>left</strong>, <strong>middle</strong>, or <strong>right</strong> button on the label box, then drag. Default in bundled preset is often <strong>middle</strong>.</li>
+          <li><strong>Adjust spawn time along route (preview):</strong> with preview time &gt; 0, <strong>middle-click</strong> on an aircraft <em>symbol</em> (not on the label box) and drag; release to commit spawn time from along-track position.</li>
+          <li><strong>Edit flight from map:</strong> <strong>right-click</strong> an aircraft symbol → opens the flight in <strong>Edit Flight</strong> modal.</li>
+          <li><strong>Pick route on map (from Add/Edit Flight):</strong> when that mode is active, the Add Flight modal closes and a banner appears. Use the <strong>middle mouse button</strong> on the map: <strong>middle-click</strong> a waypoint to add or toggle it in the route sequence; <strong>middle-click</strong> empty airspace to insert a coordinate token; if several routes pass under the cursor, a disambiguation panel can open (choose with the mouse). <strong>Right-click</strong> on the map opens a context menu (finish segment, cancel, etc.). When <em>not</em> in pick mode, <strong>right-click</strong> an aircraft symbol still opens <strong>Edit Flight</strong>.</li>
+        </ul>
+        <h4>Add Flight / Edit Flight modal</h4>
+        <ul>
+          <li><strong>×</strong> / <strong>Cancel</strong> — close (left-click). Backdrop click does <em>not</em> close this modal.</li>
+          <li><strong>Pick on Map</strong> — starts route picking on the exercise map (left-click).</li>
+          <li><strong>Create</strong> / <strong>Save</strong> (submit) — saves flight (left-click).</li>
+          <li>Autocomplete suggestions for aircraft type and route — <strong>left-click</strong> a suggestion to choose.</li>
+        </ul>
+        <h4>Add Multiple Flights modal</h4>
+        <ul>
+          <li><strong>×</strong> / <strong>Cancel</strong> — close (left-click). Backdrop does not close.</li>
+          <li><strong>Import</strong> (submit) — parses pasted lines (left-click).</li>
+        </ul>
+
+        <h3>3a.8 Edit Aircraft database</h3>
+        <ul>
+          <li><strong>×</strong> / <strong>Close</strong> — close modal (left-click).</li>
+          <li><strong>Aircraft type</strong> dropdown — left-click to choose a type.</li>
+          <li><strong>Turn Radius</strong> — opens in-place turn-radius band editor; <strong>Default</strong> / <strong>Save</strong> / <strong>Close</strong> (left-click). Grid cells edited with mouse/keyboard per field.</li>
+          <li><strong>Update override</strong> — writes current numeric fields into the override text for that type (left-click).</li>
+          <li><strong>Remove override</strong> — removes override for selected type (left-click).</li>
+          <li><strong>Overrides</strong> textarea — click to focus; edit text with keyboard.</li>
+          <li><strong>Restore defaults</strong> — clears overrides in storage after confirm (left-click).</li>
+          <li><strong>Save</strong> — persists overrides (left-click).</li>
+        </ul>
+
+        <p class="hint-text" style="color: var(--muted); margin-top: 1rem;">If a future app version adds buttons or changes mouse bindings, compare with <code>templates/index.html</code> and <code>static/js/main.js</code> (search for element ids such as <code>editSectorBtn</code>, <code>exerciseEditorCanvasElement</code>, <code>sectorCanvas</code>).</p>
+      </section>
+
+      <section id="sectors-exercises">
+        <h2>4. Airspace &amp; exercises</h2>
+        <p>For a full list of Settings-related buttons and mouse actions (Edit Airspace map, Edit Exercise map, modals), see <a href="#settings-reference">section 3a</a>.</p>
+        <h3>4.1 Sector editor</h3>
+        <p>Waypoints use latitude and longitude; a <strong>CENTRE</strong> / <strong>CENTER</strong> waypoint anchors the radar. Routes connect waypoints; boundaries define sectors.</p>
+        <h3>4.2 Exercise editor</h3>
+        <p>Defines which sector and which flights or aircraft appear. <strong>RUN Simulation</strong> on a card starts the run flow.</p>
+        <h3>4.3 ATC sectors, airports, runways, approaches</h3>
+        <p>Additional screens let you define ATC sector polygons (vertical limits), airport reference points, runways, and approaches — used by the simulation for approaches and runway alignment.</p>
+      </section>
+
+      <section id="aircraft-db">
+        <h2>5. Aircraft database</h2>
+        <p>Default performance comes from the built-in database. <strong>Overrides</strong> are per aircraft type. <strong>Turn radius bands</strong> (by flight level) affect displayed trajectories and turn behaviour. Button-by-button behaviour from Settings is in <a href="#settings-reference">section 3a.8</a>.</p>
+      </section>
+
+      <section id="run-workflow">
+        <h2>6. Starting a simulation</h2>
+        <ol>
+          <li>Select an exercise, then choose <strong>RUN Simulation</strong>.</li>
+          <li>Pick <strong>Host</strong> (name your session), <strong>Join</strong> (pick a hosted session), or <strong>Single user</strong>.</li>
+          <li>As host, you create the session; joiners connect later. As joiner, you pick role and sector when prompted.</li>
+          <li>The <strong>simulation</strong> view opens full screen with the radar canvas.</li>
+        </ol>
+        <div class="callout warn">
+          <strong>Host tab:</strong> If you close the browser tab while hosting, the application tries to end the session so it does not stay listed forever. Idle hosted sessions may also be removed automatically if the host stops sending updates.
+        </div>
+      </section>
+
+      <section id="multi-station">
+        <h2>7. Multi-station operation (host / join)</h2>
+        <ul>
+          <li><strong>Host</strong> — Runs the simulation clock and aircraft movement; other participants receive updates from the host.</li>
+          <li><strong>Joiners</strong> — Choose roles such as EXEC, planner, instructor, evaluator, observer, or pseudo-pilot where offered. Some roles are exclusive and may require claiming a slot.</li>
+          <li><strong>Pseudo-pilot</strong> — Sends lateral (and related) commands to the host when that mode is active.</li>
+        </ul>
+      </section>
+
+      <section id="sim-strip">
+        <h2>8. Simulation control strip</h2>
+        <div class="figure">
+          <div class="figure-title">Figure — Top strip (approximate layout)</div>
+          <div class="mock-strip">
+            <strong>Title</strong>
+            <span class="mock-btn">Full</span>
+            <span class="mock-btn">TTS OFF</span>
+            <span class="mock-clock">00:00:00</span>
+            <span class="mock-btn">COLORS</span>
+            <span class="mock-btn">MAP</span>
+            <span class="mock-btn">SIM Settings</span>
+            <span class="mock-btn">MODE</span>
+            <span class="mock-btn">SPV</span>
+            <span class="mock-btn">RR</span>
+            <span class="mock-btn">Pause</span>
+            <span class="mock-btn">FF</span>
+            <span class="mock-btn">Stop</span>
+          </div>
+        </div>
+        <div class="manual-table-wrap">
+          <table class="manual-table">
+            <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Full</strong></td><td>Switch between full-screen and windowed radar view.</td></tr>
+              <tr><td><strong>TTS</strong></td><td>Turn text-to-speech readbacks on or off in supported modes.</td></tr>
+              <tr><td><strong>Clock</strong></td><td>Simulation time. Host advances locally; joiners follow the host.</td></tr>
+              <tr><td><strong>COLORS</strong></td><td>Adjust colours for aircraft, labels, routes, STCA, and related items.</td></tr>
+              <tr><td><strong>MAP</strong></td><td>Toggle map layers: waypoints, routes, boundaries, airports, runways, centre waypoint, grid lines.</td></tr>
+              <tr><td><strong>SIM Settings</strong></td><td>Radar interval, history dots, trajectories, which mouse button drags labels, STCA, probing, zoom sensitivity, presets, and more.</td></tr>
+              <tr><td><strong>MODE</strong></td><td>Choose operation mode (for example data link, planner, executive + pseudo-pilot). In hosted multi-station sessions, operation uses the data-link style mode.</td></tr>
+              <tr><td><strong>SPV − / +</strong></td><td>Change speed vector length (minutes).</td></tr>
+              <tr><td><strong>RR / FF</strong></td><td>Rewind or fast-forward simulation time.</td></tr>
+              <tr><td><strong>Pause</strong></td><td>Pause and resume, or exit speed mode back to normal rate.</td></tr>
+              <tr><td><strong>Stop</strong></td><td>Confirm and end the simulation; host ends the session when multiple stations are connected.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="sim-canvas">
+        <h2>9. Radar &amp; map</h2>
+        <h3>9.1 Pan &amp; zoom</h3>
+        <ul>
+          <li><strong>Scroll wheel</strong> — Zoom centred on the view (strength is set under SIM Settings).</li>
+          <li><strong>Left-drag</strong> on empty map (when not using that button for label drag) — Pan the radar.</li>
+        </ul>
+        <h3>9.2 Aircraft</h3>
+        <p>Aircraft appear as symbols with labels. Trajectory lines and STCA overlays depend on your SIM Settings.</p>
+        <h3>9.3 Measuring</h3>
+        <p><strong>Right-drag</strong> from a point or an aircraft to measure distance (see section 10).</p>
+      </section>
+
+      <section id="mouse-labels">
+        <h2>10. Mouse &amp; label interactions</h2>
+        <p>With the default settings, <strong>Label move</strong> is set to the <strong>middle</strong> mouse button: drag labels with the middle button. The <strong>left</strong> button is used for panning, opening pickers, and map actions; the <strong>right</strong> button is used for measure, direct-to path, and speed cycling as described below. If you change <strong>Label move</strong> in SIM Settings, use the button you chose for dragging labels instead of middle.</p>
+
+        <h3>10.1 Summary table</h3>
+        <div class="manual-table-wrap">
+          <table class="manual-table">
+            <thead>
+              <tr><th>Action</th><th>Button</th><th>Where / effect</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Pan map</td><td>Left drag</td><td>When left is not used for label drag and you are not picking heading or direct path.</td></tr>
+              <tr><td>Zoom</td><td>Wheel scroll</td><td>On the radar canvas.</td></tr>
+              <tr><td>Drag label</td><td>As set in Label move</td><td>Grab the label box; the aircraft is brought to the front.</td></tr>
+              <tr><td>Open assigned level (ALV) picker</td><td>Left click</td><td>On the assigned level field.</td></tr>
+              <tr><td>Exit level / probing</td><td>Left / middle hold</td><td>Middle hold on exit level probes levels when probing is enabled.</td></tr>
+              <tr><td>Speed picker</td><td>Left</td><td>Speed field; right-click cycles readout modes where applicable.</td></tr>
+              <tr><td>Heading select</td><td>Middle click</td><td>On the heading / direct line — then left-click the map to set heading, right-click to cancel.</td></tr>
+              <tr><td>Trajectory toggle</td><td>Middle click</td><td>On the ETA or trajectory area — toggles trajectory display.</td></tr>
+              <tr><td>Callsign area</td><td>Middle</td><td>Reserved for trajectory and label actions when overlapping.</td></tr>
+              <tr><td>Direct path draw</td><td>Right on direct</td><td>Starts path mode; left adds points; right can cancel.</td></tr>
+              <tr><td>Cycle speed mode</td><td>Right click</td><td>On the speed field — cycles IAS / MACH / SELECTED where applicable.</td></tr>
+              <tr><td>Measure distance</td><td>Right drag</td><td>From empty map or aircraft; not started on the label body except where direct or speed applies.</td></tr>
+              <tr><td>Free-text line</td><td>Left</td><td>If the free-text column is shown — opens the short text entry.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <strong>Heading select:</strong> After middle-click on HDG/DCT, <strong>left-click</strong> the map to confirm the heading; <strong>right-click</strong> cancels.
+        </div>
+      </section>
+
+      <section id="label-fields">
+        <h2>11. Label layout &amp; fields</h2>
+        <p>The following describes the <strong>default label layout</strong> (five rows, five columns). You can change the grid under <strong>SIM Settings → Edit Label</strong> (password may be required). If you load a different preset or saved layout, field positions may differ.</p>
+
+        <h3>11.1 Options that go with the default layout</h3>
+        <ul>
+          <li><strong>Label move:</strong> Middle button (drag the label with the middle mouse button).</li>
+          <li><strong>Heading select increment:</strong> 5° steps when confirming a heading from the HDG/DCT line.</li>
+          <li><strong>Probing level:</strong> Same route (exit-level probing highlights aircraft on the same route).</li>
+          <li><strong>TTS:</strong> On by default in the bundled settings.</li>
+          <li><strong>Trajectory display:</strong> Turn-radius style.</li>
+        </ul>
+
+        <h3>11.2 Default grid (5×5)</h3>
+        <div class="manual-table-wrap">
+          <table class="manual-table">
+            <thead><tr><th>Row</th><th>Columns (left to right)</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Callsign · Runway · Exit waypoint · Aircraft type · (spare)</td></tr>
+              <tr><td>2</td><td>Mode C altitude · Ground speed · Heading / DCT · Destination · (spare)</td></tr>
+              <tr><td>3</td><td>Assigned level (ALV) · Mode S altitude · Speed (IAS) · Rate of climb/desc · Exit level (XLV)</td></tr>
+              <tr><td>4</td><td>Free-text line · (empty · empty · empty · empty)</td></tr>
+              <tr><td>5</td><td>(empty ×5)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>11.3 Fields and how you use them</h3>
+        <div class="manual-table-wrap">
+          <table class="manual-table">
+            <thead><tr><th>Field</th><th>Role</th><th>Typical interaction</th></tr></thead>
+            <tbody>
+              <tr><td>Callsign</td><td>Flight ID</td><td>Middle-click area for trajectory/callsign behaviour; drag the label with the <strong>middle</strong> button on the label frame.</td></tr>
+              <tr><td>Runway</td><td>Runway</td><td>Left-click opens the runway picker where available.</td></tr>
+              <tr><td>Exit waypoint</td><td>Exit point</td><td>Shown / edited per simulation rules.</td></tr>
+              <tr><td>Aircraft type</td><td>Type code</td><td>Display.</td></tr>
+              <tr><td>Mode C altitude</td><td>Radar altitude</td><td>Display.</td></tr>
+              <tr><td>Ground speed</td><td>Speed over ground</td><td>Display.</td></tr>
+              <tr><td>Heading / DCT</td><td>Heading and direct-to</td><td><strong>Middle-click</strong> starts heading select → <strong>left</strong> on map commits, <strong>right</strong> cancels. <strong>Right-click</strong> on DCT starts direct path mode (left adds points).</td></tr>
+              <tr><td>Destination</td><td>Destination</td><td>Display.</td></tr>
+              <tr><td>Assigned level (ALV)</td><td>Cleared level</td><td><strong>Left-click</strong> opens the level picker (scroll the list).</td></tr>
+              <tr><td>Mode S altitude</td><td>Mode S altitude</td><td>Display.</td></tr>
+              <tr><td>Speed (IAS)</td><td>Speed readout</td><td><strong>Left</strong> opens IAS/MACH picker; <strong>right-click</strong> cycles readout mode where applicable.</td></tr>
+              <tr><td>Rate of climb/desc</td><td>Vertical rate</td><td>Display.</td></tr>
+              <tr><td>Exit level (XLV)</td><td>Exit flight level / probing</td><td><strong>Left</strong> opens exit level picker; with probing, <strong>middle hold</strong> on the value for hold-to-probe highlighting.</td></tr>
+              <tr><td>Free-text</td><td>Custom line</td><td><strong>Left-click</strong> the icon opens short text entry when shown.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>11.4 Visual reference (default style)</h3>
+        <div class="figure">
+          <div class="figure-title">Figure — Label block (default layout, schematic)</div>
+          <svg class="mock-label-svg" viewBox="0 0 300 168" xmlns="http://www.w3.org/2000/svg">
+            <rect x="6" y="6" width="288" height="156" rx="6" fill="#454545" stroke="#27aa2f" stroke-width="2"/>
+            <text x="14" y="22" fill="#27aa2f" font-size="9" font-family="system-ui,sans-serif">Default label layout</text>
+            <text x="14" y="40" fill="#27aa2f" font-size="10" font-family="monospace">CALLSIGN</text>
+            <text x="88" y="40" fill="#27aa2f" font-size="10" font-family="monospace">RWY</text>
+            <text x="128" y="40" fill="#27aa2f" font-size="9" font-family="monospace">EXIT_WP</text>
+            <text x="200" y="40" fill="#27aa2f" font-size="9" font-family="monospace">TYPE</text>
+            <text x="14" y="58" fill="#9ca3af" font-size="9" font-family="monospace">MODE_C</text>
+            <text x="72" y="58" fill="#27aa2f" font-size="10" font-family="monospace">GS</text>
+            <text x="110" y="58" fill="#a7f3d0" font-size="9" font-family="monospace">HDG/DCT</text>
+            <text x="190" y="58" fill="#27aa2f" font-size="9" font-family="monospace">DEST</text>
+            <text x="14" y="78" fill="#fca5a5" font-size="10" font-family="monospace">ALV</text>
+            <text x="56" y="78" fill="#9ca3af" font-size="9" font-family="monospace">MODE_S</text>
+            <text x="120" y="78" fill="#fde047" font-size="10" font-family="monospace">IAS</text>
+            <text x="168" y="78" fill="#9ca3af" font-size="9" font-family="monospace">ROC</text>
+            <text x="210" y="78" fill="#93c5fd" font-size="9" font-family="monospace">XLV</text>
+            <text x="14" y="100" fill="#27aa2f" font-size="9" font-family="monospace">FREE_TEXT …</text>
+            <text x="14" y="148" fill="#737373" font-size="8" font-family="sans-serif">Drag label: middle · Pan map: left drag · Zoom: wheel</text>
+          </svg>
+          <p style="font-size:0.85rem;color:var(--muted);margin:0.5rem 0 0;">Colours match the default green-on-grey label style. Live data and <strong>COLORS</strong> overrides may change appearance.</p>
+        </div>
+
+        <h3>11.5 Editing the layout</h3>
+        <p><strong>SIM Settings → Edit Label</strong> opens the same kind of 5×5 grid so you can assign which data appears in each cell. To restore the factory layout and related options, use <strong>SIM Settings → Load preset</strong> and pick <strong>Default_Settings</strong> if it appears in the list.</p>
+
+        <h3>11.6 Floating pickers</h3>
+        <p>Assigned level, exit level, IAS/MACH, direct waypoint list, and runway pickers open as list overlays — <strong>scroll</strong> inside the list when there are many options.</p>
+      </section>
+
+      <section id="sim-settings">
+        <h2>12. SIM Settings options</h2>
+        <ul>
+          <li><strong>Radar update (seconds)</strong> — How often positions update and labels align with radar sweeps.</li>
+          <li><strong>History dots</strong> — Up to seven past positions shown as faint dots.</li>
+          <li><strong>Trajectory display</strong> — Point-to-point versus turn-radius drawing style.</li>
+          <li><strong>Trajectory display of labels</strong> — Show estimates only, or estimates plus flight-level labels.</li>
+          <li><strong>Label move</strong> — Which mouse button drags labels.</li>
+          <li><strong>Heading select increment</strong> — 1°, 5°, or 10° when confirming a heading.</li>
+          <li><strong>Zoom sensitivity</strong> — Wheel zoom strength (1–10).</li>
+          <li><strong>Min LOC approach distance (NM)</strong> — Distance to the runway for arming ILS, localizer, or GPS approaches.</li>
+          <li><strong>Probing level (exit level)</strong> — Off, on, same route, or same crossing routes, plus highlight and dim colours.</li>
+          <li><strong>STCA</strong> — Conflict check type, separation distance, lookahead time, optional trigger dots.</li>
+          <li><strong>TTS</strong> — Also available from the strip; must be enabled in settings for readbacks to work.</li>
+          <li><strong>Presets</strong> — Load or save the full radar, map, and appearance settings. The application ships with a <strong>Default_Settings</strong> preset that matches the default label grid, middle-button label move, turn-radius trajectories, and probing colours described in section 11 (TTS and other options follow the values stored in that preset).</li>
+        </ul>
+      </section>
+
+      <section id="modes">
+        <h2>13. Operation modes</h2>
+        <p>Modes include data link (DL), combinations with the planner (PLN), executive plus pseudo-pilot (EXE+PP), and other variants. Press <strong>MODE</strong> to open the selector. Hosted sessions run in the data-link style with role-specific behaviour for joiners (for example pseudo-pilot lateral commands where allowed).</p>
+      </section>
+
+      <section id="tips">
+        <h2>14. Tips</h2>
+        <ul>
+          <li><strong>Direct path (DL):</strong> Right-click the <strong>DCT</strong> field → path mode. Left-click the map or waypoints to add legs. Right-click again to cancel or finish as prompted.</li>
+          <li><strong>Heading:</strong> Middle-click <strong>HDG/DCT</strong> → left-click the map for direction (step size from SIM Settings) → right-click to cancel.</li>
+          <li><strong>Host away from keyboard:</strong> The simulation may pause when you hide the host tab, depending on your environment.</li>
+        </ul>
+      </section>
+
+      <p style="margin-top:2rem;font-size:0.85rem;color:var(--muted);">AiTC User Manual — describes on-screen behaviour for operators.</p>
+    </main>
+  </div>
+</body>
+</html>

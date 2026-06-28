@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "savedAt": "2026-06-14T10:51:17.739582+00:00",
+  "routes": [
+    {
+      "id": 1,
+      "name": "L768",
+      "originalName": "L768",
+      "mergeGroupId": null,
+      "identifierRows": [
+        {
+          "identTokens": [
+            "L768"
+          ],
+          "remarks": "L768"
+        }
+      ],
+      "ruleRows": [
+        {
+          "ruleTokens": [
+            "VERIFY",
+            "|",
+            "Aircraft A (Distance from)",
+            "MEDMA",
+            "-",
+            "Aircraft B (Distance from)",
+            "MEDMA",
+            "|",
+            ">",
+            "30"
+          ]
+        }
+      ],
+      "levels": [
+        "300",
+        "320",
+        "340",
+        "360",
+        "380",
+        "400"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "L602 merged with M600",
+      "originalName": "L602",
+      "mergeGroupId": 1,
+      "identifierRows": [
+        {
+          "identTokens": [
+            "L602"
+          ],
+          "remarks": "L602"
+        }
+      ],
+      "ruleRows": [
+        {
+          "ruleTokens": []
+        }
+      ],
+      "levels": [
+        "280",
+        "300",
+        "340",
+        "360",
+        "380",
+        "400"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "M600 merged with L602",
+      "originalName": "M600",
+      "mergeGroupId": 1,
+      "identifierRows": [
+        {
+          "identTokens": [
+            "M600"
+          ],
+          "remarks": "M600"
+        }
+      ],
+      "ruleRows": [
+        {
+          "ruleTokens": []
+        }
+      ],
+      "levels": [
+        "280",
+        "300",
+        "340",
+        "360",
+        "380",
+        "400"
+      ]
+    }
+  ],
+  "mergeGroups": [
+    {
+      "id": 1,
+      "routeIds": [
+        "2",
+        "3"
+      ]
+    }
+  ],
+  "routeNextId": 4,
+  "mergeGroupNextId": 2
+}

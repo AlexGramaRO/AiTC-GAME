@@ -1,0 +1,6 @@
+{
+  "openaiApiKey": "",
+  "openaiModel": "gpt-4.1-mini",
+  "recordSimulations": true,
+  "aiPilotGeneralInstructions": ""
+}

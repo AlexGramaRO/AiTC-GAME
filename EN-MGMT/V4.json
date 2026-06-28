@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "savedAt": "2026-06-15T07:46:20.377237+00:00",
+  "routes": [
+    {
+      "id": 1,
+      "name": "L768",
+      "originalName": "L768",
+      "mergeGroupId": null,
+      "identifierRows": [
+        {
+          "identTokens": [
+            "L768",
+            "AND",
+            "SOLOB"
+          ],
+          "remarks": "L768"
+        },
+        {
+          "identTokens": [
+            "A453"
+          ],
+          "remarks": "A453"
+        }
+      ],
+      "ruleRows": [
+        {
+          "ruleTokens": [
+            "IF",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            ">",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "\n",
+            "THEN",
+            "IF",
+            "Aircraft A (Mach_min)",
+            ">",
+            "Aircraft B (Mach_Max)",
+            "\n",
+            "THEN",
+            "VERIFY",
+            "Aircraft A (Time from)",
+            "ULADA",
+            "-",
+            "Aircraft B (Time from)",
+            "ULADA",
+            ">",
+            "5",
+            "\n",
+            "ELSE",
+            "VERIFY",
+            "|",
+            "Aircraft A (Distance from)",
+            "ULADA",
+            "-",
+            "Aircraft B (Distance from)",
+            "ULADA",
+            "|",
+            ">",
+            "10",
+            "\n",
+            "CLOSE IF",
+            "\n",
+            "CLOSE IF"
+          ]
+        }
+      ],
+      "levels": [
+        "300",
+        "320",
+        "340",
+        "360",
+        "380",
+        "400"
+      ]
+    }
+  ],
+  "mergeGroups": [],
+  "routeNextId": 4,
+  "mergeGroupNextId": 2
+}

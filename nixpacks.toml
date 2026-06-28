@@ -1,0 +1,5 @@
+# Fallback when Railway builds with Nixpacks instead of Dockerfile.
+# ffmpeg is required for AI_PP voice transcription (webm → faster-whisper).
+[phases.setup]
+nixPkgs = ["...", "ffmpeg"]
+aptPkgs = ["ffmpeg"]

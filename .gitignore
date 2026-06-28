@@ -1,0 +1,22 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local secrets and runtime state (never commit)
+.env
+.env.*
+data/admin_settings.json
+data/users.sqlite3
+data/session_join_slots.sqlite3
+recordings/
+
+# Logs
+*.log

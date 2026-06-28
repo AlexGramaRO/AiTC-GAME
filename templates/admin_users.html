@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User accounts — AiTC Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-page admin-users-page">
+    <div class="admin-users-shell">
+        <header class="admin-users-header">
+            <div>
+                <h1>User accounts</h1>
+                <p class="hint-text">Approve sign-ups and manage subscriptions (31-day monthly periods).</p>
+            </div>
+            <div class="admin-users-header-actions">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to simulator</a>
+                <button type="button" class="btn btn-secondary" id="adminUsersLogoutBtn">Sign out</button>
+            </div>
+        </header>
+
+        <div class="admin-users-toolbar">
+            <label for="adminUsersStatusFilter">Status</label>
+            <select id="adminUsersStatusFilter" class="form-input">
+                <option value="">All</option>
+                <option value="pending" selected>Pending approval</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="disabled">Disabled</option>
+            </select>
+            <button type="button" class="btn btn-secondary" id="adminUsersRefreshBtn">Refresh</button>
+        </div>
+
+        <div id="adminUsersMessage" class="auth-message" style="display:none;"></div>
+
+        <div class="admin-users-table-wrap">
+            <table class="admin-users-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Subscription</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="adminUsersTableBody">
+                    <tr><td colspan="6" class="hint-text">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/admin_users.js') }}"></script>
+</body>
+</html>

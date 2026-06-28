@@ -1,0 +1,5 @@
+# Railway / Railpack: install ffmpeg at runtime when not using the Dockerfile builder.
+# In the Railway dashboard you can instead set: RAILPACK_DEPLOY_APT_PACKAGES=ffmpeg
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
