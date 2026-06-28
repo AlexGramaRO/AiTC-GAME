@@ -10061,6 +10061,7 @@ body.auth-page {
     color: #fde68a;
 }
 
+.container .button-row .btn.platform-locked,
 .container .button-row a.btn.platform-locked {
     opacity: 0.45;
     pointer-events: none;
