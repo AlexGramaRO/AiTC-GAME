@@ -234,11 +234,14 @@ JOIN_SLOT_NON_EXCLUSIVE_ROLES = frozenset({'OBS', 'PP'})  # no DB row; unlimited
 JOIN_SLOT_TTL_SEC = 10.0  # drop slot ~10s after last heartbeat (disconnect)
 _join_slots_lock = threading.RLock()
 AI_PP_MAX_AUDIO_BYTES = 25 * 1024 * 1024
-AI_PP_WHISPER_MODEL_SIZE = os.environ.get('AI_PP_WHISPER_MODEL', 'base')
-AI_PP_WHISPER_DEVICE = os.environ.get('AI_PP_WHISPER_DEVICE', 'auto')
-AI_PP_WHISPER_COMPUTE_TYPE = os.environ.get('AI_PP_WHISPER_COMPUTE_TYPE', 'default')
+AI_PP_WHISPER_MODEL_SIZE = (os.environ.get('AI_PP_WHISPER_MODEL') or 'base').strip()
+AI_PP_WHISPER_DEVICE = (os.environ.get('AI_PP_WHISPER_DEVICE') or 'auto').strip().lower()
+AI_PP_WHISPER_COMPUTE_TYPE = (os.environ.get('AI_PP_WHISPER_COMPUTE_TYPE') or 'default').strip().lower()
+AI_PP_WHISPER_LANGUAGE = (os.environ.get('AI_PP_WHISPER_LANGUAGE') or '').strip().lower()
+AI_PP_WHISPER_VAD = (os.environ.get('AI_PP_WHISPER_VAD') or '0').strip().lower() in ('1', 'true', 'yes')
 AI_PP_TRANSCRIBE_TIMEOUT_SEC = float(os.environ.get('AI_PP_TRANSCRIBE_TIMEOUT_SEC', '90'))
 _ai_pp_whisper_model = None
+_ai_pp_whisper_runtime_config = {}
 _ai_pp_whisper_lock = threading.RLock()
 _ai_pp_transcribe_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix='ai-pp-whisper')
 
@@ -247,9 +250,36 @@ def _ai_pp_ffmpeg_available():
     return bool(shutil.which('ffmpeg'))
 
 
+def _ai_pp_whisper_transcribe_language():
+    if AI_PP_WHISPER_LANGUAGE:
+        return AI_PP_WHISPER_LANGUAGE
+    if AI_PP_WHISPER_MODEL_SIZE.endswith('.en'):
+        return 'en'
+    return None
+
+
+def _build_ai_pp_whisper_model_kwargs():
+    """Resolve faster-whisper device/compute settings from env (Railway: tiny.en + int8 on CPU)."""
+    device = AI_PP_WHISPER_DEVICE or 'auto'
+    compute_type = AI_PP_WHISPER_COMPUTE_TYPE or 'default'
+    if compute_type != 'default' and device == 'auto':
+        device = 'cpu'
+    kwargs = {}
+    if device != 'auto':
+        kwargs['device'] = device
+    if compute_type != 'default':
+        kwargs['compute_type'] = compute_type
+    cpu_threads_raw = (os.environ.get('AI_PP_WHISPER_CPU_THREADS') or '').strip()
+    if cpu_threads_raw.isdigit():
+        kwargs['cpu_threads'] = max(1, int(cpu_threads_raw))
+    elif device in ('cpu', 'auto'):
+        kwargs['cpu_threads'] = min(4, os.cpu_count() or 4)
+    return kwargs
+
+
 def _get_ai_pp_whisper_model():
     """Lazy-load faster-whisper so normal app startup does not pay the model load cost."""
-    global _ai_pp_whisper_model
+    global _ai_pp_whisper_model, _ai_pp_whisper_runtime_config
     with _ai_pp_whisper_lock:
         if _ai_pp_whisper_model is not None:
             return _ai_pp_whisper_model
@@ -257,23 +287,35 @@ def _get_ai_pp_whisper_model():
             from faster_whisper import WhisperModel
         except Exception as exc:
             raise RuntimeError('faster-whisper is not installed. Install requirements and ensure ffmpeg is available.') from exc
-        kwargs = {}
-        if AI_PP_WHISPER_DEVICE and AI_PP_WHISPER_DEVICE != 'auto':
-            kwargs['device'] = AI_PP_WHISPER_DEVICE
-        if AI_PP_WHISPER_COMPUTE_TYPE and AI_PP_WHISPER_COMPUTE_TYPE != 'default':
-            kwargs['compute_type'] = AI_PP_WHISPER_COMPUTE_TYPE
+        kwargs = _build_ai_pp_whisper_model_kwargs()
         _ai_pp_whisper_model = WhisperModel(AI_PP_WHISPER_MODEL_SIZE, **kwargs)
+        _ai_pp_whisper_runtime_config = {
+            'model': AI_PP_WHISPER_MODEL_SIZE,
+            'language': _ai_pp_whisper_transcribe_language(),
+            'vadFilter': AI_PP_WHISPER_VAD,
+            **kwargs,
+        }
         return _ai_pp_whisper_model
 
 
 def _transcribe_ai_pp_audio_file(temp_path):
     """Run faster-whisper on one saved audio clip (may block; call from worker thread)."""
     model = _get_ai_pp_whisper_model()
-    segments, info = model.transcribe(temp_path, beam_size=1, vad_filter=True)
+    transcribe_kwargs = {
+        'beam_size': 1,
+        'best_of': 1,
+        'vad_filter': AI_PP_WHISPER_VAD,
+        'condition_on_previous_text': False,
+        'temperature': 0,
+    }
+    language = _ai_pp_whisper_transcribe_language()
+    if language:
+        transcribe_kwargs['language'] = language
+    segments, info = model.transcribe(temp_path, **transcribe_kwargs)
     text = ' '.join((seg.text or '').strip() for seg in segments).strip()
     return {
         'text': text,
-        'language': getattr(info, 'language', None),
+        'language': getattr(info, 'language', None) or language,
         'duration': getattr(info, 'duration', None),
     }
 
@@ -1721,7 +1763,7 @@ def api_ai_pp_transcribe_warmup():
             }), 503
         future = _ai_pp_transcribe_executor.submit(_get_ai_pp_whisper_model)
         future.result(timeout=AI_PP_TRANSCRIBE_TIMEOUT_SEC)
-        return jsonify({'ok': True, 'model': AI_PP_WHISPER_MODEL_SIZE})
+        return jsonify({'ok': True, 'whisper': dict(_ai_pp_whisper_runtime_config)})
     except concurrent.futures.TimeoutError:
         return jsonify({'ok': False, 'error': 'Speech model load timed out.'}), 504
     except RuntimeError as e:
