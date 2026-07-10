@@ -233,10 +233,26 @@ body {
     z-index: 1;
 }
 
+.landing-brand .reg-mark,
 footer .reg-mark {
     font-size: 0.65em;
     vertical-align: super;
     margin-left: 0.05em;
+}
+
+.landing-brand {
+    position: fixed;
+    top: 1.35rem;
+    left: 2.5rem;
+    z-index: 15;
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: rgba(245, 247, 250, 0.94);
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    user-select: none;
 }
 
 .btn {
