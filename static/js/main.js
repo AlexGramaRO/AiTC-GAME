@@ -26942,6 +26942,9 @@ let aiPpVccsDetailsVisible = false;
 let aiPpPttBlockedByTts = false;
 let aiPpPttBlockBeepCtx = null;
 let aiPpPttBlockBeepOsc = null;
+/** Keep recording briefly after PTT release so mic/encoder buffers flush (captures trailing word). */
+const AI_PP_PTT_TAIL_MS = 400;
+let aiPpPttTailStopTimer = null;
 /** Single User: ICAO callsign keys (compact upper) currently checked in on the user's sector frequency. */
 let aiPpOnFrequencyCallsigns = new Set();
 let aiPpOnFrequencyNotifyQueue = [];
@@ -27271,6 +27274,7 @@ function disableAiPp() {
     aiPpOpenAiInitializing = false;
     aiPpOpenAiResponding = false;
     aiPpPttPrimePromise = null;
+    cancelAiPpPttTailStop();
     try { resetAiPpOnFrequencyCallsigns(); } catch (e) {}
     stopAiPpRecording(true);
     if (aiPpRxTimerId) {
@@ -27308,6 +27312,7 @@ async function ensureAiPpMediaStream() {
 
 async function startAiPpRecording() {
     if (!aiPpEnabled || aiPpMediaRecorder || aiPpTranscribing) return;
+    cancelAiPpPttTailStop();
     try {
         if (typeof MediaRecorder === 'undefined') {
             throw new Error('Audio recording is not supported in this browser.');
@@ -27337,7 +27342,7 @@ async function startAiPpRecording() {
                 setAiPpStatus(aiPpPttKey ? `PTT: ${aiPpPttKey.label}` : 'No audio captured');
             }
         };
-        aiPpMediaRecorder.start(250);
+        aiPpMediaRecorder.start(100);
         setAiPpTxRx(true, false);
         setAiPpStatus('Transmitting...');
     } catch (err) {
@@ -27348,17 +27353,59 @@ async function startAiPpRecording() {
     }
 }
 
-function stopAiPpRecording(discard = false) {
-    try {
-        if (aiPpMediaRecorder && aiPpMediaRecorder.state !== 'inactive') {
-            aiPpDiscardCurrentRecording = !!discard;
-            try { aiPpMediaRecorder.requestData(); } catch (e) {}
-            aiPpMediaRecorder.stop();
-        }
-    } catch (e) {
-        aiPpMediaRecorder = null;
+function cancelAiPpPttTailStop() {
+    if (aiPpPttTailStopTimer) {
+        clearTimeout(aiPpPttTailStopTimer);
+        aiPpPttTailStopTimer = null;
     }
-    setAiPpTxRx(false, false);
+}
+
+function stopAiPpRecording(discard = false) {
+    cancelAiPpPttTailStop();
+    const recorder = aiPpMediaRecorder;
+    if (!recorder || recorder.state === 'inactive') {
+        setAiPpTxRx(false, false);
+        return;
+    }
+    aiPpDiscardCurrentRecording = !!discard;
+
+    const finalizeStop = () => {
+        try {
+            if (recorder.state !== 'inactive') recorder.stop();
+        } catch (e) {
+            if (aiPpMediaRecorder === recorder) aiPpMediaRecorder = null;
+        }
+        setAiPpTxRx(false, false);
+    };
+
+    // requestData() is async; wait for the final chunk before stop() or trailing audio is lost.
+    let finished = false;
+    const finish = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(fallbackTimer);
+        recorder.removeEventListener('dataavailable', onFlushChunk);
+        finalizeStop();
+    };
+    const onFlushChunk = (ev) => {
+        if (ev.data && ev.data.size > 0) aiPpAudioChunks.push(ev.data);
+        finish();
+    };
+    recorder.addEventListener('dataavailable', onFlushChunk);
+    const fallbackTimer = setTimeout(finish, 150);
+    try {
+        recorder.requestData();
+    } catch (e) {
+        finish();
+    }
+}
+
+function scheduleAiPpPttStopAfterTail() {
+    cancelAiPpPttTailStop();
+    aiPpPttTailStopTimer = setTimeout(() => {
+        aiPpPttTailStopTimer = null;
+        stopAiPpRecording();
+    }, AI_PP_PTT_TAIL_MS);
 }
 
 async function fetchWithTimeout(url, options, timeoutMs = 60000) {
@@ -28124,7 +28171,7 @@ function handleAiPpGlobalKeyUp(e) {
         if (aiPpPttKey) setAiPpStatus(`PTT: ${aiPpPttKey.label}`);
         return;
     }
-    stopAiPpRecording();
+    scheduleAiPpPttStopAfterTail();
 }
 
 function simulationSpeakNow(text, opts = {}) {
