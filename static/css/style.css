@@ -2323,6 +2323,170 @@ footer {
     font-size: 0.88rem;
 }
 
+.exercise-categories-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.exercise-categories-intro {
+    margin: 0;
+}
+
+.exercise-categories-create-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.exercise-categories-create-field {
+    flex: 1 1 240px;
+    margin: 0;
+}
+
+.exercise-categories-layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.3fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.exercise-categories-panel {
+    background: rgba(8, 16, 28, 0.55);
+    border: 1px solid rgba(74, 144, 226, 0.24);
+    border-radius: 10px;
+    padding: 0.85rem;
+    min-height: 320px;
+}
+
+.exercise-categories-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.exercise-categories-panel-header h3,
+.exercise-categories-section h4 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.exercise-categories-delete-btn {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.82rem;
+}
+
+.exercise-categories-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.exercise-category-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(74, 144, 226, 0.22);
+    background: rgba(18, 32, 52, 0.72);
+    color: #f5f7fa;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.exercise-category-item:hover,
+.exercise-category-item.is-selected {
+    border-color: rgba(96, 165, 250, 0.55);
+    background: rgba(30, 58, 95, 0.82);
+}
+
+.exercise-category-item-name {
+    font-weight: 600;
+}
+
+.exercise-category-item-count {
+    font-size: 0.82rem;
+    opacity: 0.78;
+    white-space: nowrap;
+}
+
+.exercise-categories-section + .exercise-categories-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(74, 144, 226, 0.18);
+}
+
+.exercise-categories-exercise-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.exercise-category-exercise-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 8px;
+    border: 1px solid rgba(74, 144, 226, 0.16);
+    background: rgba(12, 22, 36, 0.72);
+}
+
+.exercise-category-exercise-label {
+    min-width: 0;
+    font-size: 0.92rem;
+}
+
+.exercise-category-exercise-meta {
+    display: block;
+    font-size: 0.78rem;
+    opacity: 0.75;
+    margin-top: 0.15rem;
+}
+
+.exercise-category-exercise-row .btn {
+    flex-shrink: 0;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.82rem;
+}
+
+.subscriber-exercise-card {
+    cursor: pointer;
+}
+
+.subscriber-exercise-card:hover {
+    border-color: rgba(96, 165, 250, 0.45);
+}
+
+.exercise-categories-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.exercise-categories-footer .btn {
+    min-width: 110px;
+}
+
+@media (max-width: 768px) {
+    .exercise-categories-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
 .admin-modal-footer {
     display: flex;
     justify-content: center;
@@ -10335,10 +10499,16 @@ td.sim-holding-list-cs .sim-holding-list-avlb-stack-item {
     }
 }
 
-/* --- User auth (login / admin users) --- */
+/* --- User auth (login / subscribe / admin users) --- */
 body.auth-page {
     align-items: flex-start;
     padding: 2rem 1rem 3rem;
+    background-color: #0a1929;
+    background-image: url('../images/webATC background.png');
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
 }
 
 .auth-shell {

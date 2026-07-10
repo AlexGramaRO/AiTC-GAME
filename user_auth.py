@@ -207,6 +207,7 @@ def init_db():
                 pass_type TEXT NOT NULL DEFAULT 'monthly',
                 expires_at TIMESTAMPTZ,
                 stripe_checkout_session_id TEXT,
+                cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 created_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -262,6 +263,7 @@ def init_db():
             pass_type TEXT NOT NULL DEFAULT 'monthly',
             expires_at TEXT,
             stripe_checkout_session_id TEXT,
+            cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             created_by TEXT,
@@ -299,6 +301,7 @@ def _migrate_schema():
             cur.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS pass_type TEXT NOT NULL DEFAULT 'monthly'")
             cur.execute('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ')
             cur.execute('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_checkout_session_id TEXT')
+            cur.execute('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE')
             cur.execute(
                 '''CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
                    ON subscriptions (stripe_subscription_id)
@@ -322,6 +325,8 @@ def _migrate_schema():
             conn.execute('ALTER TABLE subscriptions ADD COLUMN expires_at TEXT')
         if not _sqlite_has_column(conn, 'subscriptions', 'stripe_checkout_session_id'):
             conn.execute('ALTER TABLE subscriptions ADD COLUMN stripe_checkout_session_id TEXT')
+        if not _sqlite_has_column(conn, 'subscriptions', 'cancel_at_period_end'):
+            conn.execute('ALTER TABLE subscriptions ADD COLUMN cancel_at_period_end INTEGER NOT NULL DEFAULT 0')
         conn.execute(
             '''CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
                ON subscriptions (stripe_subscription_id)
@@ -524,6 +529,8 @@ def _subscription_to_api(sub):
         'notes': sub.get('notes') or '',
         'stripeSubscriptionId': sub.get('stripe_subscription_id') or '',
         'source': 'stripe' if (sub.get('stripe_subscription_id') or sub.get('stripe_checkout_session_id')) else 'admin',
+        'cancelAtPeriodEnd': bool(sub.get('cancel_at_period_end')),
+        'autoRenew': not bool(sub.get('cancel_at_period_end')),
     }
 
 
@@ -726,12 +733,13 @@ def _fetch_subscription_by_id(subscription_id):
         return _row_to_dict(row)
 
 
-def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_date, plan_name='stripe-monthly'):
+def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_date, plan_name='stripe-monthly', cancel_at_period_end=False):
     if isinstance(start_date, datetime):
         start_date = start_date.date()
     if isinstance(end_date, datetime):
         end_date = end_date.date()
     now = _now_utc()
+    cancel_flag = bool(cancel_at_period_end)
     existing = fetch_subscription_by_stripe_id(stripe_subscription_id)
     with _db_conn() as conn:
         if existing:
@@ -740,18 +748,20 @@ def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_
                 cur.execute(
                     '''UPDATE subscriptions SET
                         start_date = %s, end_date = %s, status = 'active',
-                        plan_name = %s, pass_type = %s, updated_at = %s, expires_at = NULL
+                        plan_name = %s, pass_type = %s, updated_at = %s, expires_at = NULL,
+                        cancel_at_period_end = %s
                        WHERE id = %s''',
-                    (start_date, end_date, plan_name, PASS_TYPE_MONTHLY, now, existing['id']),
+                    (start_date, end_date, plan_name, PASS_TYPE_MONTHLY, now, cancel_flag, existing['id']),
                 )
                 cur.close()
             else:
                 conn.execute(
                     '''UPDATE subscriptions SET
                         start_date = ?, end_date = ?, status = 'active',
-                        plan_name = ?, pass_type = ?, updated_at = ?, expires_at = NULL
+                        plan_name = ?, pass_type = ?, updated_at = ?, expires_at = NULL,
+                        cancel_at_period_end = ?
                        WHERE id = ?''',
-                    (start_date.isoformat(), end_date.isoformat(), plan_name, PASS_TYPE_MONTHLY, now.isoformat(), existing['id']),
+                    (start_date.isoformat(), end_date.isoformat(), plan_name, PASS_TYPE_MONTHLY, now.isoformat(), 1 if cancel_flag else 0, existing['id']),
                 )
             return fetch_subscription_by_stripe_id(stripe_subscription_id)
 
@@ -761,12 +771,13 @@ def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_
             cur.execute(
                 '''INSERT INTO subscriptions (
                     id, user_id, plan_name, start_date, end_date, status, notes,
-                    created_at, updated_at, created_by, stripe_subscription_id, pass_type
-                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, NULL, %s, %s)''',
+                    created_at, updated_at, created_by, stripe_subscription_id, pass_type,
+                    cancel_at_period_end
+                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, NULL, %s, %s, %s)''',
                 (
                     sub_id, user_id, plan_name, start_date, end_date,
                     'Stripe recurring subscription (31-day billing period)',
-                    now, now, stripe_subscription_id, PASS_TYPE_MONTHLY,
+                    now, now, stripe_subscription_id, PASS_TYPE_MONTHLY, cancel_flag,
                 ),
             )
             cur.close()
@@ -774,15 +785,40 @@ def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_
             conn.execute(
                 '''INSERT INTO subscriptions (
                     id, user_id, plan_name, start_date, end_date, status, notes,
-                    created_at, updated_at, created_by, stripe_subscription_id, pass_type
-                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, NULL, ?, ?)''',
+                    created_at, updated_at, created_by, stripe_subscription_id, pass_type,
+                    cancel_at_period_end
+                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, NULL, ?, ?, ?)''',
                 (
                     sub_id, user_id, plan_name, start_date.isoformat(), end_date.isoformat(),
                     'Stripe recurring subscription (31-day billing period)',
                     now.isoformat(), now.isoformat(), stripe_subscription_id, PASS_TYPE_MONTHLY,
+                    1 if cancel_flag else 0,
                 ),
             )
         return fetch_subscription_by_stripe_id(stripe_subscription_id)
+
+
+def set_subscription_cancel_at_period_end(stripe_subscription_id, cancel_at_period_end=True):
+    now = _now_utc()
+    cancel_flag = bool(cancel_at_period_end)
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''UPDATE subscriptions SET cancel_at_period_end = %s, updated_at = %s
+                   WHERE stripe_subscription_id = %s AND status = 'active' ''',
+                (cancel_flag, now, stripe_subscription_id),
+            )
+            updated = cur.rowcount
+            cur.close()
+        else:
+            cur = conn.execute(
+                '''UPDATE subscriptions SET cancel_at_period_end = ?, updated_at = ?
+                   WHERE stripe_subscription_id = ? AND status = 'active' ''',
+                (1 if cancel_flag else 0, now.isoformat(), stripe_subscription_id),
+            )
+            updated = cur.rowcount
+    return updated > 0
 
 
 def cancel_subscription_by_stripe_id(stripe_subscription_id):
@@ -1144,6 +1180,8 @@ def api_auth_me():
         return jsonify({'ok': True, 'authenticated': False})
     monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
     one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
+    has_stripe_monthly = bool(monthly and monthly.get('stripe_subscription_id'))
+    pending_cancel = bool(monthly and monthly.get('cancel_at_period_end'))
     return jsonify({
         'ok': True,
         'authenticated': True,
@@ -1151,7 +1189,9 @@ def api_auth_me():
         'canAccessPlatform': user_can_access_platform(user),
         'canAccessSimulator': user_can_access_platform(user),
         'platformAccessReason': _platform_access_reason(user),
-        'canCancelViaStripe': bool(monthly and monthly.get('stripe_subscription_id')),
+        'canCancelViaStripe': has_stripe_monthly,
+        'canCancelSubscription': bool(has_stripe_monthly and not pending_cancel),
+        'subscriptionPendingCancellation': pending_cancel,
         'activeMonthlySubscription': _subscription_to_api(monthly),
         'activeOneDayPass': _subscription_to_api(one_day),
         'user': _user_to_api(user, include_subscription=True),

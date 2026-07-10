@@ -25,6 +25,7 @@ from user_auth import (
     fetch_subscription_by_stripe_id,
     fetch_user_by_stripe_customer_id,
     get_current_user,
+    set_subscription_cancel_at_period_end,
     set_user_stripe_customer_id,
     subscription_end_date,
     upsert_stripe_subscription,
@@ -126,6 +127,16 @@ def cancel_stripe_subscription(stripe_subscription_id):
     return True
 
 
+def schedule_stripe_subscription_cancellation(stripe_subscription_id):
+    """Stop auto-renewal at the end of the current paid billing period."""
+    stripe = _stripe_client()
+    if not stripe or not stripe_subscription_id:
+        return False
+    stripe.Subscription.modify(stripe_subscription_id, cancel_at_period_end=True)
+    set_subscription_cancel_at_period_end(stripe_subscription_id, True)
+    return True
+
+
 def _resolve_user_id_from_metadata(metadata, client_reference_id=None, customer_id=None):
     metadata = metadata or {}
     user_id = (metadata.get('user_id') or '').strip()
@@ -159,7 +170,15 @@ def _sync_stripe_subscription(stripe_subscription):
 
     start, end = _stripe_period_dates(stripe_subscription)
     plan_name = _monthly_plan_name()
-    return upsert_stripe_subscription(user_id, stripe_sub_id, start, end, plan_name=plan_name)
+    cancel_at_period_end = bool(stripe_subscription.get('cancel_at_period_end'))
+    return upsert_stripe_subscription(
+        user_id,
+        stripe_sub_id,
+        start,
+        end,
+        plan_name=plan_name,
+        cancel_at_period_end=cancel_at_period_end,
+    )
 
 
 def _handle_checkout_completed(session_obj):
@@ -220,10 +239,14 @@ def _billing_account_summary(user):
     monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
     one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
     monthly_api = _subscription_to_api(monthly)
+    has_stripe_monthly = bool(monthly and monthly.get('stripe_subscription_id'))
+    pending_cancel = bool(monthly and monthly.get('cancel_at_period_end'))
     return {
         'activeMonthlySubscription': monthly_api,
         'activeOneDayPass': _subscription_to_api(one_day),
-        'canCancelViaStripe': bool(monthly and monthly.get('stripe_subscription_id')),
+        'canCancelViaStripe': has_stripe_monthly,
+        'canCancelSubscription': bool(has_stripe_monthly and not pending_cancel),
+        'subscriptionPendingCancellation': pending_cancel,
         'hasStripeCustomer': bool((user.get('stripe_customer_id') or '').strip()),
     }
 
@@ -318,6 +341,8 @@ def api_billing_status():
         'canAccessPlatform': user_can_access_platform(user),
         'activeSubscription': _subscription_to_api(_fetch_active_subscription(user['id'])),
         'canCancelViaStripe': summary['canCancelViaStripe'],
+        'canCancelSubscription': summary['canCancelSubscription'],
+        'subscriptionPendingCancellation': summary['subscriptionPendingCancellation'],
         'activeMonthlySubscription': summary['activeMonthlySubscription'],
         'activeOneDayPass': summary['activeOneDayPass'],
         'user': _user_to_api(user, include_subscription=True),
@@ -397,7 +422,7 @@ def api_create_checkout_session():
 
 @billing_bp.route('/api/billing/customer-portal', methods=['POST'])
 def api_customer_portal():
-    """Stripe Customer Portal — cancel monthly subscription or update payment method."""
+    """Stripe Customer Portal — update payment method or manage billing details."""
     user = get_current_user()
     if not user:
         return jsonify({'ok': False, 'error': 'Authentication required'}), 401
@@ -422,6 +447,48 @@ def api_customer_portal():
         return jsonify({'ok': False, 'error': str(exc)}), 502
 
     return jsonify({'ok': True, 'url': portal.url})
+
+
+@billing_bp.route('/api/billing/cancel-subscription', methods=['POST'])
+def api_cancel_subscription():
+    """Cancel monthly auto-renewal while keeping access through the paid period."""
+    user = get_current_user()
+    if not user:
+        return jsonify({'ok': False, 'error': 'Authentication required'}), 401
+    if user.get('is_admin'):
+        return jsonify({'ok': False, 'error': 'Admin accounts do not have subscriptions'}), 400
+
+    monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
+    stripe_sub_id = (monthly or {}).get('stripe_subscription_id') or ''
+    if not monthly or not stripe_sub_id:
+        return jsonify({'ok': False, 'error': 'No active Stripe monthly subscription to cancel'}), 400
+
+    if monthly.get('cancel_at_period_end'):
+        monthly_api = _subscription_to_api(monthly)
+        return jsonify({
+            'ok': True,
+            'alreadyScheduled': True,
+            'message': 'Your subscription is already scheduled to cancel at the end of the current billing period.',
+            'activeMonthlySubscription': monthly_api,
+        })
+
+    stripe = _stripe_client()
+    if not stripe:
+        return jsonify({'ok': False, 'error': 'Stripe billing is not configured on this server'}), 503
+
+    try:
+        schedule_stripe_subscription_cancellation(stripe_sub_id)
+        stripe_sub = stripe.Subscription.retrieve(stripe_sub_id)
+        updated = _sync_stripe_subscription(stripe_sub)
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 502
+
+    monthly_api = _subscription_to_api(updated or fetch_subscription_by_stripe_id(stripe_sub_id))
+    return jsonify({
+        'ok': True,
+        'message': 'Your subscription will cancel at the end of the current billing period. You keep full access until then.',
+        'activeMonthlySubscription': monthly_api,
+    })
 
 
 @billing_bp.route('/api/billing/stripe/webhook', methods=['POST'])

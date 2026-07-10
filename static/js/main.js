@@ -7,6 +7,8 @@ const STORAGE_EXERCISES_KEY = 'atc_exercises';
 // Server-backed cache: sectors and exercises are shared across all clients
 let serverSectorsCache = [];
 let serverExercisesCache = [];
+let serverExerciseCategoriesCache = [];
+let currentUserIsAdmin = false;
 const serverSectorDetailsCache = new Map();
 /** Named flow packages from flows.json (per airspace: sectorId + sectorName). */
 let serverFlowsLibraryCache = [];
@@ -77,6 +79,15 @@ function loadExercisesFromServer() {
         .catch(() => {});
 }
 
+function loadExerciseCategoriesFromServer() {
+    return fetch('/api/exercise-categories')
+        .then(r => r.json())
+        .then(data => {
+            if (Array.isArray(data.categories)) serverExerciseCategoriesCache = data.categories;
+        })
+        .catch(() => {});
+}
+
 function loadFlowsLibraryFromServer() {
     return fetch('/api/flows')
         .then(r => r.json())
@@ -141,6 +152,467 @@ function saveExercises(exercises) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exercises: serverExercisesCache })
     }).catch(() => {});
+}
+
+function getExerciseCategories() {
+    return serverExerciseCategoriesCache;
+}
+
+function cloneExerciseCategories(categories) {
+    try {
+        return JSON.parse(JSON.stringify(categories && Array.isArray(categories) ? categories : []));
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveExerciseCategories(categories) {
+    serverExerciseCategoriesCache = categories && Array.isArray(categories) ? categories : [];
+    return fetch('/api/exercise-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: serverExerciseCategoriesCache })
+    }).then(r => r.json()).catch(() => ({ ok: false, error: 'Network error' }));
+}
+
+let selectedExerciseCategoryId = null;
+let exerciseCategoriesDraft = [];
+let exerciseCategoriesDirty = false;
+let selectedSubscriberCategoryId = null;
+
+function isPlatformAdminUser() {
+    return !!currentUserIsAdmin;
+}
+
+function getExerciseCategoriesDraft() {
+    return exerciseCategoriesDraft;
+}
+
+function markExerciseCategoriesDirty() {
+    exerciseCategoriesDirty = true;
+    setExerciseCategoriesMessage('You have unsaved changes. Press Save to apply.', 'info');
+}
+
+function newExerciseCategoryId() {
+    return Date.now().toString() + Math.random().toString(16).slice(2);
+}
+
+function getExerciseCategoryById(categoryId, source) {
+    const list = source || getExerciseCategories();
+    return list.find(cat => String(cat.id) === String(categoryId)) || null;
+}
+
+function getExerciseById(exerciseId) {
+    return getExercises().find(ex => String(ex.id) === String(exerciseId)) || null;
+}
+
+function getExerciseCategoryDisplayLabel(exercise) {
+    if (!exercise) return 'Unknown airspace';
+    const sectors = getSectors();
+    const sector = sectors.find(s => String(s.id) === String(exercise.sectorId));
+    return sector ? sector.name : 'Unknown airspace';
+}
+
+function setExerciseCategoriesMessage(text, kind) {
+    const el = document.getElementById('exerciseCategoriesMessage');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.display = text ? 'block' : 'none';
+    el.className = 'admin-message-text' + (kind === 'ok' ? ' ok' : '');
+    if (kind === 'error') el.style.color = '#fca5a5';
+    else if (kind === 'ok') el.style.color = '#86efac';
+    else if (kind === 'info') el.style.color = '#93c5fd';
+    else el.style.color = '';
+}
+
+async function persistExerciseCategories(categories, showMessage) {
+    const result = await saveExerciseCategories(categories);
+    if (!result.ok) {
+        if (showMessage !== false) {
+            setExerciseCategoriesMessage(result.error || 'Could not save categories.', 'error');
+        }
+        return false;
+    }
+    if (Array.isArray(result.categories)) {
+        serverExerciseCategoriesCache = result.categories;
+    }
+    if (showMessage) {
+        setExerciseCategoriesMessage(showMessage, 'ok');
+    }
+    return true;
+}
+
+function renderExerciseCategoriesModal() {
+    const categories = getExerciseCategoriesDraft().slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    const listEl = document.getElementById('exerciseCategoriesList');
+    const titleEl = document.getElementById('exerciseCategoryDetailTitle');
+    const assignedSection = document.getElementById('exerciseCategoryAssignedSection');
+    const availableSection = document.getElementById('exerciseCategoryAvailableSection');
+    const emptyHint = document.getElementById('exerciseCategoryEmptyHint');
+    const deleteBtn = document.getElementById('deleteExerciseCategoryBtn');
+    const assignedList = document.getElementById('exerciseCategoryAssignedList');
+    const availableList = document.getElementById('exerciseCategoryAvailableList');
+
+    if (!listEl) return;
+
+    if (!categories.length) {
+        listEl.innerHTML = '<div class="hint-text">No categories yet.</div>';
+        selectedExerciseCategoryId = null;
+    } else {
+        if (!selectedExerciseCategoryId || !categories.some(cat => String(cat.id) === String(selectedExerciseCategoryId))) {
+            selectedExerciseCategoryId = categories[0].id;
+        }
+        listEl.innerHTML = categories.map(cat => {
+            const count = Array.isArray(cat.exerciseIds) ? cat.exerciseIds.length : 0;
+            const selected = String(cat.id) === String(selectedExerciseCategoryId) ? ' is-selected' : '';
+            return `
+                <button type="button" class="exercise-category-item${selected}" data-category-id="${cat.id}">
+                    <span class="exercise-category-item-name">${escapeHtml(cat.name || 'Unnamed')}</span>
+                    <span class="exercise-category-item-count">${count} exercise${count === 1 ? '' : 's'}</span>
+                </button>
+            `;
+        }).join('');
+        listEl.querySelectorAll('[data-category-id]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                selectedExerciseCategoryId = btn.getAttribute('data-category-id');
+                renderExerciseCategoriesModal();
+            });
+        });
+    }
+
+    const selectedCategory = selectedExerciseCategoryId ? getExerciseCategoryById(selectedExerciseCategoryId, getExerciseCategoriesDraft()) : null;
+    if (!selectedCategory) {
+        if (titleEl) titleEl.textContent = 'Select a category';
+        if (deleteBtn) deleteBtn.style.display = 'none';
+        if (assignedSection) assignedSection.style.display = 'none';
+        if (availableSection) availableSection.style.display = 'none';
+        if (emptyHint) emptyHint.style.display = categories.length ? 'none' : 'block';
+        if (assignedList) assignedList.innerHTML = '';
+        if (availableList) availableList.innerHTML = '';
+        return;
+    }
+
+    if (titleEl) titleEl.textContent = selectedCategory.name || 'Category';
+    if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+    if (emptyHint) emptyHint.style.display = 'none';
+    if (assignedSection) assignedSection.style.display = 'block';
+    if (availableSection) availableSection.style.display = 'block';
+
+    const assignedIds = new Set((selectedCategory.exerciseIds || []).map(id => String(id)));
+    const assignedExercises = (selectedCategory.exerciseIds || [])
+        .map(id => getExerciseById(id))
+        .filter(Boolean);
+
+    if (assignedList) {
+        if (!assignedExercises.length) {
+            assignedList.innerHTML = '<div class="hint-text">No exercises in this category yet.</div>';
+        } else {
+            assignedList.innerHTML = assignedExercises.map(exercise => `
+                <div class="exercise-category-exercise-row">
+                    <div class="exercise-category-exercise-label">
+                        ${escapeHtml(exercise.name || 'Unnamed exercise')}
+                        <span class="exercise-category-exercise-meta">${escapeHtml(getExerciseCategoryDisplayLabel(exercise))}</span>
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-remove-exercise-id="${exercise.id}">Remove</button>
+                </div>
+            `).join('');
+            assignedList.querySelectorAll('[data-remove-exercise-id]').forEach(btn => {
+                btn.addEventListener('click', () => removeExerciseFromSelectedCategory(btn.getAttribute('data-remove-exercise-id')));
+            });
+        }
+    }
+
+    const availableExercises = getExercises()
+        .slice()
+        .filter(exercise => !assignedIds.has(String(exercise.id)))
+        .sort((a, b) => {
+            const left = `${a.name || ''} ${getExerciseCategoryDisplayLabel(a)}`.trim();
+            const right = `${b.name || ''} ${getExerciseCategoryDisplayLabel(b)}`.trim();
+            return left.localeCompare(right);
+        });
+
+    if (availableList) {
+        if (!availableExercises.length) {
+            availableList.innerHTML = '<div class="hint-text">All existing exercises are already in this category.</div>';
+        } else {
+            availableList.innerHTML = availableExercises.map(exercise => `
+                <div class="exercise-category-exercise-row">
+                    <div class="exercise-category-exercise-label">
+                        ${escapeHtml(exercise.name || 'Unnamed exercise')}
+                        <span class="exercise-category-exercise-meta">${escapeHtml(getExerciseCategoryDisplayLabel(exercise))}</span>
+                    </div>
+                    <button type="button" class="btn btn-primary" data-add-exercise-id="${exercise.id}">Add</button>
+                </div>
+            `).join('');
+            availableList.querySelectorAll('[data-add-exercise-id]').forEach(btn => {
+                btn.addEventListener('click', () => addExerciseToSelectedCategory(btn.getAttribute('data-add-exercise-id')));
+            });
+        }
+    }
+}
+
+async function openExerciseCategoriesModal() {
+    setExerciseCategoriesMessage('');
+    const nameInput = document.getElementById('newExerciseCategoryName');
+    if (nameInput) nameInput.value = '';
+    await Promise.all([
+        loadExercisesFromServer(),
+        loadExerciseCategoriesFromServer()
+    ]);
+    exerciseCategoriesDraft = cloneExerciseCategories(serverExerciseCategoriesCache);
+    exerciseCategoriesDirty = false;
+    selectedExerciseCategoryId = getExerciseCategoriesDraft()[0]?.id || null;
+    renderExerciseCategoriesModal();
+    openModal('exerciseCategoriesModal');
+}
+
+function createExerciseCategoryFromUi() {
+    const input = document.getElementById('newExerciseCategoryName');
+    const name = (input?.value || '').trim();
+    if (!name) {
+        setExerciseCategoriesMessage('Enter a category name.', 'error');
+        input?.focus();
+        return;
+    }
+    const duplicate = getExerciseCategoriesDraft().some(cat => String(cat.name || '').trim().toLowerCase() === name.toLowerCase());
+    if (duplicate) {
+        setExerciseCategoriesMessage('A category with that name already exists.', 'error');
+        return;
+    }
+    const now = new Date().toISOString();
+    const category = {
+        id: newExerciseCategoryId(),
+        name,
+        exerciseIds: [],
+        createdAt: now,
+        updatedAt: now
+    };
+    exerciseCategoriesDraft = getExerciseCategoriesDraft().concat([category]);
+    selectedExerciseCategoryId = category.id;
+    if (input) input.value = '';
+    markExerciseCategoriesDirty();
+    renderExerciseCategoriesModal();
+}
+
+function addExerciseToSelectedCategory(exerciseId) {
+    const category = getExerciseCategoryById(selectedExerciseCategoryId, getExerciseCategoriesDraft());
+    const exercise = getExerciseById(exerciseId);
+    if (!category || !exercise) return;
+    const ids = Array.isArray(category.exerciseIds) ? category.exerciseIds.slice() : [];
+    if (ids.some(id => String(id) === String(exerciseId))) return;
+    ids.push(String(exerciseId));
+    category.exerciseIds = ids;
+    category.updatedAt = new Date().toISOString();
+    markExerciseCategoriesDirty();
+    renderExerciseCategoriesModal();
+}
+
+function removeExerciseFromSelectedCategory(exerciseId) {
+    const category = getExerciseCategoryById(selectedExerciseCategoryId, getExerciseCategoriesDraft());
+    if (!category) return;
+    category.exerciseIds = (category.exerciseIds || []).filter(id => String(id) !== String(exerciseId));
+    category.updatedAt = new Date().toISOString();
+    markExerciseCategoriesDirty();
+    renderExerciseCategoriesModal();
+}
+
+function deleteSelectedExerciseCategory() {
+    const category = getExerciseCategoryById(selectedExerciseCategoryId, getExerciseCategoriesDraft());
+    if (!category) return;
+    if (!window.confirm(`Delete category "${category.name}"? Exercises themselves will not be deleted.`)) {
+        return;
+    }
+    exerciseCategoriesDraft = getExerciseCategoriesDraft().filter(cat => String(cat.id) !== String(category.id));
+    selectedExerciseCategoryId = exerciseCategoriesDraft[0]?.id || null;
+    markExerciseCategoriesDirty();
+    renderExerciseCategoriesModal();
+}
+
+async function saveExerciseCategoriesFromModal() {
+    const saveBtn = document.getElementById('saveExerciseCategoriesBtn');
+    if (saveBtn) saveBtn.disabled = true;
+    setExerciseCategoriesMessage('');
+    const ok = await persistExerciseCategories(getExerciseCategoriesDraft(), 'Categories saved.');
+    if (saveBtn) saveBtn.disabled = false;
+    if (!ok) return;
+    exerciseCategoriesDraft = cloneExerciseCategories(serverExerciseCategoriesCache);
+    exerciseCategoriesDirty = false;
+}
+
+function cancelExerciseCategoriesModal(force) {
+    if (!force && exerciseCategoriesDirty) {
+        if (!window.confirm('Discard unsaved category changes?')) return;
+    }
+    exerciseCategoriesDirty = false;
+    exerciseCategoriesDraft = cloneExerciseCategories(serverExerciseCategoriesCache);
+    closeModal('exerciseCategoriesModal');
+}
+
+function getCategoriesWithExercises() {
+    return getExerciseCategories()
+        .map(category => {
+            const exerciseIds = Array.isArray(category.exerciseIds) ? category.exerciseIds : [];
+            const exercises = exerciseIds.map(id => getExerciseById(id)).filter(Boolean);
+            return { category, exercises };
+        })
+        .filter(entry => entry.exercises.length > 0)
+        .sort((a, b) => String(a.category.name || '').localeCompare(String(b.category.name || '')));
+}
+
+function hideAllExercisePickerSteps() {
+    ['categorySelectionStep', 'categoryExerciseSelectionStep', 'sectorSelectionStep', 'exerciseSelectionStep'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+}
+
+function openSubscriberCategoryPicker() {
+    hideAllExercisePickerSteps();
+    selectedSubscriberCategoryId = null;
+    document.getElementById('selectExerciseTitle').textContent = 'Start Simulation';
+    renderCategoriesForSelection();
+    const step = document.getElementById('categorySelectionStep');
+    if (step) step.style.display = 'flex';
+    openModal('selectExerciseModal');
+}
+
+function renderCategoriesForSelection() {
+    const listEl = document.getElementById('categoriesList');
+    if (!listEl) return;
+    const entries = getCategoriesWithExercises();
+    if (!entries.length) {
+        listEl.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📂</div>
+                <div class="empty-state-text">No exercise categories are available yet.<br>Contact an administrator.</div>
+            </div>
+        `;
+        return;
+    }
+    listEl.innerHTML = entries.map(({ category, exercises }) => `
+        <div class="sector-card category-card" data-category-id="${category.id}">
+            <div class="sector-card-name">${escapeHtml(category.name || 'Unnamed category')}</div>
+            <div class="sector-card-description">${exercises.length} exercise${exercises.length === 1 ? '' : 's'} available</div>
+        </div>
+    `).join('');
+    listEl.querySelectorAll('[data-category-id]').forEach(card => {
+        card.addEventListener('click', function() {
+            selectSubscriberCategory(card.getAttribute('data-category-id'));
+        });
+    });
+}
+
+function selectSubscriberCategory(categoryId) {
+    const entry = getCategoriesWithExercises().find(item => String(item.category.id) === String(categoryId));
+    if (!entry) return;
+    selectedSubscriberCategoryId = categoryId;
+    hideAllExercisePickerSteps();
+    const step = document.getElementById('categoryExerciseSelectionStep');
+    if (step) step.style.display = 'flex';
+    const titleEl = document.getElementById('selectedCategoryTitle');
+    if (titleEl) titleEl.textContent = `Exercises in: ${entry.category.name || 'Category'}`;
+    renderExercisesForCategory(categoryId);
+}
+
+function backToCategorySelection() {
+    hideAllExercisePickerSteps();
+    selectedSubscriberCategoryId = null;
+    const step = document.getElementById('categorySelectionStep');
+    if (step) step.style.display = 'flex';
+    renderCategoriesForSelection();
+}
+
+function renderExercisesForCategory(categoryId) {
+    const listEl = document.getElementById('categoryExercisesList');
+    if (!listEl) return;
+    const entry = getCategoriesWithExercises().find(item => String(item.category.id) === String(categoryId));
+    const exercises = entry ? entry.exercises.slice() : [];
+    exercises.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+    if (!exercises.length) {
+        listEl.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <div class="empty-state-text">No exercises in this category.</div>
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = exercises.map(exercise => {
+        const airspace = getExerciseCategoryDisplayLabel(exercise);
+        const description = exercise.description ? `<div class="exercise-detail-item"><span class="exercise-detail-label">Description:</span><span class="exercise-detail-value">${escapeHtml(exercise.description)}</span></div>` : '';
+        const difficulty = exercise.difficulty ? `<div class="exercise-detail-item"><span class="exercise-detail-label">Difficulty:</span><span class="exercise-detail-value">${escapeHtml(exercise.difficulty)}</span></div>` : '';
+        const duration = exercise.duration ? `<div class="exercise-detail-item"><span class="exercise-detail-label">Duration:</span><span class="exercise-detail-value">${escapeHtml(String(exercise.duration))} minutes</span></div>` : '';
+        return `
+            <div class="exercise-card subscriber-exercise-card" data-exercise-id="${exercise.id}">
+                <div class="exercise-card-header">
+                    <div class="exercise-card-name">${escapeHtml(exercise.name || 'Unnamed exercise')}</div>
+                    <div class="exercise-card-date">${escapeHtml(airspace)}</div>
+                </div>
+                <div class="exercise-card-details">
+                    ${description}
+                    ${difficulty}
+                    ${duration}
+                    <div class="exercise-detail-item">
+                        <span class="exercise-detail-label">Aircraft:</span>
+                        <span class="exercise-detail-value">${Array.isArray(exercise.flights) ? exercise.flights.length : 0}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    listEl.querySelectorAll('.subscriber-exercise-card').forEach(card => {
+        card.addEventListener('click', async function() {
+            const exercise = exercises.find(ex => String(ex.id) === String(card.getAttribute('data-exercise-id')));
+            if (!exercise) return;
+            const label = exercise.name || 'this exercise';
+            if (!window.confirm(`Start "${label}" as Single User?`)) return;
+            await startSingleUserExerciseDirectly(exercise);
+        });
+    });
+}
+
+async function startSingleUserExerciseDirectly(exercise) {
+    if (!exercise) return;
+    try { stopHostPpLateralPoll(); } catch (e) {}
+    if (simulationHostStateIntervalId) {
+        clearInterval(simulationHostStateIntervalId);
+        simulationHostStateIntervalId = null;
+    }
+    hostStatePutInFlight = false;
+    try { clearHostReconnectTimers(); } catch (e) {}
+    simulationSessionId = null;
+    simulationJoinedSessionId = null;
+    simulationJoinRole = null;
+    simulationJoinAtcSectorId = null;
+    simulationJoinBoundaryIdFilter = null;
+    simulationIsMonitorOnly = false;
+
+    let sector = getCachedSector(exercise.sectorId);
+    if (sectorNeedsFullLoad(sector)) {
+        try {
+            sector = await loadSectorFromServer(exercise.sectorId);
+        } catch (e) {
+            alert('Could not load the airspace for this exercise.');
+            return;
+        }
+    }
+    if (!sector) {
+        alert('Airspace not found for this exercise.');
+        return;
+    }
+    const opts = getJoinAtcSectorPickerOptions(sector);
+    if (!opts.length) {
+        alert('This exercise airspace has no ATC sectors configured.');
+        return;
+    }
+    simulationHostAtcScope = opts[0].atcSectorId;
+    simulationSingleUserAtcSectorLocked = true;
+    window._runTypePresetMode = 'DL';
+    closeModal('selectExerciseModal');
+    startSimulation(exercise);
 }
 
 /** Export bundle identifier for JSON files produced by Export Data (for future import). */
@@ -2598,8 +3070,7 @@ function selectSector(sectorId) {
     
     if (!sector) return;
 
-    // Hide sector selection, show exercise selection
-    document.getElementById('sectorSelectionStep').style.display = 'none';
+    hideAllExercisePickerSteps();
     document.getElementById('exerciseSelectionStep').style.display = 'flex';
     
     // Update title
@@ -2725,8 +3196,8 @@ function renderExercisesForSector(sectorId) {
 
 // Go back to sector selection
 function backToSectorSelection() {
+    hideAllExercisePickerSteps();
     document.getElementById('sectorSelectionStep').style.display = 'flex';
-    document.getElementById('exerciseSelectionStep').style.display = 'none';
     // Clear any selected exercises and hide RUN buttons
     document.querySelectorAll('.exercise-card').forEach(c => {
         c.classList.remove('selected');
@@ -15061,8 +15532,8 @@ function openStartSessionModal() {
 }
 
 function openSelectExerciseForCreateSession() {
+    hideAllExercisePickerSteps();
     document.getElementById('sectorSelectionStep').style.display = 'flex';
-    document.getElementById('exerciseSelectionStep').style.display = 'none';
     document.querySelectorAll('.exercise-card').forEach(c => {
         c.classList.remove('selected');
         const actionDiv = c.querySelector('.exercise-card-action');
@@ -58884,6 +59355,7 @@ async function initUserSessionBar() {
     const emailEl = document.getElementById('userSessionEmail');
     const adminLink = document.getElementById('userAdminLinkBtn');
     const manageLink = document.getElementById('userManageSubscriptionBtn');
+    const categoriesSettingsRow = document.getElementById('exerciseCategoriesSettingsRow');
     const logoutBtn = document.getElementById('userLogoutBtn');
     if (!bar) return;
     try {
@@ -58893,6 +59365,8 @@ async function initUserSessionBar() {
         bar.style.display = 'flex';
         if (emailEl) emailEl.textContent = data.user.email || '';
         if (adminLink) adminLink.style.display = data.user.isAdmin ? 'inline-flex' : 'none';
+        if (categoriesSettingsRow) categoriesSettingsRow.style.display = data.user.isAdmin ? 'block' : 'none';
+        applyLandingRoleUi(data);
         if (manageLink) {
             manageLink.style.display = (data.isApproved && !data.user.isAdmin) ? 'inline-flex' : 'none';
         }
@@ -58902,6 +59376,30 @@ async function initUserSessionBar() {
         await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/login';
     });
+}
+
+function applyLandingRoleUi(authData) {
+    const isAdmin = !!(authData && authData.user && authData.user.isAdmin);
+    currentUserIsAdmin = isAdmin;
+
+    const adminOnlyLandingIds = [
+        'landingAirspaceMenuWrap',
+        'landingExercisesMenuWrap',
+        'settingsBtn',
+        'playbackBtn',
+        'vccsLinkBtn'
+    ];
+
+    adminOnlyLandingIds.forEach(function(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = isAdmin ? '' : 'none';
+    });
+
+    const categoriesSettingsRow = document.getElementById('exerciseCategoriesSettingsRow');
+    if (categoriesSettingsRow) {
+        categoriesSettingsRow.style.display = isAdmin ? 'block' : 'none';
+    }
 }
 
 function applyPlatformAccessGate(authData) {
@@ -58970,6 +59468,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await Promise.all([
         loadSectorsFromServer(),
         loadExercisesFromServer(),
+        loadExerciseCategoriesFromServer(),
         loadFlowsLibraryFromServer(),
         loadAircraftDbOverridesFromServer(),
         loadAirlineCallsignsOverridesFromServer(),
@@ -59000,16 +59499,29 @@ document.addEventListener('DOMContentLoaded', async function() {
     const exportDataModal = document.getElementById('exportDataModal');
     const importDataModal = document.getElementById('importDataModal');
 
-    // Start Simulation button handler - create or join session first
+    // Start Simulation button handler
     if (startSimulationBtn) {
-        startSimulationBtn.addEventListener('click', function() {
-            openStartSessionModal();
+        startSimulationBtn.addEventListener('click', async function() {
+            if (isPlatformAdminUser()) {
+                openStartSessionModal();
+                return;
+            }
+            await Promise.all([
+                loadExercisesFromServer(),
+                loadExerciseCategoriesFromServer(),
+                loadSectorsFromServer()
+            ]);
+            openSubscriberCategoryPicker();
         });
     }
 
     // Back to sectors button handler
     document.getElementById('backToSectorsBtn')?.addEventListener('click', function() {
         backToSectorSelection();
+    });
+
+    document.getElementById('backToCategoriesBtn')?.addEventListener('click', function() {
+        backToCategorySelection();
     });
 
 
@@ -59034,6 +59546,21 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Close modal handlers
     document.getElementById('closeSettingsBtn')?.addEventListener('click', () => closeModal('settingsModal'));
+    document.getElementById('openExerciseCategoriesBtn')?.addEventListener('click', () => {
+        closeModal('settingsModal');
+        openExerciseCategoriesModal();
+    });
+    document.getElementById('closeExerciseCategoriesBtn')?.addEventListener('click', () => cancelExerciseCategoriesModal());
+    document.getElementById('cancelExerciseCategoriesBtn')?.addEventListener('click', () => cancelExerciseCategoriesModal());
+    document.getElementById('saveExerciseCategoriesBtn')?.addEventListener('click', () => saveExerciseCategoriesFromModal());
+    document.getElementById('createExerciseCategoryBtn')?.addEventListener('click', () => createExerciseCategoryFromUi());
+    document.getElementById('deleteExerciseCategoryBtn')?.addEventListener('click', () => deleteSelectedExerciseCategory());
+    document.getElementById('newExerciseCategoryName')?.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            createExerciseCategoryFromUi();
+        }
+    });
     document.getElementById('closePlaybackBtn')?.addEventListener('click', () => {
         stopPlaybackTimer();
         closeModal('playbackModal');

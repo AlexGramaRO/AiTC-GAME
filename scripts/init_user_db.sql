@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     pass_type TEXT NOT NULL DEFAULT 'monthly',
     expires_at TIMESTAMPTZ,
     stripe_checkout_session_id TEXT,
+    cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,

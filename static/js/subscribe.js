@@ -3,6 +3,7 @@
 
     const planButtons = document.querySelectorAll('.subscribe-plan-btn');
     const manageBtn = document.getElementById('subscribeManageBtn');
+    const cancelBtn = document.getElementById('subscribeCancelBtn');
     const portalBtn = document.getElementById('subscribePortalBtn');
     const homeBtn = document.getElementById('subscribeHomeBtn');
     const logoutBtn = document.getElementById('subscribeLogoutBtn');
@@ -31,6 +32,13 @@
         return { resp, data };
     }
 
+    function formatDate(value) {
+        if (!value) return 'the end of your billing period';
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return d.toLocaleDateString();
+    }
+
     async function refreshStatus() {
         try {
             const resp = await fetch('/api/billing/status');
@@ -49,12 +57,20 @@
                 }
             }
 
-            const sub = data.activeSubscription;
             if (manageBtn) {
                 manageBtn.style.display = 'inline-flex';
             }
-            if (data.canCancelViaStripe && portalBtn) {
-                portalBtn.style.display = 'inline-flex';
+
+            const monthly = data.activeMonthlySubscription;
+            if (cancelBtn) {
+                cancelBtn.style.display = (data.canCancelSubscription && monthly && monthly.source === 'stripe')
+                    ? 'inline-flex'
+                    : 'none';
+            }
+            if (portalBtn) {
+                portalBtn.style.display = (data.canCancelViaStripe && data.activeMonthlySubscription)
+                    ? 'inline-flex'
+                    : 'none';
             }
             return data;
         } catch (_) {
@@ -80,6 +96,40 @@
                 btn.disabled = false;
             }
         });
+    });
+
+    cancelBtn?.addEventListener('click', async function () {
+        setMessage('');
+        let endDate = 'the end of your billing period';
+        try {
+            const statusResp = await fetch('/api/billing/status');
+            const statusData = await statusResp.json();
+            endDate = formatDate(statusData?.activeMonthlySubscription?.endDate);
+        } catch (_) {}
+
+        if (!window.confirm(
+            'Cancel auto-renewal at the end of your current billing period?\n\n'
+            + 'You will keep full access until '
+            + endDate
+            + ', and you will not be charged again.'
+        )) {
+            return;
+        }
+
+        cancelBtn.disabled = true;
+        try {
+            const { resp, data } = await postJson('/api/billing/cancel-subscription');
+            if (!resp.ok || !data.ok) {
+                setMessage(data.error || 'Could not cancel subscription.', 'error');
+                return;
+            }
+            setMessage(data.message || 'Subscription cancellation scheduled.', 'info');
+            await refreshStatus();
+        } catch (_) {
+            setMessage('Network error. Try again.', 'error');
+        } finally {
+            cancelBtn.disabled = false;
+        }
     });
 
     portalBtn?.addEventListener('click', async function () {

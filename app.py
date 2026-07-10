@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from user_auth import auth_before_request, init_user_auth
+from user_auth import auth_before_request, init_user_auth, admin_required
 from stripe_billing import init_stripe_billing
 
 app = Flask(__name__)
@@ -93,6 +93,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 RECORDINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'recordings')
 SECTORS_FILE = os.path.join(DATA_DIR, 'sectors.json')
 EXERCISES_FILE = os.path.join(DATA_DIR, 'exercises.json')
+EXERCISE_CATEGORIES_FILE = os.path.join(DATA_DIR, 'exercise_categories.json')
 FLOWS_LIBRARY_FILE = os.path.join(DATA_DIR, 'flows.json')
 AIRCRAFT_OVERRIDES_FILE = os.path.join(DATA_DIR, 'aircraft_db_overrides.json')
 AIRLINE_CALLSIGNS_OVERRIDES_FILE = os.path.join(DATA_DIR, 'airline_callsigns_overrides.json')
@@ -1647,6 +1648,79 @@ def api_save_exercises():
             exercises = []
         _write_json(EXERCISES_FILE, exercises)
         return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+
+
+def _valid_exercise_ids():
+    exercises = _read_json(EXERCISES_FILE, [])
+    if not isinstance(exercises, list):
+        return set()
+    ids = set()
+    for exercise in exercises:
+        if isinstance(exercise, dict) and exercise.get('id') is not None:
+            ids.add(str(exercise['id']))
+    return ids
+
+
+def _normalize_exercise_categories(categories):
+    valid_ids = _valid_exercise_ids()
+    if not isinstance(categories, list):
+        return []
+    normalized = []
+    seen_category_ids = set()
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    for category in categories:
+        if not isinstance(category, dict):
+            continue
+        category_id = str(category.get('id') or '').strip()
+        if not category_id or category_id in seen_category_ids:
+            continue
+        name = str(category.get('name') or '').strip()
+        if not name:
+            continue
+        raw_exercise_ids = category.get('exerciseIds')
+        if raw_exercise_ids is None:
+            raw_exercise_ids = category.get('exercise_ids')
+        if not isinstance(raw_exercise_ids, list):
+            raw_exercise_ids = []
+        exercise_ids = []
+        seen_exercise_ids = set()
+        for exercise_id in raw_exercise_ids:
+            exercise_key = str(exercise_id).strip()
+            if not exercise_key or exercise_key not in valid_ids or exercise_key in seen_exercise_ids:
+                continue
+            exercise_ids.append(exercise_key)
+            seen_exercise_ids.add(exercise_key)
+        created_at = str(category.get('createdAt') or category.get('created_at') or now).strip() or now
+        updated_at = str(category.get('updatedAt') or category.get('updated_at') or now).strip() or now
+        normalized.append({
+            'id': category_id,
+            'name': name,
+            'exerciseIds': exercise_ids,
+            'createdAt': created_at,
+            'updatedAt': updated_at,
+        })
+        seen_category_ids.add(category_id)
+    return normalized
+
+
+@app.route('/api/exercise-categories', methods=['GET'])
+def api_get_exercise_categories():
+    """Return exercise categories (groupings of existing exercises)."""
+    categories = _normalize_exercise_categories(_read_json(EXERCISE_CATEGORIES_FILE, []))
+    return jsonify({'ok': True, 'categories': categories})
+
+
+@app.route('/api/exercise-categories', methods=['POST', 'PUT'])
+@admin_required
+def api_save_exercise_categories():
+    """Save exercise categories (admin only)."""
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        categories = _normalize_exercise_categories(body.get('categories', []))
+        _write_json(EXERCISE_CATEGORIES_FILE, categories)
+        return jsonify({'ok': True, 'categories': categories})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
 

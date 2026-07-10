@@ -29,6 +29,17 @@
         return d.toLocaleString();
     }
 
+    async function postJson(url) {
+        const resp = await fetch(url, { method: 'POST' });
+        let data = {};
+        try {
+            data = await resp.json();
+        } catch (_) {
+            data = {};
+        }
+        return { resp, data };
+    }
+
     function renderMonthly() {
         const sub = cfg.monthly;
         if (!sub) {
@@ -40,26 +51,38 @@
 
         const source = sub.source === 'stripe' ? 'Stripe' : 'Administrator';
         if (monthlyDetail) {
-            monthlyDetail.textContent = sub.planName + ' · ' + formatDate(sub.startDate)
+            let detail = sub.planName + ' · ' + formatDate(sub.startDate)
                 + ' → ' + formatDate(sub.endDate) + ' · via ' + source;
+            if (sub.cancelAtPeriodEnd) {
+                detail += ' · auto-renewal off';
+            }
+            monthlyDetail.textContent = detail;
         }
 
         if (!monthlyActions) return;
         monthlyActions.innerHTML = '';
 
-        if (cfg.canCancelViaStripe && cfg.stripeConfigured) {
+        if (sub.cancelAtPeriodEnd) {
+            const banner = document.createElement('p');
+            banner.className = 'auth-footnote';
+            banner.style.marginTop = '0.75rem';
+            banner.textContent = 'Cancellation scheduled. You keep full access until '
+                + formatDate(sub.endDate) + ', and you will not be charged again.';
+            monthlyActions.appendChild(banner);
+        } else if (cfg.canCancelSubscription && sub.source === 'stripe') {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'btn btn-primary auth-submit';
-            btn.id = 'openStripePortalBtn';
-            btn.textContent = 'Cancel or update in Stripe';
-            btn.addEventListener('click', openStripePortal);
+            btn.className = 'btn btn-secondary auth-submit';
+            btn.id = 'cancelSubscriptionBtn';
+            btn.textContent = 'Cancel subscription';
+            btn.addEventListener('click', cancelSubscription);
             monthlyActions.appendChild(btn);
 
             const hint = document.createElement('p');
             hint.className = 'auth-footnote';
             hint.style.marginTop = '0.75rem';
-            hint.textContent = 'Opens the secure Stripe billing portal where you can cancel auto-renewal or update your payment method.';
+            hint.textContent = 'Cancels auto-renewal at the end of your current billing period. You keep access until '
+                + formatDate(sub.endDate) + '.';
             monthlyActions.appendChild(hint);
         } else if (sub.source !== 'stripe') {
             const hint = document.createElement('p');
@@ -67,6 +90,17 @@
             hint.style.marginTop = '0.75rem';
             hint.textContent = 'This monthly access was granted by an administrator. Contact an administrator to cancel it.';
             monthlyActions.appendChild(hint);
+        }
+
+        if (cfg.canCancelViaStripe && cfg.stripeConfigured) {
+            const portalBtn = document.createElement('button');
+            portalBtn.type = 'button';
+            portalBtn.className = 'btn btn-secondary auth-submit';
+            portalBtn.id = 'openStripePortalBtn';
+            portalBtn.textContent = 'Update payment in Stripe';
+            portalBtn.style.marginTop = '0.75rem';
+            portalBtn.addEventListener('click', openStripePortal);
+            monthlyActions.appendChild(portalBtn);
         }
     }
 
@@ -86,13 +120,48 @@
         }
     }
 
+    async function cancelSubscription() {
+        const sub = cfg.monthly;
+        if (!sub || !window.confirm(
+            'Cancel auto-renewal at the end of your current billing period?\n\n'
+            + 'You will keep full access until '
+            + formatDate(sub.endDate)
+            + ', and you will not be charged again.'
+        )) {
+            return;
+        }
+
+        setMessage('');
+        const btn = document.getElementById('cancelSubscriptionBtn');
+        if (btn) btn.disabled = true;
+        try {
+            const { resp, data } = await postJson('/api/billing/cancel-subscription');
+            if (!resp.ok || !data.ok) {
+                setMessage(data.error || 'Could not cancel subscription.', 'error');
+                return;
+            }
+            cfg.monthly = data.activeMonthlySubscription || cfg.monthly;
+            cfg.canCancelSubscription = false;
+            cfg.subscriptionPendingCancellation = true;
+            if (cfg.monthly) {
+                cfg.monthly.cancelAtPeriodEnd = true;
+                cfg.monthly.autoRenew = false;
+            }
+            setMessage(data.message || 'Subscription cancellation scheduled.', 'info');
+            renderMonthly();
+        } catch (_) {
+            setMessage('Network error. Try again.', 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
     async function openStripePortal() {
         setMessage('');
         const btn = document.getElementById('openStripePortalBtn');
         if (btn) btn.disabled = true;
         try {
-            const resp = await fetch('/api/billing/customer-portal', { method: 'POST' });
-            const data = await resp.json();
+            const { resp, data } = await postJson('/api/billing/customer-portal');
             if (!resp.ok || !data.ok || !data.url) {
                 setMessage(data.error || 'Could not open Stripe billing portal.', 'error');
                 return;

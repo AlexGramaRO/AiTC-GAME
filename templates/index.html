@@ -38,7 +38,7 @@
                     </span>
                 </button>
 
-                <div class="landing-menu-wrap">
+                <div class="landing-menu-wrap" id="landingAirspaceMenuWrap">
                     <button type="button" class="btn btn-landing btn-landing-airspace landing-menu-trigger" aria-haspopup="true" aria-expanded="false">
                         <span class="btn-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" focusable="false"><path d="M4 10l7-5 7 2 4 5-2 7-8 3-7-4-3-5z"></path><path d="M8 12l4-2 4 2-1 4-4 1-3-3z" opacity="0.55"></path></svg>
@@ -69,7 +69,7 @@
                     </div>
                 </div>
 
-                <div class="landing-menu-wrap">
+                <div class="landing-menu-wrap" id="landingExercisesMenuWrap">
                     <button type="button" class="btn btn-landing btn-landing-exercises landing-menu-trigger" aria-haspopup="true" aria-expanded="false">
                         <span class="btn-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" focusable="false"><path d="M3 10h2"></path><path d="M5 10h8"></path><path d="M4 10l1-1M4 10l1 1"></path><path d="M9 10l2 2"></path><path d="M12 10V8"></path><path d="M21 14h2"></path><path d="M11 14h8"></path><path d="M20 14l1-1M20 14l1 1"></path><path d="M15 14l2 2"></path><path d="M12 14v2"></path></svg>
@@ -235,12 +235,75 @@
                         <span class="btn-text">Import Data</span>
                     </button>
                 </div>
+                <div class="settings-admin-row" id="exerciseCategoriesSettingsRow" style="display:none;">
+                    <button type="button" class="btn btn-secondary settings-admin-btn" id="openExerciseCategoriesBtn">
+                        <span class="btn-icon settings-btn-icon" aria-hidden="true">
+                            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6 8h20M8 8v18h16V8M12 13h8M12 17h8M12 21h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M11 8V6h10v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                        <span class="btn-text">Exercises and Categories</span>
+                    </button>
+                </div>
                 <div class="settings-admin-row">
                     <button type="button" class="btn btn-secondary settings-admin-btn" id="openAdminBtn">
                         <span class="btn-icon">🔐</span>
                         <span class="btn-text">ADMIN</span>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exercise categories (admin) -->
+    <div id="exerciseCategoriesModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Exercises and Categories</h2>
+                <button type="button" class="modal-close" id="closeExerciseCategoriesBtn">&times;</button>
+            </div>
+            <div class="modal-body exercise-categories-body">
+                <p class="hint-text exercise-categories-intro">
+                    Create named categories and assign existing exercises to them. Exercises stay in the system; categories are groupings for organization.
+                </p>
+                <div id="exerciseCategoriesMessage" class="admin-message-text" style="display:none;"></div>
+                <div class="exercise-categories-create-row">
+                    <div class="form-group exercise-categories-create-field">
+                        <label for="newExerciseCategoryName">New category name</label>
+                        <input type="text" id="newExerciseCategoryName" class="form-input" placeholder="e.g. Beginner, Approach, Exam prep">
+                    </div>
+                    <button type="button" class="btn btn-primary" id="createExerciseCategoryBtn">Create category</button>
+                </div>
+                <div class="exercise-categories-layout">
+                    <div class="exercise-categories-panel">
+                        <div class="exercise-categories-panel-header">
+                            <h3>Categories</h3>
+                        </div>
+                        <div id="exerciseCategoriesList" class="exercise-categories-list">
+                            <div class="hint-text">No categories yet.</div>
+                        </div>
+                    </div>
+                    <div class="exercise-categories-panel">
+                        <div class="exercise-categories-panel-header">
+                            <h3 id="exerciseCategoryDetailTitle">Select a category</h3>
+                            <button type="button" class="btn btn-danger exercise-categories-delete-btn" id="deleteExerciseCategoryBtn" style="display:none;">Delete category</button>
+                        </div>
+                        <div id="exerciseCategoryAssignedSection" class="exercise-categories-section" style="display:none;">
+                            <h4>Exercises in this category</h4>
+                            <div id="exerciseCategoryAssignedList" class="exercise-categories-exercise-list"></div>
+                        </div>
+                        <div id="exerciseCategoryAvailableSection" class="exercise-categories-section" style="display:none;">
+                            <h4>Add existing exercises</h4>
+                            <div id="exerciseCategoryAvailableList" class="exercise-categories-exercise-list"></div>
+                        </div>
+                        <div id="exerciseCategoryEmptyHint" class="hint-text">Select a category to manage its exercises.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer exercise-categories-footer">
+                <button type="button" class="btn btn-primary" id="saveExerciseCategoriesBtn">Save</button>
+                <button type="button" class="btn btn-secondary" id="cancelExerciseCategoriesBtn">Cancel</button>
             </div>
         </div>
     </div>
@@ -748,7 +811,27 @@
                 <button class="modal-close" id="closeSelectExerciseBtn">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- Step 1: Sector Selection -->
+                <!-- Subscriber flow: category then exercise -->
+                <div id="categorySelectionStep" class="selection-step" style="display: none;">
+                    <h3 class="step-title">Select a Category</h3>
+                    <div id="categoriesList" class="sectors-grid">
+                        <!-- Categories populated by JS -->
+                    </div>
+                </div>
+
+                <div id="categoryExerciseSelectionStep" class="selection-step" style="display: none;">
+                    <div class="step-header">
+                        <button type="button" class="btn-back" id="backToCategoriesBtn">
+                            <span>←</span> Back to Categories
+                        </button>
+                        <h3 class="step-title" id="selectedCategoryTitle">Select an Exercise</h3>
+                    </div>
+                    <div id="categoryExercisesList" class="exercises-list">
+                        <!-- Exercises in category populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Admin flow: airspace then exercise -->
                 <div id="sectorSelectionStep" class="selection-step">
                     <h3 class="step-title">Step 1: Select an Airspace</h3>
                     <div id="sectorsList" class="sectors-grid">
