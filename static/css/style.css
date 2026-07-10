@@ -36,12 +36,12 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: flex-start;
-    gap: 0.85rem;
+    gap: 0.75rem;
     margin: 0;
     padding-left: 0.5rem;
 }
 
-/* Landing: vertical button stack on the left */
+/* Landing: vertical nav stack on the left */
 @media (min-width: 769px) {
     .container .button-row {
         align-items: flex-start;
@@ -49,15 +49,7 @@ body {
     }
 }
 
-.button-row .btn-center {
-    order: 1;
-}
-
-.button-row .btn-side {
-    order: 2;
-}
-
-/* Landing page: wireframe metallic buttons with slow shine */
+/* Landing page: glass nav buttons with SVG pictograms */
 .container .button-row a.btn {
     text-decoration: none;
 }
@@ -65,71 +57,180 @@ body {
 .container .button-row .btn {
     position: relative;
     overflow: hidden;
-    background: linear-gradient(145deg, #2a2d32 0%, #1c1e22 50%, #25282d 100%);
-    border: 2px solid rgba(120, 125, 135, 0.6);
-    border-radius: 6px;
-    padding: 0.7rem 1rem;
-    color: rgba(245, 247, 250, 0.95);
-    font-size: 1.05rem;
+    isolation: isolate;
+    background: linear-gradient(135deg, rgba(16, 24, 38, 0.82) 0%, rgba(8, 12, 22, 0.9) 100%);
+    border: 1px solid rgba(148, 180, 220, 0.22);
+    border-radius: 14px;
+    padding: 0.55rem 1rem 0.55rem 0.6rem;
+    color: rgba(245, 247, 250, 0.96);
+    font-size: 0.95rem;
     font-weight: 600;
+    letter-spacing: 0.02em;
     cursor: pointer;
-    transition: border-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
+    justify-content: flex-start;
+    gap: 0.85rem;
     min-width: 0;
-    width: 168px;
-    max-width: 168px;
-    min-height: 6.25rem;
+    width: 252px;
+    max-width: 252px;
+    min-height: 3.35rem;
     box-sizing: border-box;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 12px rgba(0, 0, 0, 0.4);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    flex: 0 0 168px;
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.34),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    flex: 0 0 auto;
 }
-.container .button-row .btn .btn-icon {
-    font-size: 1.65rem;
+
+.container .button-row .btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, rgba(255, 255, 255, 0.1) 0%, transparent 42%);
+    opacity: 0;
+    transition: opacity 0.22s ease;
+    pointer-events: none;
+    z-index: 0;
 }
-.container .button-row .btn .btn-text {
-    font-size: 0.88rem;
-}
+
 .container .button-row .btn::before {
     display: none;
 }
+
 .container .button-row .btn:hover {
-    border-color: rgba(160, 165, 175, 0.8);
-    color: #fff;
-    transform: translateY(-3px);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.35);
+    transform: translateX(4px);
+    border-color: rgba(190, 214, 255, 0.42);
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.38),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
-.container .button-row .btn .btn-icon,
-.container .button-row .btn .btn-text,
-.container .button-row .btn .btn-text-stack {
+
+.container .button-row .btn:hover::after {
+    opacity: 1;
+}
+
+.container .button-row .btn:active {
+    transform: translateX(2px) scale(0.99);
+}
+
+.container .button-row .btn .btn-icon {
     position: relative;
     z-index: 1;
-}
-
-.container .button-row .btn .btn-text-stack {
-    display: flex;
-    flex-direction: column;
+    width: 2.45rem;
+    height: 2.45rem;
+    border-radius: 11px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.2rem;
+    flex-shrink: 0;
+    font-size: 0;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    color: #dbeafe;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, color 0.22s ease;
 }
 
-.container .button-row .btn .btn-text-line {
-    font-size: 0.88rem;
+.container .button-row .btn .btn-icon svg {
+    width: 1.28rem;
+    height: 1.28rem;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.container .button-row .btn .btn-icon svg polygon,
+.container .button-row .btn .btn-icon svg rect[rx] {
+    fill: currentColor;
+    fill-opacity: 0.18;
+    stroke: currentColor;
+}
+
+.container .button-row .btn:hover .btn-icon {
+    transform: scale(1.04);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 18px rgba(96, 165, 250, 0.22);
+}
+
+.container .button-row .btn .btn-label {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.12rem;
+    min-width: 0;
+}
+
+.container .button-row .btn .btn-text {
+    font-size: 0.92rem;
     font-weight: 600;
-    line-height: 1.15;
+    line-height: 1.2;
+    letter-spacing: 0.03em;
 }
 
-.container .button-row .btn .btn-text-line.btn-text-demo {
-    font-size: 0.68rem;
+.container .button-row .btn .btn-subtext {
+    font-size: 0.62rem;
     font-weight: 700;
-    letter-spacing: 0.14em;
-    opacity: 0.92;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    opacity: 0.78;
+    color: rgba(191, 219, 254, 0.92);
+}
+
+.container .button-row .btn-landing-primary {
+    border-color: rgba(52, 211, 153, 0.38);
+    background: linear-gradient(135deg, rgba(14, 36, 32, 0.88) 0%, rgba(8, 16, 24, 0.92) 100%);
+}
+
+.container .button-row .btn-landing-primary .btn-icon {
+    color: #6ee7b7;
+    background: linear-gradient(145deg, rgba(52, 211, 153, 0.24) 0%, rgba(16, 185, 129, 0.08) 100%);
+    border-color: rgba(52, 211, 153, 0.35);
+}
+
+.container .button-row .btn-landing-primary:hover {
+    border-color: rgba(110, 231, 183, 0.55);
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.38),
+        0 0 24px rgba(16, 185, 129, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.container .button-row .btn-landing-settings .btn-icon {
+    color: #93c5fd;
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.22) 0%, rgba(37, 99, 235, 0.08) 100%);
+    border-color: rgba(96, 165, 250, 0.32);
+}
+
+.container .button-row .btn-landing-playback .btn-icon {
+    color: #c4b5fd;
+    background: linear-gradient(145deg, rgba(139, 92, 246, 0.22) 0%, rgba(109, 40, 217, 0.08) 100%);
+    border-color: rgba(167, 139, 250, 0.32);
+}
+
+.container .button-row .btn-landing-vccs .btn-icon {
+    color: #fcd34d;
+    background: linear-gradient(145deg, rgba(245, 158, 11, 0.22) 0%, rgba(217, 119, 6, 0.08) 100%);
+    border-color: rgba(251, 191, 36, 0.32);
+}
+
+.container .button-row .btn-landing-manual .btn-icon {
+    color: #7dd3fc;
+    background: linear-gradient(145deg, rgba(14, 165, 233, 0.22) 0%, rgba(2, 132, 199, 0.08) 100%);
+    border-color: rgba(56, 189, 248, 0.32);
+}
+
+.container .button-row .btn .btn-text-stack,
+.container .button-row .btn .btn-text-line {
+    position: relative;
+    z-index: 1;
 }
 
 footer .reg-mark {
@@ -8815,7 +8916,7 @@ td.sim-holding-list-cs .sim-holding-list-avlb-stack-item {
 
     .button-row {
         flex-direction: column;
-        gap: 0.85rem;
+        gap: 0.75rem;
         align-items: flex-start;
         padding-left: 0.5rem;
     }
@@ -8824,14 +8925,9 @@ td.sim-holding-list-cs .sim-holding-list-avlb-stack-item {
         align-items: flex-start;
     }
 
-    .btn-round {
-        min-width: 180px;
-        padding: 2rem 1.5rem;
-        border-radius: 8px;
-    }
-
-    .btn-side {
-        min-width: 180px;
+    .container .button-row .btn {
+        width: min(252px, calc(100vw - 3rem));
+        max-width: min(252px, calc(100vw - 3rem));
     }
 
     .modal-content {
