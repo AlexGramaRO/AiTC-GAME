@@ -82,8 +82,11 @@
             <div id="subscribeMessage" class="auth-message" style="display:none;"></div>
 
             <div class="subscribe-actions">
+                <a href="{{ url_for('stripe_billing.manage_subscription_page') }}" class="btn btn-secondary auth-submit" id="subscribeManageBtn" style="display:none;">
+                    Manage subscription
+                </a>
                 <button type="button" class="btn btn-secondary auth-submit" id="subscribePortalBtn" style="display:none;">
-                    Manage monthly billing
+                    Cancel in Stripe
                 </button>
                 <a href="{{ url_for('index') }}" class="btn btn-secondary auth-submit" id="subscribeHomeBtn" style="display:none;">Go to simulator</a>
                 <button type="button" class="btn btn-secondary auth-submit" id="subscribeLogoutBtn">Sign out</button>

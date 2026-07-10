@@ -466261,174 +466261,174 @@
   {
     "atcSectors": [
       {
-        "id": "atc_1782135228866_ab272c63417738",
-        "name": "Centre",
         "boundary": {
           "id": "bd_1782135228866_9fd9a7a24011f",
           "points": [
             {
-              "name": "BMAP2",
               "latitude": -40.90361111111111,
-              "longitude": -43.95527777777778
+              "longitude": -43.95527777777778,
+              "name": "BMAP2"
             },
             {
-              "name": "BMAP2",
               "latitude": -41.23555555555556,
-              "longitude": -43.94694444444444
+              "longitude": -43.94694444444444,
+              "name": "BMAP2"
             },
             {
-              "name": "BMAP1",
               "latitude": -41.21138888888889,
-              "longitude": -43.02055555555555
+              "longitude": -43.02055555555555,
+              "name": "BMAP1"
             },
             {
-              "name": "BMAP5",
               "latitude": -41.0825,
-              "longitude": -42.74583333333334
+              "longitude": -42.74583333333334,
+              "name": "BMAP5"
             },
             {
-              "name": "BMAP6",
               "latitude": -40.89861111111111,
-              "longitude": -42.74583333333334
+              "longitude": -42.74583333333334,
+              "name": "BMAP6"
             },
             {
-              "name": "BMAP1",
               "latitude": -40.60611111111111,
-              "longitude": -43.16166666666666
+              "longitude": -43.16166666666666,
+              "name": "BMAP1"
             },
             {
-              "name": "BMAP3",
               "latitude": -40.5575,
-              "longitude": -43.87833333333333
+              "longitude": -43.87833333333333,
+              "name": "BMAP3"
             }
           ]
         },
+        "frequency": "119.500",
+        "id": "atc_1782135228866_ab272c63417738",
+        "name": "Centre",
         "verticalLimits": {
-          "topFl": 450,
           "bottomFl": 150,
+          "topFl": 450,
           "transitionFl": 60
-        },
-        "frequency": "119.500"
+        }
       },
       {
-        "id": "atc_1782568537141_105e77a48a8b5",
-        "name": "East",
         "boundary": {
           "id": "bd_1782568537141_125534838fad1",
           "points": [
             {
-              "name": "BMAP2",
               "latitude": -41.23555555555556,
-              "longitude": -43.94694444444444
+              "longitude": -43.94694444444444,
+              "name": "BMAP2"
             },
             {
-              "name": "BMAP1",
               "latitude": -41.715833333333336,
-              "longitude": -43.724722222222226
+              "longitude": -43.724722222222226,
+              "name": "BMAP1"
             },
             {
-              "name": "BMAP2",
               "latitude": -41.69638888888888,
-              "longitude": -42.111666666666665
+              "longitude": -42.111666666666665,
+              "name": "BMAP2"
             },
             {
-              "name": "BMAP3",
               "latitude": -41.02361111111111,
-              "longitude": -41.430277777777775
+              "longitude": -41.430277777777775,
+              "name": "BMAP3"
             },
             {
-              "name": "BMAP4",
               "latitude": -40.58166666666667,
-              "longitude": -41.62166666666667
+              "longitude": -41.62166666666667,
+              "name": "BMAP4"
             },
             {
-              "name": "BMAP1",
               "latitude": -40.60611111111111,
-              "longitude": -43.16166666666666
+              "longitude": -43.16166666666666,
+              "name": "BMAP1"
             },
             {
-              "name": "BMAP6",
               "latitude": -40.89861111111111,
-              "longitude": -42.74583333333334
+              "longitude": -42.74583333333334,
+              "name": "BMAP6"
             },
             {
-              "name": "BMAP5",
               "latitude": -41.0825,
-              "longitude": -42.74583333333334
+              "longitude": -42.74583333333334,
+              "name": "BMAP5"
             },
             {
-              "name": "BMAP1",
               "latitude": -41.21138888888889,
-              "longitude": -43.02055555555555
+              "longitude": -43.02055555555555,
+              "name": "BMAP1"
             },
             {
-              "name": "BMAP2_E",
               "latitude": -41.23555555555556,
-              "longitude": -43.94694444444444
+              "longitude": -43.94694444444444,
+              "name": "BMAP2_E"
             }
           ]
         },
+        "frequency": "135.725",
+        "id": "atc_1782568537141_105e77a48a8b5",
+        "name": "East",
         "verticalLimits": {
-          "topFl": 350,
           "bottomFl": 150,
+          "topFl": 350,
           "transitionFl": 60
-        },
-        "frequency": "135.725"
+        }
       },
       {
-        "id": "atc_1782568966705_dfb37d9c22732",
-        "name": "WEST",
         "boundary": {
           "id": "bd_1782568966705_439dbd061b6518",
           "points": [
             {
-              "name": "BMAP1",
               "latitude": -41.715833333333336,
-              "longitude": -43.724722222222226
+              "longitude": -43.724722222222226,
+              "name": "BMAP1"
             },
             {
-              "name": "BMAP1",
               "latitude": -41.203611111111115,
-              "longitude": -45.330555555555556
+              "longitude": -45.330555555555556,
+              "name": "BMAP1"
             },
             {
-              "name": "BMAP2",
               "latitude": -39.717777777777776,
-              "longitude": -44.77861111111111
+              "longitude": -44.77861111111111,
+              "name": "BMAP2"
             },
             {
-              "name": "BMAP1",
               "latitude": -40.60611111111111,
-              "longitude": -43.16166666666666
+              "longitude": -43.16166666666666,
+              "name": "BMAP1"
             },
             {
-              "name": "BMAP3",
               "latitude": -40.5575,
-              "longitude": -43.87833333333333
+              "longitude": -43.87833333333333,
+              "name": "BMAP3"
             },
             {
-              "name": "BMAP2",
               "latitude": -40.90361111111111,
-              "longitude": -43.95527777777778
+              "longitude": -43.95527777777778,
+              "name": "BMAP2"
             },
             {
-              "name": "BMAP2",
               "latitude": -41.23555555555556,
-              "longitude": -43.94694444444444
+              "longitude": -43.94694444444444,
+              "name": "BMAP2"
             },
             {
-              "name": "BMAP1_E",
               "latitude": -41.715833333333336,
-              "longitude": -43.724722222222226
+              "longitude": -43.724722222222226,
+              "name": "BMAP1_E"
             }
           ]
         },
+        "frequency": "132.975",
+        "id": "atc_1782568966705_dfb37d9c22732",
+        "name": "WEST",
         "verticalLimits": {
-          "topFl": 450,
           "bottomFl": 150,
+          "topFl": 450,
           "transitionFl": 60
-        },
-        "frequency": "132.975"
+        }
       }
     ],
     "createdAt": "2026-06-22T13:31:36.304Z",
@@ -466436,10 +466436,10 @@
     "holdings": [
       {
         "id": "holding_1782135664814_d343f5c35bc81",
-        "waypointId": "1782135473900",
         "inboundTrackDeg": 180,
+        "outboundMinutes": 1.5,
         "turnDirection": "left",
-        "outboundMinutes": 1.5
+        "waypointId": "1782135473900"
       }
     ],
     "id": "1782135096304",
@@ -466544,40 +466544,2445 @@
       },
       {
         "id": "1782568617487",
-        "name": "LAMPO",
         "latitude": -40.683611111111105,
-        "longitude": -41.57805555555556
+        "longitude": -41.57805555555556,
+        "name": "LAMPO"
       },
       {
         "id": "1782568793823",
-        "name": "DUMBO",
         "latitude": -41.19472222222222,
-        "longitude": -41.60888888888889
+        "longitude": -41.60888888888889,
+        "name": "DUMBO"
       },
       {
         "id": "1782568838460",
-        "name": "SALMA",
         "latitude": -41.401111111111106,
-        "longitude": -41.809999999999995
+        "longitude": -41.809999999999995,
+        "name": "SALMA"
       },
       {
         "id": "1782569011691",
-        "name": "GOBLU",
         "latitude": -41.32416666666667,
-        "longitude": -44.94222222222222
+        "longitude": -44.94222222222222,
+        "name": "GOBLU"
       },
       {
         "id": "1782569046229",
-        "name": "CORRY",
         "latitude": -40.93583333333333,
-        "longitude": -45.2325
+        "longitude": -45.2325,
+        "name": "CORRY"
       },
       {
         "id": "1782569080505",
-        "name": "MERRY",
         "latitude": -40.14694444444444,
-        "longitude": -44.93805555555555
+        "longitude": -44.93805555555555,
+        "name": "MERRY"
       }
     ]
+  },
+  {
+    "id": "1783351891977",
+    "name": "Test_Airspace",
+    "description": "",
+    "waypoints": [
+      {
+        "id": "1783374115797",
+        "name": "CENTER",
+        "latitude": 42,
+        "longitude": 13
+      },
+      {
+        "id": "1783377399038_0",
+        "name": "ABATA",
+        "latitude": 42.333333333333336,
+        "longitude": 11.5
+      },
+      {
+        "id": "1783377399038_1",
+        "name": "BALAR",
+        "latitude": 42.666666666666664,
+        "longitude": 11
+      },
+      {
+        "id": "1783377399038_3",
+        "name": "DERMO",
+        "latitude": 43.333333333333336,
+        "longitude": 12.75
+      },
+      {
+        "id": "1783377399038_4",
+        "name": "ELANA",
+        "latitude": 43.666666666666664,
+        "longitude": 13.166666666666666
+      },
+      {
+        "id": "1783377419154_2",
+        "name": "CARPY",
+        "latitude": 43,
+        "longitude": 14
+      }
+    ],
+    "routes": [
+      {
+        "id": "1783377539108_1",
+        "name": "B123",
+        "waypointIds": [
+          "1783377399038_0",
+          "1783377399038_1",
+          "1783377399038_3",
+          "1783377399038_4"
+        ]
+      },
+      {
+        "id": "1783377539108_2",
+        "name": "C123",
+        "waypointIds": [
+          "1783377399038_1",
+          "1783377399038_0",
+          "1783377419154_2",
+          "1783377399038_3",
+          "1783377399038_4"
+        ]
+      }
+    ],
+    "createdAt": "2026-07-06T15:31:31.977Z",
+    "navaids": [
+      {
+        "id": "nav_1783374634703_6b3951fd386d28",
+        "name": "BCD",
+        "type": "TACAN",
+        "latitude": 40.5,
+        "longitude": 14
+      },
+      {
+        "id": "nav_1783374634703_038c8808fc06b",
+        "name": "CDE",
+        "type": "VOR",
+        "latitude": 41,
+        "longitude": 14
+      },
+      {
+        "id": "nav_1783374634703_61742671be37f",
+        "name": "DEM",
+        "type": "VOR/DME",
+        "latitude": 41.5,
+        "longitude": 14
+      },
+      {
+        "id": "nav_1783374634703_3a773ec9201ed",
+        "name": "EFL",
+        "type": "VORTAC",
+        "latitude": 42,
+        "longitude": 14
+      }
+    ],
+    "atcSectors": []
+  },
+  {
+    "atcSectors": [
+      {
+        "boundary": {
+          "id": "bd_1783465070563_6afdded341a028",
+          "points": [
+            {
+              "latitude": 33.468333333333334,
+              "longitude": 39.016666666666666,
+              "name": "MODIK"
+            },
+            {
+              "latitude": 33.35388888888889,
+              "longitude": 38.816944444444445,
+              "name": "BMAP1"
+            },
+            {
+              "latitude": 33.10388888888889,
+              "longitude": 38.931666666666665,
+              "name": "BMAP2"
+            },
+            {
+              "latitude": 32.519444444444446,
+              "longitude": 39.097500000000004,
+              "name": "BMAP3"
+            },
+            {
+              "latitude": 32.463055555555556,
+              "longitude": 38.995,
+              "name": "BMAP4"
+            },
+            {
+              "latitude": 32.28111111111111,
+              "longitude": 39.06222222222222,
+              "name": "BMAP5"
+            },
+            {
+              "latitude": 32.32166666666667,
+              "longitude": 39.26166666666666,
+              "name": "BMAP6"
+            },
+            {
+              "latitude": 32.1975,
+              "longitude": 39.30555555555555,
+              "name": "BMAP7"
+            },
+            {
+              "latitude": 32.134166666666665,
+              "longitude": 39.19833333333333,
+              "name": "BMAP8"
+            },
+            {
+              "latitude": 32.086666666666666,
+              "longitude": 39.621944444444445,
+              "name": "DAXAN"
+            },
+            {
+              "latitude": 31.93166666666667,
+              "longitude": 40.42611111111111,
+              "name": "BMAP9"
+            },
+            {
+              "latitude": 31.343055555555555,
+              "longitude": 41.466944444444444,
+              "name": "BMAP10"
+            },
+            {
+              "latitude": 31.210277777777776,
+              "longitude": 41.843333333333334,
+              "name": "MURIB"
+            },
+            {
+              "latitude": 31.085277777777776,
+              "longitude": 42.14361111111111,
+              "name": "BMAP11"
+            },
+            {
+              "latitude": 29.995,
+              "longitude": 43.64666666666667,
+              "name": "LOTAN"
+            },
+            {
+              "latitude": 29.508333333333333,
+              "longitude": 44.30694444444444,
+              "name": "NISER"
+            },
+            {
+              "latitude": 29.260277777777777,
+              "longitude": 44.72916666666667,
+              "name": "BMAP12"
+            },
+            {
+              "latitude": 29.1125,
+              "longitude": 46.42666666666666,
+              "name": "BMAP13"
+            },
+            {
+              "latitude": 29.161666666666665,
+              "longitude": 46.63611111111111,
+              "name": "SOLAT"
+            },
+            {
+              "latitude": 29.36416666666667,
+              "longitude": 46.77583333333333,
+              "name": "BMAP14"
+            },
+            {
+              "latitude": 29.46361111111111,
+              "longitude": 46.875277777777775,
+              "name": "BMAP15"
+            },
+            {
+              "latitude": 29.566944444444445,
+              "longitude": 46.916666666666664,
+              "name": "BMAP16"
+            },
+            {
+              "latitude": 29.634444444444444,
+              "longitude": 46.98694444444445,
+              "name": "BMAP17"
+            },
+            {
+              "latitude": 29.780277777777776,
+              "longitude": 47.02861111111111,
+              "name": "BMAP18"
+            },
+            {
+              "latitude": 29.808611111111112,
+              "longitude": 47.07805555555556,
+              "name": "BMAP19"
+            },
+            {
+              "latitude": 29.98638888888889,
+              "longitude": 47.15277777777778,
+              "name": "BMAP20"
+            },
+            {
+              "latitude": 30.029166666666665,
+              "longitude": 47.21472222222223,
+              "name": "BMAP21"
+            },
+            {
+              "latitude": 30.05388888888889,
+              "longitude": 47.301944444444445,
+              "name": "BMAP22"
+            },
+            {
+              "latitude": 30.093055555555555,
+              "longitude": 47.36388888888889,
+              "name": "BMAP23"
+            },
+            {
+              "latitude": 30.093055555555555,
+              "longitude": 47.69944444444444,
+              "name": "BMAP24"
+            },
+            {
+              "latitude": 30.022222222222222,
+              "longitude": 47.918055555555554,
+              "name": "TASMI"
+            },
+            {
+              "latitude": 29.990000000000002,
+              "longitude": 48.026666666666664,
+              "name": "BMAP25"
+            },
+            {
+              "latitude": 30.025555555555556,
+              "longitude": 48.08861111111111,
+              "name": "BMAP26"
+            },
+            {
+              "latitude": 30.011388888888888,
+              "longitude": 48.19638888888888,
+              "name": "BMAP27"
+            },
+            {
+              "latitude": 29.947222222222223,
+              "longitude": 48.27916666666667,
+              "name": "BMAP28"
+            },
+            {
+              "latitude": 29.85138888888889,
+              "longitude": 48.41583333333333,
+              "name": "BMAP29"
+            },
+            {
+              "latitude": 29.87527777777778,
+              "longitude": 48.495555555555555,
+              "name": "SIDAD"
+            },
+            {
+              "latitude": 29.858333333333334,
+              "longitude": 48.71666666666667,
+              "name": "BMAP30"
+            },
+            {
+              "latitude": 29.984444444444446,
+              "longitude": 48.473055555555554,
+              "name": "BMAP31"
+            },
+            {
+              "latitude": 30.059166666666666,
+              "longitude": 48.44611111111111,
+              "name": "BMAP32"
+            },
+            {
+              "latitude": 30.112222222222222,
+              "longitude": 48.39388888888889,
+              "name": "BMAP33"
+            },
+            {
+              "latitude": 30.17361111111111,
+              "longitude": 48.413333333333334,
+              "name": "BMAP34"
+            },
+            {
+              "latitude": 30.305555555555557,
+              "longitude": 48.29138888888889,
+              "name": "BMAP35"
+            },
+            {
+              "latitude": 30.415277777777778,
+              "longitude": 48.16361111111111,
+              "name": "BMAP36"
+            },
+            {
+              "latitude": 30.436944444444446,
+              "longitude": 48.07972222222222,
+              "name": "BMAP37"
+            },
+            {
+              "latitude": 30.46333333333333,
+              "longitude": 48.0375,
+              "name": "BMAP38"
+            },
+            {
+              "latitude": 30.960555555555555,
+              "longitude": 48.03,
+              "name": "BMAP39"
+            },
+            {
+              "latitude": 30.96972222222222,
+              "longitude": 47.70416666666667,
+              "name": "BMAP40"
+            },
+            {
+              "latitude": 31.358055555555556,
+              "longitude": 47.69333333333333,
+              "name": "BMAP41"
+            },
+            {
+              "latitude": 31.73638888888889,
+              "longitude": 47.868611111111115,
+              "name": "BMAP42"
+            },
+            {
+              "latitude": 31.78527777777778,
+              "longitude": 47.81194444444444,
+              "name": "BMAP43"
+            },
+            {
+              "latitude": 31.829722222222223,
+              "longitude": 47.81194444444444,
+              "name": "BMAP44"
+            },
+            {
+              "latitude": 31.868333333333332,
+              "longitude": 47.7575,
+              "name": "BMAP45"
+            },
+            {
+              "latitude": 31.90694444444444,
+              "longitude": 47.72916666666667,
+              "name": "BMAP46"
+            },
+            {
+              "latitude": 31.981944444444444,
+              "longitude": 47.665277777777774,
+              "name": "BMAP47"
+            },
+            {
+              "latitude": 32.01833333333333,
+              "longitude": 47.660555555555554,
+              "name": "BMAP48"
+            },
+            {
+              "latitude": 32.05083333333333,
+              "longitude": 47.61333333333334,
+              "name": "BMAP49"
+            },
+            {
+              "latitude": 32.055,
+              "longitude": 47.57083333333334,
+              "name": "BMAP50"
+            },
+            {
+              "latitude": 32.077222222222225,
+              "longitude": 47.53777777777778,
+              "name": "BMAP51"
+            },
+            {
+              "latitude": 32.109722222222224,
+              "longitude": 47.53777777777778,
+              "name": "BMAP52"
+            },
+            {
+              "latitude": 32.14194444444444,
+              "longitude": 47.57083333333334,
+              "name": "BMAP53"
+            },
+            {
+              "latitude": 32.16638888888889,
+              "longitude": 47.566111111111105,
+              "name": "BMAP54"
+            },
+            {
+              "latitude": 32.221111111111114,
+              "longitude": 47.5025,
+              "name": "BMAP55"
+            },
+            {
+              "latitude": 32.24777777777778,
+              "longitude": 47.49805555555556,
+              "name": "BMAP56"
+            },
+            {
+              "latitude": 32.26,
+              "longitude": 47.466944444444444,
+              "name": "BMAP57"
+            },
+            {
+              "latitude": 32.26,
+              "longitude": 47.44555555555555,
+              "name": "BMAP58"
+            },
+            {
+              "latitude": 32.27583333333333,
+              "longitude": 47.44,
+              "name": "BMAP59"
+            },
+            {
+              "latitude": 32.290277777777774,
+              "longitude": 47.42861111111111,
+              "name": "BMAP60"
+            },
+            {
+              "latitude": 32.296388888888885,
+              "longitude": 47.44694444444444,
+              "name": "BMAP61"
+            },
+            {
+              "latitude": 32.32083333333334,
+              "longitude": 47.458333333333336,
+              "name": "BMAP62"
+            },
+            {
+              "latitude": 32.35,
+              "longitude": 47.44138888888889,
+              "name": "BMAP63"
+            },
+            {
+              "latitude": 32.37555555555556,
+              "longitude": 47.41027777777778,
+              "name": "BMAP64"
+            },
+            {
+              "latitude": 32.3975,
+              "longitude": 47.39611111111111,
+              "name": "BMAP65"
+            },
+            {
+              "latitude": 32.40833333333333,
+              "longitude": 47.342222222222226,
+              "name": "BMAP66"
+            },
+            {
+              "latitude": 32.42666666666666,
+              "longitude": 47.305277777777775,
+              "name": "BMAP67"
+            },
+            {
+              "latitude": 32.41305555555555,
+              "longitude": 47.269999999999996,
+              "name": "BMAP68"
+            },
+            {
+              "latitude": 32.394999999999996,
+              "longitude": 47.17944444444444,
+              "name": "BMAP69"
+            },
+            {
+              "latitude": 32.401111111111106,
+              "longitude": 47.13111111111111,
+              "name": "BMAP70"
+            },
+            {
+              "latitude": 32.42666666666666,
+              "longitude": 47.09,
+              "name": "BMAP71"
+            },
+            {
+              "latitude": 32.64361111111111,
+              "longitude": 46.81944444444445,
+              "name": "BMAP73"
+            },
+            {
+              "latitude": 32.66,
+              "longitude": 46.79083333333333,
+              "name": "BMAP74"
+            },
+            {
+              "latitude": 32.69305555555555,
+              "longitude": 46.75,
+              "name": "BMAP75"
+            },
+            {
+              "latitude": 32.775277777777774,
+              "longitude": 46.60861111111111,
+              "name": "BMAP76"
+            },
+            {
+              "latitude": 32.87416666666667,
+              "longitude": 46.43333333333333,
+              "name": "BMAP77"
+            },
+            {
+              "latitude": 32.89472222222222,
+              "longitude": 46.14555555555555,
+              "name": "BMAP78"
+            },
+            {
+              "latitude": 32.909166666666664,
+              "longitude": 46.1025,
+              "name": "BMAP79"
+            },
+            {
+              "latitude": 32.94194444444444,
+              "longitude": 46.1025,
+              "name": "BMAP80"
+            },
+            {
+              "latitude": 32.96055555555556,
+              "longitude": 46.14555555555555,
+              "name": "BMAP81"
+            },
+            {
+              "latitude": 32.99777777777778,
+              "longitude": 46.16722222222222,
+              "name": "BMAP82"
+            },
+            {
+              "latitude": 33.032777777777774,
+              "longitude": 46.051944444444445,
+              "name": "BMAP83"
+            },
+            {
+              "latitude": 33.061388888888885,
+              "longitude": 46.05444444444444,
+              "name": "BMAP84"
+            },
+            {
+              "latitude": 33.044999999999995,
+              "longitude": 46.13361111111111,
+              "name": "BMAP85"
+            },
+            {
+              "latitude": 33.10916666666667,
+              "longitude": 46.20888888888889,
+              "name": "BMAP86"
+            },
+            {
+              "latitude": 33.12861111111111,
+              "longitude": 46.18805555555555,
+              "name": "BMAP87"
+            },
+            {
+              "latitude": 33.18555555555555,
+              "longitude": 46.19944444444444,
+              "name": "BMAP88"
+            },
+            {
+              "latitude": 33.348888888888894,
+              "longitude": 46.08861111111111,
+              "name": "PAXAT"
+            },
+            {
+              "latitude": 33.40333333333333,
+              "longitude": 46.028888888888886,
+              "name": "BMAP89"
+            },
+            {
+              "latitude": 33.456944444444446,
+              "longitude": 46.03361111111111,
+              "name": "BMAP90"
+            },
+            {
+              "latitude": 33.498333333333335,
+              "longitude": 45.983333333333334,
+              "name": "BMAP92"
+            },
+            {
+              "latitude": 33.49027777777778,
+              "longitude": 45.96222222222222,
+              "name": "BMAP93"
+            },
+            {
+              "latitude": 33.51861111111111,
+              "longitude": 45.946666666666665,
+              "name": "BMAP94"
+            },
+            {
+              "latitude": 33.533055555555556,
+              "longitude": 45.94361111111111,
+              "name": "BMAP95"
+            },
+            {
+              "latitude": 33.535555555555554,
+              "longitude": 45.93722222222222,
+              "name": "BMAP96"
+            },
+            {
+              "latitude": 33.559999999999995,
+              "longitude": 45.94472222222222,
+              "name": "BMAP97"
+            },
+            {
+              "latitude": 33.59027777777778,
+              "longitude": 45.92166666666667,
+              "name": "BMAP98"
+            },
+            {
+              "latitude": 33.59805555555556,
+              "longitude": 45.90138888888889,
+              "name": "BMAP99"
+            },
+            {
+              "latitude": 33.61888888888889,
+              "longitude": 45.90083333333333,
+              "name": "BMAP100"
+            },
+            {
+              "latitude": 33.6275,
+              "longitude": 45.83861111111111,
+              "name": "BMAP101"
+            },
+            {
+              "latitude": 33.595,
+              "longitude": 45.75555555555555,
+              "name": "BMAP102"
+            },
+            {
+              "latitude": 33.60805555555556,
+              "longitude": 45.745555555555555,
+              "name": "BMAP103"
+            },
+            {
+              "latitude": 33.62111111111111,
+              "longitude": 45.7675,
+              "name": "BMAP104"
+            },
+            {
+              "latitude": 33.658055555555556,
+              "longitude": 45.73888888888889,
+              "name": "BMAP105"
+            },
+            {
+              "latitude": 33.70888888888889,
+              "longitude": 45.67666666666666,
+              "name": "BMAP106"
+            },
+            {
+              "latitude": 33.76,
+              "longitude": 45.65472222222222,
+              "name": "BMAP107"
+            },
+            {
+              "latitude": 33.79972222222222,
+              "longitude": 45.61944444444445,
+              "name": "BMAP108"
+            },
+            {
+              "latitude": 33.86027777777778,
+              "longitude": 45.57083333333334,
+              "name": "BMAP109"
+            },
+            {
+              "latitude": 33.91694444444444,
+              "longitude": 45.53777777777778,
+              "name": "BMAP110"
+            },
+            {
+              "latitude": 33.95277777777778,
+              "longitude": 45.51583333333333,
+              "name": "BMAP111"
+            },
+            {
+              "latitude": 33.94916666666666,
+              "longitude": 45.45416666666667,
+              "name": "BMAP112"
+            },
+            {
+              "latitude": 33.985,
+              "longitude": 45.416666666666664,
+              "name": "BMAP113"
+            },
+            {
+              "latitude": 34.013333333333335,
+              "longitude": 45.44305555555555,
+              "name": "BMAP114"
+            },
+            {
+              "latitude": 34.03611111111111,
+              "longitude": 45.46277777777778,
+              "name": "BMAP115"
+            },
+            {
+              "latitude": 34.073888888888895,
+              "longitude": 45.473888888888894,
+              "name": "BMAP116"
+            },
+            {
+              "latitude": 34.10611111111111,
+              "longitude": 45.48277777777778,
+              "name": "BMAP117"
+            },
+            {
+              "latitude": 34.130833333333335,
+              "longitude": 45.51361111111111,
+              "name": "BMAP118"
+            },
+            {
+              "latitude": 34.16111111111111,
+              "longitude": 45.56861111111112,
+              "name": "BMAP119"
+            },
+            {
+              "latitude": 34.208333333333336,
+              "longitude": 45.559999999999995,
+              "name": "BMAP120"
+            },
+            {
+              "latitude": 34.29972222222222,
+              "longitude": 45.587500000000006,
+              "name": "BMAP121"
+            },
+            {
+              "latitude": 34.33222222222223,
+              "longitude": 45.54,
+              "name": "BMAP122"
+            },
+            {
+              "latitude": 34.34027777777778,
+              "longitude": 45.49277777777778,
+              "name": "BMAP123"
+            },
+            {
+              "latitude": 34.41638888888889,
+              "longitude": 45.461111111111116,
+              "name": "BMAP124"
+            },
+            {
+              "latitude": 34.45722222222223,
+              "longitude": 45.45777777777778,
+              "name": "BMAP125"
+            },
+            {
+              "latitude": 34.45444444444445,
+              "longitude": 45.50861111111111,
+              "name": "BMAP126"
+            },
+            {
+              "latitude": 34.51416666666667,
+              "longitude": 45.536944444444444,
+              "name": "BMAP127"
+            },
+            {
+              "latitude": 34.5575,
+              "longitude": 45.524166666666666,
+              "name": "BMAP128"
+            },
+            {
+              "latitude": 34.57666666666667,
+              "longitude": 45.55583333333333,
+              "name": "BMAP129"
+            },
+            {
+              "latitude": 34.54944444444444,
+              "longitude": 45.590833333333336,
+              "name": "BMAP130"
+            },
+            {
+              "latitude": 34.54138888888889,
+              "longitude": 45.666666666666664,
+              "name": "BMAP131"
+            },
+            {
+              "latitude": 34.52777777777778,
+              "longitude": 45.73638888888889,
+              "name": "BMAP132"
+            },
+            {
+              "latitude": 34.60916666666667,
+              "longitude": 45.74583333333334,
+              "name": "BMAP133"
+            },
+            {
+              "latitude": 34.66888888888889,
+              "longitude": 45.720555555555556,
+              "name": "BMAP134"
+            },
+            {
+              "latitude": 34.709722222222226,
+              "longitude": 45.67611111111111,
+              "name": "BMAP135"
+            },
+            {
+              "latitude": 34.742222222222225,
+              "longitude": 45.68888888888888,
+              "name": "BMAP136"
+            },
+            {
+              "latitude": 34.78583333333333,
+              "longitude": 45.70472222222222,
+              "name": "BMAP137"
+            },
+            {
+              "latitude": 34.821111111111115,
+              "longitude": 45.720555555555556,
+              "name": "BMAP138"
+            },
+            {
+              "latitude": 34.823888888888895,
+              "longitude": 45.77111111111111,
+              "name": "BMAP139"
+            },
+            {
+              "latitude": 34.88361111111111,
+              "longitude": 45.796388888888885,
+              "name": "BMAP141"
+            },
+            {
+              "latitude": 34.88611111111111,
+              "longitude": 45.837500000000006,
+              "name": "BMAP142"
+            },
+            {
+              "latitude": 34.91611111111111,
+              "longitude": 45.894444444444446,
+              "name": "BMAP143"
+            },
+            {
+              "latitude": 34.965,
+              "longitude": 45.90083333333333,
+              "name": "BMAP144"
+            },
+            {
+              "latitude": 35.005833333333335,
+              "longitude": 45.89138888888889,
+              "name": "BMAP145"
+            },
+            {
+              "latitude": 35.038333333333334,
+              "longitude": 45.93861111111111,
+              "name": "BMAP146"
+            },
+            {
+              "latitude": 35.07361111111111,
+              "longitude": 45.94499999999999,
+              "name": "BMAP147"
+            },
+            {
+              "latitude": 35.049166666666665,
+              "longitude": 46.024166666666666,
+              "name": "BMAP148"
+            },
+            {
+              "latitude": 35.019444444444446,
+              "longitude": 46.07777777777778,
+              "name": "BMAP149"
+            },
+            {
+              "latitude": 35.07083333333334,
+              "longitude": 46.08416666666667,
+              "name": "BMAP150"
+            },
+            {
+              "latitude": 35.065555555555555,
+              "longitude": 46.125277777777775,
+              "name": "BMAP151"
+            },
+            {
+              "latitude": 35.09277777777778,
+              "longitude": 46.18222222222222,
+              "name": "BMAP153"
+            },
+            {
+              "latitude": 35.13333333333333,
+              "longitude": 46.163333333333334,
+              "name": "BMAP154"
+            },
+            {
+              "latitude": 35.16583333333333,
+              "longitude": 46.16972222222222,
+              "name": "BMAP155"
+            },
+            {
+              "latitude": 35.187777777777775,
+              "longitude": 46.2075,
+              "name": "BMAP156"
+            },
+            {
+              "latitude": 35.22027777777778,
+              "longitude": 46.16638888888889,
+              "name": "BMAP157"
+            },
+            {
+              "latitude": 35.23111111111111,
+              "longitude": 46.11277777777778,
+              "name": "BMAP158"
+            },
+            {
+              "latitude": 35.27472222222222,
+              "longitude": 46.163333333333334,
+              "name": "BMAP159"
+            },
+            {
+              "latitude": 35.29,
+              "longitude": 46.155833333333334,
+              "name": "BOXIX"
+            },
+            {
+              "latitude": 35.31333333333333,
+              "longitude": 46.13444444444444,
+              "name": "BMAP160"
+            },
+            {
+              "latitude": 35.32638888888889,
+              "longitude": 46.13777777777778,
+              "name": "BMAP161"
+            },
+            {
+              "latitude": 35.339444444444446,
+              "longitude": 46.1275,
+              "name": "BMAP162"
+            },
+            {
+              "latitude": 35.33722222222222,
+              "longitude": 46.09805555555556,
+              "name": "BMAP163"
+            },
+            {
+              "latitude": 35.48694444444445,
+              "longitude": 45.999722222222225,
+              "name": "BMAP164"
+            },
+            {
+              "latitude": 35.525555555555556,
+              "longitude": 46.00805555555556,
+              "name": "BMAP165"
+            },
+            {
+              "latitude": 35.55416666666667,
+              "longitude": 45.999722222222225,
+              "name": "BMAP166"
+            },
+            {
+              "latitude": 35.580000000000005,
+              "longitude": 46.00472222222222,
+              "name": "BMAP167"
+            },
+            {
+              "latitude": 35.61138888888889,
+              "longitude": 46.029444444444444,
+              "name": "BMAP168"
+            },
+            {
+              "latitude": 35.63,
+              "longitude": 46.018055555555556,
+              "name": "BMAP169"
+            },
+            {
+              "latitude": 35.66277777777778,
+              "longitude": 46.01972222222222,
+              "name": "BMAP170"
+            },
+            {
+              "latitude": 35.68138888888889,
+              "longitude": 46.03777777777778,
+              "name": "BMAP171"
+            },
+            {
+              "latitude": 35.69138888888889,
+              "longitude": 46.09777777777778,
+              "name": "BMAP172"
+            },
+            {
+              "latitude": 35.69277777777778,
+              "longitude": 46.191111111111105,
+              "name": "BMAP173"
+            },
+            {
+              "latitude": 35.72,
+              "longitude": 46.254444444444445,
+              "name": "BMAP174"
+            },
+            {
+              "latitude": 35.74,
+              "longitude": 46.302499999999995,
+              "name": "BMAP175"
+            },
+            {
+              "latitude": 35.76444444444444,
+              "longitude": 46.3425,
+              "name": "BMAP176"
+            },
+            {
+              "latitude": 35.78916666666667,
+              "longitude": 46.30444444444444,
+              "name": "BMAP177"
+            },
+            {
+              "latitude": 35.82138888888889,
+              "longitude": 46.25666666666667,
+              "name": "BMAP178"
+            },
+            {
+              "latitude": 35.78916666666667,
+              "longitude": 46.20611111111111,
+              "name": "BMAP179"
+            },
+            {
+              "latitude": 35.7825,
+              "longitude": 46.13944444444444,
+              "name": "BMAP180"
+            },
+            {
+              "latitude": 35.805277777777775,
+              "longitude": 46.102222222222224,
+              "name": "BMAP181"
+            },
+            {
+              "latitude": 35.80972222222222,
+              "longitude": 46.00361111111111,
+              "name": "BMAP182"
+            },
+            {
+              "latitude": 35.78472222222222,
+              "longitude": 45.859722222222224,
+              "name": "BMAP183"
+            },
+            {
+              "latitude": 35.77777777777778,
+              "longitude": 45.763888888888886,
+              "name": "BMAP184"
+            },
+            {
+              "latitude": 35.82361111111111,
+              "longitude": 45.718611111111116,
+              "name": "BMAP185"
+            },
+            {
+              "latitude": 35.89666666666667,
+              "longitude": 45.65472222222222,
+              "name": "BMAP186"
+            },
+            {
+              "latitude": 35.93111111111111,
+              "longitude": 45.575,
+              "name": "BMAP187"
+            },
+            {
+              "latitude": 35.974444444444444,
+              "longitude": 45.436388888888885,
+              "name": "BMAP188"
+            },
+            {
+              "latitude": 35.95166666666667,
+              "longitude": 45.39388888888889,
+              "name": "BMAP189"
+            },
+            {
+              "latitude": 35.988055555555555,
+              "longitude": 45.34583333333334,
+              "name": "BMAP190"
+            },
+            {
+              "latitude": 36.038333333333334,
+              "longitude": 45.375277777777775,
+              "name": "BMAP191"
+            },
+            {
+              "latitude": 36.07972222222222,
+              "longitude": 45.36472222222223,
+              "name": "BMAP192"
+            },
+            {
+              "latitude": 36.12305555555555,
+              "longitude": 45.34583333333334,
+              "name": "BMAP193"
+            },
+            {
+              "latitude": 36.2075,
+              "longitude": 45.330000000000005,
+              "name": "BMAP194"
+            },
+            {
+              "latitude": 36.225833333333334,
+              "longitude": 45.2875,
+              "name": "BMAP195"
+            },
+            {
+              "latitude": 36.33638888888889,
+              "longitude": 45.268055555555556,
+              "name": "BMAP196"
+            },
+            {
+              "latitude": 36.394444444444446,
+              "longitude": 45.24111111111111,
+              "name": "BMAP197"
+            },
+            {
+              "latitude": 36.39083333333333,
+              "longitude": 45.11944444444445,
+              "name": "BMAP200"
+            },
+            {
+              "latitude": 36.47972222222222,
+              "longitude": 45.07888888888889,
+              "name": "BMAP201"
+            },
+            {
+              "latitude": 36.54944444444444,
+              "longitude": 44.9975,
+              "name": "BMAP202"
+            },
+            {
+              "latitude": 36.62694444444445,
+              "longitude": 45.04722222222222,
+              "name": "BMAP203"
+            },
+            {
+              "latitude": 36.746944444444445,
+              "longitude": 45.01111111111111,
+              "name": "BMAP204"
+            },
+            {
+              "latitude": 36.769999999999996,
+              "longitude": 44.848888888888894,
+              "name": "BMAP205"
+            },
+            {
+              "latitude": 36.83972222222222,
+              "longitude": 44.86694444444444,
+              "name": "BMAP206"
+            },
+            {
+              "latitude": 36.89,
+              "longitude": 44.9075,
+              "name": "BMAP207"
+            },
+            {
+              "latitude": 36.96666666666667,
+              "longitude": 44.906666666666666,
+              "name": "BMAP208"
+            },
+            {
+              "latitude": 37.03972222222222,
+              "longitude": 44.90972222222222,
+              "name": "BMAP209"
+            },
+            {
+              "latitude": 37.06222222222222,
+              "longitude": 44.79527777777778,
+              "name": "BMAP210"
+            },
+            {
+              "latitude": 37.11833333333333,
+              "longitude": 44.788888888888884,
+              "name": "BMAP211"
+            },
+            {
+              "latitude": 37.160555555555554,
+              "longitude": 44.79194444444444,
+              "name": "BMAP212"
+            },
+            {
+              "latitude": 37.19138888888889,
+              "longitude": 44.635,
+              "name": "BMAP213"
+            },
+            {
+              "latitude": 37.151944444444446,
+              "longitude": 44.57277777777778,
+              "name": "BMAP214"
+            },
+            {
+              "latitude": 37.10138888888889,
+              "longitude": 44.48777777777778,
+              "name": "BMAP215"
+            },
+            {
+              "latitude": 37.06222222222222,
+              "longitude": 44.393055555555556,
+              "name": "BMAP216"
+            },
+            {
+              "latitude": 36.98916666666667,
+              "longitude": 44.321111111111115,
+              "name": "BMAP220"
+            },
+            {
+              "latitude": 37.00611111111111,
+              "longitude": 44.27861111111111,
+              "name": "BMAP221"
+            },
+            {
+              "latitude": 37.084722222222226,
+              "longitude": 44.23277777777778,
+              "name": "BMAP222"
+            },
+            {
+              "latitude": 37.11555555555556,
+              "longitude": 44.19333333333333,
+              "name": "BMAP223"
+            },
+            {
+              "latitude": 37.16888888888889,
+              "longitude": 44.209722222222226,
+              "name": "BMAP224"
+            },
+            {
+              "latitude": 37.17722222222222,
+              "longitude": 44.265277777777776,
+              "name": "BMAP225"
+            },
+            {
+              "latitude": 37.21944444444445,
+              "longitude": 44.285,
+              "name": "BMAP226"
+            },
+            {
+              "latitude": 37.25888888888889,
+              "longitude": 44.25888888888889,
+              "name": "BMAP227"
+            },
+            {
+              "latitude": 37.30083333333333,
+              "longitude": 44.176944444444445,
+              "name": "BMAP228"
+            },
+            {
+              "latitude": 37.33166666666667,
+              "longitude": 44.08555555555556,
+              "name": "BMAP229"
+            },
+            {
+              "latitude": 37.30638888888888,
+              "longitude": 43.95138888888889,
+              "name": "BMAP230"
+            },
+            {
+              "latitude": 37.24055555555556,
+              "longitude": 43.93444444444444,
+              "name": "RATVO"
+            },
+            {
+              "latitude": 37.23638888888889,
+              "longitude": 43.863055555555555,
+              "name": "BMAP231"
+            },
+            {
+              "latitude": 37.230555555555554,
+              "longitude": 43.7975,
+              "name": "BMAP232"
+            },
+            {
+              "latitude": 37.269999999999996,
+              "longitude": 43.630833333333335,
+              "name": "BMAP233"
+            },
+            {
+              "latitude": 37.29805555555556,
+              "longitude": 43.48027777777778,
+              "name": "BMAP234"
+            },
+            {
+              "latitude": 37.31777777777778,
+              "longitude": 43.441111111111105,
+              "name": "BMAP235"
+            },
+            {
+              "latitude": 37.35,
+              "longitude": 43.21666666666667,
+              "name": "NINVA"
+            },
+            {
+              "latitude": 37.396388888888886,
+              "longitude": 43.10416666666667,
+              "name": "BMAP236"
+            },
+            {
+              "latitude": 37.35138888888889,
+              "longitude": 43.005833333333335,
+              "name": "BMAP238"
+            },
+            {
+              "latitude": 37.33444444444444,
+              "longitude": 42.927499999999995,
+              "name": "BMAP239"
+            },
+            {
+              "latitude": 37.4075,
+              "longitude": 42.82916666666667,
+              "name": "BMAP240"
+            },
+            {
+              "latitude": 37.38805555555555,
+              "longitude": 42.763888888888886,
+              "name": "BMAP241"
+            },
+            {
+              "latitude": 37.32611111111112,
+              "longitude": 42.711666666666666,
+              "name": "BMAP242"
+            },
+            {
+              "latitude": 37.24888888888889,
+              "longitude": 42.64972222222222,
+              "name": "KABAN"
+            },
+            {
+              "latitude": 37.160555555555554,
+              "longitude": 42.57083333333334,
+              "name": "BMAP243"
+            },
+            {
+              "latitude": 37.157777777777774,
+              "longitude": 42.492222222222225,
+              "name": "BMAP244"
+            },
+            {
+              "latitude": 37.126666666666665,
+              "longitude": 42.410555555555554,
+              "name": "BMAP245"
+            },
+            {
+              "latitude": 36.57611111111112,
+              "longitude": 41.87166666666667,
+              "name": "BMAP246"
+            },
+            {
+              "latitude": 36.5625,
+              "longitude": 41.781666666666666,
+              "name": "BMAP249"
+            },
+            {
+              "latitude": 36.566111111111105,
+              "longitude": 41.683055555555555,
+              "name": "SIDNA"
+            },
+            {
+              "latitude": 36.531666666666666,
+              "longitude": 41.61333333333334,
+              "name": "BMAP250"
+            },
+            {
+              "latitude": 36.50861111111111,
+              "longitude": 41.46055555555556,
+              "name": "BMAP251"
+            },
+            {
+              "latitude": 36.496944444444445,
+              "longitude": 41.40888888888889,
+              "name": "BMAP252"
+            },
+            {
+              "latitude": 36.34666666666667,
+              "longitude": 41.309999999999995,
+              "name": "BMAP253"
+            },
+            {
+              "latitude": 36.02027777777778,
+              "longitude": 41.29666666666667,
+              "name": "BMAP254"
+            },
+            {
+              "latitude": 35.835,
+              "longitude": 41.343611111111116,
+              "name": "BMAP255"
+            },
+            {
+              "latitude": 35.503055555555555,
+              "longitude": 41.37861111111111,
+              "name": "BMAP256"
+            },
+            {
+              "latitude": 35.306666666666665,
+              "longitude": 41.220555555555556,
+              "name": "BMAP257"
+            },
+            {
+              "latitude": 35.14805555555556,
+              "longitude": 41.18527777777778,
+              "name": "BMAP258"
+            },
+            {
+              "latitude": 34.98972222222222,
+              "longitude": 41.18527777777778,
+              "name": "BMAP259"
+            },
+            {
+              "latitude": 34.816111111111105,
+              "longitude": 41.211666666666666,
+              "name": "BMAP260"
+            },
+            {
+              "latitude": 34.69166666666666,
+              "longitude": 41.15,
+              "name": "ELEXI"
+            },
+            {
+              "latitude": 34.42333333333333,
+              "longitude": 41.04472222222222,
+              "name": "BMAP261"
+            },
+            {
+              "latitude": 33.94027777777777,
+              "longitude": 40.147777777777776,
+              "name": "BMAP262"
+            },
+            {
+              "latitude": 33.468333333333334,
+              "longitude": 39.016666666666666,
+              "name": "MODIK_E"
+            }
+          ]
+        },
+        "frequency": "123.450",
+        "id": "atc_1783465070563_070ce7e0d81c",
+        "name": "ORBB_FIR",
+        "verticalLimits": {
+          "bottomFl": 0,
+          "topFl": 500,
+          "transitionFl": 100
+        }
+      }
+    ],
+    "createdAt": "2026-07-07T22:57:50.563Z",
+    "description": "",
+    "id": "sec_1783465070563_ace11f57",
+    "mapAreas": [
+      {
+        "boundary": {
+          "id": "bd_1783465070564_3564a068130c88",
+          "points": [
+            {
+              "latitude": 33.86666666666667,
+              "longitude": 45.35,
+              "name": "CIDER01"
+            },
+            {
+              "latitude": 33.25,
+              "longitude": 45.766666666666666,
+              "name": "CIDER02"
+            },
+            {
+              "latitude": 33.1,
+              "longitude": 45.4,
+              "name": "CIDER03"
+            },
+            {
+              "latitude": 33.71666666666667,
+              "longitude": 45.03333333333333,
+              "name": "CIDER04"
+            },
+            {
+              "latitude": 33.86666666666667,
+              "longitude": 45.35,
+              "name": "CIDER05"
+            }
+          ]
+        },
+        "id": "area_1783465070564_5c4cba535101f8",
+        "kind": "other",
+        "lineColor": "#78909c",
+        "name": "CIDER",
+        "otherAction": "do_nothing",
+        "verticalLimits": {
+          "bottomFl": 0,
+          "topFl": 140
+        }
+      },
+      {
+        "boundary": {
+          "id": "bd_1783465070564_b262b8357d6288",
+          "points": [
+            {
+              "latitude": 32.86638888888889,
+              "longitude": 46.30222222222222,
+              "name": "DIJLAH01"
+            },
+            {
+              "latitude": 32.34111111111111,
+              "longitude": 46.93111111111111,
+              "name": "DIJLAH02"
+            },
+            {
+              "latitude": 32.08861111111111,
+              "longitude": 46.572500000000005,
+              "name": "DIJLAH03"
+            },
+            {
+              "latitude": 32.68277777777777,
+              "longitude": 46.041666666666664,
+              "name": "DIJLAH04"
+            },
+            {
+              "latitude": 32.86638888888889,
+              "longitude": 46.30222222222222,
+              "name": "DIJLAH05"
+            }
+          ]
+        },
+        "id": "area_1783465070564_fc84934718cc38",
+        "kind": "other",
+        "lineColor": "#78909c",
+        "name": "DIJLAH",
+        "otherAction": "do_nothing",
+        "verticalLimits": {
+          "bottomFl": 0,
+          "topFl": 210
+        }
+      },
+      {
+        "boundary": {
+          "id": "bd_1783465070564_b6250600c2fa98",
+          "points": [
+            {
+              "latitude": 32.34111111111111,
+              "longitude": 46.93111111111111,
+              "name": "FURAT01"
+            },
+            {
+              "latitude": 31.71722222222222,
+              "longitude": 47.663333333333334,
+              "name": "FURAT02"
+            },
+            {
+              "latitude": 31.3825,
+              "longitude": 47.22138888888889,
+              "name": "FURAT03"
+            },
+            {
+              "latitude": 32.08861111111111,
+              "longitude": 46.572500000000005,
+              "name": "FURAT04"
+            },
+            {
+              "latitude": 32.34111111111111,
+              "longitude": 46.93111111111111,
+              "name": "FURAT05"
+            }
+          ]
+        },
+        "id": "area_1783465070564_67a4fae372399",
+        "kind": "other",
+        "lineColor": "#78909c",
+        "name": "FURAT",
+        "otherAction": "do_nothing",
+        "verticalLimits": {
+          "bottomFl": 0,
+          "topFl": 210
+        }
+      },
+      {
+        "boundary": {
+          "id": "bd_1783465070564_31ffb435dfd85",
+          "points": [
+            {
+              "latitude": 30.494722222222222,
+              "longitude": 45.16111111111111,
+              "name": "MADDOG01"
+            },
+            {
+              "latitude": 30.169722222222223,
+              "longitude": 46.519999999999996,
+              "name": "MADDOG02"
+            },
+            {
+              "latitude": 29.67777777777778,
+              "longitude": 46.38638888888889,
+              "name": "MADDOG03"
+            },
+            {
+              "latitude": 30.02138888888889,
+              "longitude": 44.99444444444445,
+              "name": "MADDOG04"
+            },
+            {
+              "latitude": 30.494722222222222,
+              "longitude": 45.16111111111111,
+              "name": "MADDOG05"
+            }
+          ]
+        },
+        "id": "area_1783465070564_0d34ca5b26d9f",
+        "kind": "other",
+        "lineColor": "#78909c",
+        "name": "MADDOG",
+        "otherAction": "do_nothing",
+        "verticalLimits": {
+          "bottomFl": 160,
+          "topFl": 270
+        }
+      },
+      {
+        "boundary": {
+          "id": "bd_1783465070564_58895052712408",
+          "points": [
+            {
+              "latitude": 35.46666666666667,
+              "longitude": 42.78333333333333,
+              "name": "MINDY01"
+            },
+            {
+              "latitude": 35.68333333333333,
+              "longitude": 43.233333333333334,
+              "name": "MINDY02"
+            },
+            {
+              "latitude": 36.53333333333333,
+              "longitude": 42.63333333333333,
+              "name": "MINDY03"
+            },
+            {
+              "latitude": 36.3,
+              "longitude": 42.1,
+              "name": "MINDY04"
+            },
+            {
+              "latitude": 35.46666666666667,
+              "longitude": 42.78333333333333,
+              "name": "MINDY05"
+            }
+          ]
+        },
+        "id": "area_1783465070564_4c4083b11a893",
+        "kind": "other",
+        "lineColor": "#78909c",
+        "name": "MINDY",
+        "otherAction": "do_nothing",
+        "verticalLimits": {
+          "bottomFl": 160,
+          "topFl": 270
+        }
+      },
+      {
+        "boundary": {
+          "id": "bd_1783465070564_1814380ab0566",
+          "points": [
+            {
+              "latitude": 32.96194444444445,
+              "longitude": 41.293055555555554,
+              "name": "PEGASUS01"
+            },
+            {
+              "latitude": 32.64722222222222,
+              "longitude": 42.48361111111111,
+              "name": "PEGASUS02"
+            },
+            {
+              "latitude": 32.160555555555554,
+              "longitude": 42.62861111111111,
+              "name": "PEGASUS03"
+            },
+            {
+              "latitude": 32.645833333333336,
+              "longitude": 40.90083333333333,
+              "name": "PEGASUS04"
+            },
+            {
+              "latitude": 32.96194444444445,
+              "longitude": 41.293055555555554,
+              "name": "PEGASUS05"
+            }
+          ]
+        },
+        "id": "area_1783465070564_6b2544c2490b7",
+        "kind": "other",
+        "lineColor": "#78909c",
+        "name": "PEGASUS",
+        "otherAction": "do_nothing",
+        "verticalLimits": {
+          "bottomFl": 160,
+          "topFl": 270
+        }
+      }
+    ],
+    "name": "IRQ",
+    "routes": [
+      {
+        "id": "rt_1783465070563_612476cefe5df8",
+        "name": "A424",
+        "waypointIds": [
+          "wp_1783465070563_54ce7466d81f78",
+          "wp_1783465070563_b7dea3dfe1f65",
+          "wp_1783465070563_9aad4070c9c69",
+          "wp_1783465070563_28827ac9681188"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_5ea68dd4af1f1",
+        "name": "B411",
+        "waypointIds": [
+          "wp_1783465070563_becbc9d09d0cb",
+          "wp_1783465070563_5761c3b2db855",
+          "wp_1783465070563_cd2cffb8ce2558",
+          "wp_1783465070563_af0cc3928055",
+          "wp_1783465070563_54ce7466d81f78",
+          "wp_1783465070563_083798736f76b8",
+          "wp_1783465070563_f91d50405adfe8",
+          "wp_1783465070563_9402aab64e2b2",
+          "wp_1783465070563_c0ae0164722f08"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_b0c296a778ff58",
+        "name": "G202",
+        "waypointIds": [
+          "wp_1783465070563_ee4f197a494df8",
+          "wp_1783465070563_6a1975c73075f8",
+          "wp_1783465070563_45ed0dd43e633",
+          "wp_1783465070563_6e101ed35b2eb8",
+          "wp_1783465070563_f082486ec5971",
+          "wp_1783465070563_6a23fa30a41c68",
+          "wp_1783465070563_acf71f92d5d968",
+          "wp_1783465070563_213fcdb34b6f3",
+          "wp_1783465070563_009b44e75d5e6"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_4abd8a12bb751",
+        "name": "G669",
+        "waypointIds": [
+          "wp_1783465070563_b169a65c5be058",
+          "wp_1783465070563_6c3f479760fb58"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_794459c05644c8",
+        "name": "G795",
+        "waypointIds": [
+          "wp_1783465070563_d4ada3bc50462",
+          "wp_1783465070563_9be49c650c271"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_09ebb43345978",
+        "name": "L200",
+        "waypointIds": [
+          "wp_1783465070563_f64f4d5230185",
+          "wp_1783465070563_9bed4384f6c8e",
+          "wp_1783465070563_6a4cb7891ec378",
+          "wp_1783465070563_cd9d37f9bb2a9",
+          "wp_1783465070563_ef47fb17f14e78"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_9b257792f354a8",
+        "name": "L602",
+        "waypointIds": [
+          "wp_1783465070563_d4ada3bc50462",
+          "wp_1783465070563_20883dfd6527f",
+          "wp_1783465070563_f7d67474d3f63",
+          "wp_1783465070563_fe5537b5ee3658",
+          "wp_1783465070563_62e5c13846072",
+          "wp_1783465070563_54ce7466d81f78",
+          "wp_1783465070563_f082486ec5971",
+          "wp_1783465070563_19215198e0a52",
+          "wp_1783465070563_f9ed617920e89",
+          "wp_1783465070563_02c9ffc4144218"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_5c955658b68ab8",
+        "name": "L718",
+        "waypointIds": [
+          "wp_1783465070563_f7d67474d3f63",
+          "wp_1783465070563_f49d46377f4b68",
+          "wp_1783465070563_6a23fa30a41c68",
+          "wp_1783465070563_b019807e4b8468",
+          "wp_1783465070563_9a5a9f3dc0f1e",
+          "wp_1783465070563_970650b2832d7",
+          "wp_1783465070563_6c707d20508c1",
+          "wp_1783465070563_3a74a7562504f8"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_f602f22925d88",
+        "name": "M434",
+        "waypointIds": [
+          "wp_1783465070563_9a5a9f3dc0f1e",
+          "wp_1783465070563_6e5644c164fd08",
+          "wp_1783465070563_e643a555bc0448",
+          "wp_1783465070563_1ffa8f10d6d74",
+          "wp_1783465070563_d6d47d45bbf08"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_b1fff24edb2388",
+        "name": "M688",
+        "waypointIds": [
+          "wp_1783465070563_74d10d7be27408",
+          "wp_1783465070563_978383ecf4f578",
+          "wp_1783465070563_ac8ea54c493f9",
+          "wp_1783465070563_751bcf3f9e92c",
+          "wp_1783465070563_a4c2005807a408",
+          "wp_1783465070563_eb8b09980dfda",
+          "wp_1783465070563_bf7a60f04c75b8"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_f4cd7b8e5ec318",
+        "name": "M703",
+        "waypointIds": [
+          "wp_1783465070563_20883dfd6527f",
+          "wp_1783465070563_b7dea3dfe1f65",
+          "wp_1783465070563_cd2cffb8ce2558",
+          "wp_1783465070563_3cfb8331d7e098",
+          "wp_1783465070563_57fce85af8156",
+          "wp_1783465070563_f64f4d5230185"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_2543423bf2cf48",
+        "name": "M860",
+        "waypointIds": [
+          "wp_1783465070563_20883dfd6527f",
+          "wp_1783465070563_639d858eb7a5c8",
+          "wp_1783465070563_9c4f08e214b1c8",
+          "wp_1783465070563_d9e190d4a71b8",
+          "wp_1783465070563_f42ed0a44562b8",
+          "wp_1783465070563_6e5644c164fd08",
+          "wp_1783465070563_606744920ca05",
+          "wp_1783465070563_336bb67116191",
+          "wp_1783465070563_7bc78db086be88",
+          "wp_1783465070563_89603d81f9742"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_35f1c00317de78",
+        "name": "P975",
+        "waypointIds": [
+          "wp_1783465070563_1a1fa006f5f1f8",
+          "wp_1783465070563_da91958ce566e",
+          "wp_1783465070563_4ce4cb27ddf44",
+          "wp_1783465070563_b74e2e85ea93d8",
+          "wp_1783465070563_4ae97f3efeacd",
+          "wp_1783465070563_213fcdb34b6f3",
+          "wp_1783465070563_f91d50405adfe8",
+          "wp_1783465070563_fb2628cd15dbc8",
+          "wp_1783465070563_4a97ecb4b968a8",
+          "wp_1783465070563_f8fccd59091c6",
+          "wp_1783465070563_eb8b09980dfda",
+          "wp_1783465070563_bf7a60f04c75b8"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_4fbae67838dd1",
+        "name": "R652",
+        "waypointIds": [
+          "wp_1783465070563_0dbc8d3d506748",
+          "wp_1783465070563_57fce85af8156",
+          "wp_1783465070563_6a4cb7891ec378",
+          "wp_1783465070563_45ed0dd43e633",
+          "wp_1783465070563_f9ed617920e89",
+          "wp_1783465070563_4ce4cb27ddf44",
+          "wp_1783465070563_1ffa8f10d6d74"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_f4929b499cf77",
+        "name": "T231",
+        "waypointIds": [
+          "wp_1783465070563_6e101ed35b2eb8",
+          "wp_1783465070563_ef47fb17f14e78",
+          "wp_1783465070563_54ce7466d81f78",
+          "wp_1783465070563_639d858eb7a5c8",
+          "wp_1783465070563_f8fccd59091c6"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_fdfb0eca460ef",
+        "name": "T315",
+        "waypointIds": [
+          "wp_1783465070563_6a4cb7891ec378",
+          "wp_1783465070563_5ce6aaa0ae4a",
+          "wp_1783465070563_decdf25d3859",
+          "wp_1783465070563_54ce7466d81f78"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_ee4be24645d778",
+        "name": "Z417",
+        "waypointIds": [
+          "wp_1783465070563_336bb67116191",
+          "wp_1783465070563_d865a4d30337a",
+          "wp_1783465070563_9a5a9f3dc0f1e",
+          "wp_1783465070563_4ce4cb27ddf44"
+        ]
+      },
+      {
+        "id": "rt_1783465070563_246cc1e6f873c",
+        "name": "Z431",
+        "waypointIds": [
+          "wp_1783465070563_009b44e75d5e6",
+          "wp_1783465070563_751bcf3f9e92c",
+          "wp_1783465070563_54ce7466d81f78"
+        ]
+      }
+    ],
+    "satelliteBackgrounds": [
+      {
+        "id": "satbg_mrb514t6m6w83",
+        "maxLat": 38.68135326303821,
+        "maxLon": 51.03754670812511,
+        "minLat": 27.148908310030794,
+        "minLon": 37.425786796972496,
+        "name": "Google Earth 1"
+      },
+      {
+        "id": "satbg_mrb520h74e9fj",
+        "maxLat": 30.52756641464064,
+        "maxLon": 47.68939008327005,
+        "minLat": 30.523017478098865,
+        "minLon": 47.68370458025541,
+        "name": "Google Earth 2"
+      }
+    ],
+    "waypoints": [
+      {
+        "id": "wp_1783465070563_54ce7466d81f78",
+        "latitude": 32.36888888888889,
+        "longitude": 44.66694444444444,
+        "name": "LOVEK"
+      },
+      {
+        "id": "wp_1783465070563_b7dea3dfe1f65",
+        "latitude": 31.529722222222222,
+        "longitude": 44.3,
+        "name": "LORAK"
+      },
+      {
+        "id": "wp_1783465070563_9aad4070c9c69",
+        "latitude": 30.30888888888889,
+        "longitude": 43.77861111111111,
+        "name": "SOBUK"
+      },
+      {
+        "id": "wp_1783465070563_28827ac9681188",
+        "latitude": 29.995,
+        "longitude": 43.64666666666667,
+        "name": "LOTAN"
+      },
+      {
+        "id": "wp_1783465070563_0edb6afdec32d8",
+        "latitude": 30.883888888888887,
+        "longitude": 44.82333333333334,
+        "name": "CENTRE"
+      },
+      {
+        "id": "wp_1783465070563_becbc9d09d0cb",
+        "latitude": 31.210277777777776,
+        "longitude": 41.843333333333334,
+        "name": "MURIB"
+      },
+      {
+        "id": "wp_1783465070563_5761c3b2db855",
+        "latitude": 31.702222222222222,
+        "longitude": 43.000277777777775,
+        "name": "RALTI"
+      },
+      {
+        "id": "wp_1783465070563_cd2cffb8ce2558",
+        "latitude": 31.835555555555555,
+        "longitude": 43.327222222222225,
+        "name": "RUKAM"
+      },
+      {
+        "id": "wp_1783465070563_af0cc3928055",
+        "latitude": 32.04888888888889,
+        "longitude": 43.85722222222223,
+        "name": "ELODI"
+      },
+      {
+        "id": "wp_1783465070563_083798736f76b8",
+        "latitude": 32.64416666666666,
+        "longitude": 45.08277777777778,
+        "name": "LONOR"
+      },
+      {
+        "id": "wp_1783465070563_f91d50405adfe8",
+        "latitude": 32.82555555555556,
+        "longitude": 45.35805555555556,
+        "name": "NOLDO"
+      },
+      {
+        "id": "wp_1783465070563_9402aab64e2b2",
+        "latitude": 32.89277777777778,
+        "longitude": 45.45194444444445,
+        "name": "PAPUS"
+      },
+      {
+        "id": "wp_1783465070563_c0ae0164722f08",
+        "latitude": 33.348888888888894,
+        "longitude": 46.08861111111111,
+        "name": "PAXAT"
+      },
+      {
+        "id": "wp_1783465070563_ee4f197a494df8",
+        "latitude": 33.468333333333334,
+        "longitude": 39.016666666666666,
+        "name": "MODIK"
+      },
+      {
+        "id": "wp_1783465070563_6a1975c73075f8",
+        "latitude": 33.44444444444444,
+        "longitude": 40.01222222222222,
+        "name": "SIMRO"
+      },
+      {
+        "id": "wp_1783465070563_45ed0dd43e633",
+        "latitude": 33.38333333333333,
+        "longitude": 41.75833333333333,
+        "name": "RAPLU"
+      },
+      {
+        "id": "wp_1783465070563_6e101ed35b2eb8",
+        "latitude": 33.35,
+        "longitude": 42.75,
+        "name": "PUSTO"
+      },
+      {
+        "id": "wp_1783465070563_f082486ec5971",
+        "latitude": 33.32166666666667,
+        "longitude": 43.224444444444444,
+        "name": "DELMI"
+      },
+      {
+        "id": "wp_1783465070563_6a23fa30a41c68",
+        "latitude": 33.26083333333333,
+        "longitude": 44.24916666666667,
+        "name": "LAGLO"
+      },
+      {
+        "id": "wp_1783465070563_acf71f92d5d968",
+        "latitude": 33.33083333333334,
+        "longitude": 44.69138888888889,
+        "name": "ITOVA"
+      },
+      {
+        "id": "wp_1783465070563_213fcdb34b6f3",
+        "latitude": 33.36027777777778,
+        "longitude": 44.79805555555556,
+        "name": "SINKA"
+      },
+      {
+        "id": "wp_1783465070563_009b44e75d5e6",
+        "latitude": 33.513333333333335,
+        "longitude": 45.89666666666667,
+        "name": "RAGET"
+      },
+      {
+        "id": "wp_1783465070563_b169a65c5be058",
+        "latitude": 29.508333333333333,
+        "longitude": 44.30694444444444,
+        "name": "NISER"
+      },
+      {
+        "id": "wp_1783465070563_6c3f479760fb58",
+        "latitude": 29.161666666666665,
+        "longitude": 46.63611111111111,
+        "name": "SOLAT"
+      },
+      {
+        "id": "wp_1783465070563_d4ada3bc50462",
+        "latitude": 30.022222222222222,
+        "longitude": 47.918055555555554,
+        "name": "TASMI"
+      },
+      {
+        "id": "wp_1783465070563_9be49c650c271",
+        "latitude": 30.525555555555556,
+        "longitude": 47.68666666666666,
+        "name": "BSR"
+      },
+      {
+        "id": "wp_1783465070563_f64f4d5230185",
+        "latitude": 33.1,
+        "longitude": 38.93333333333333,
+        "name": "PASIP"
+      },
+      {
+        "id": "wp_1783465070563_9bed4384f6c8e",
+        "latitude": 33.09777777777778,
+        "longitude": 39.92527777777777,
+        "name": "SEVDI"
+      },
+      {
+        "id": "wp_1783465070563_6a4cb7891ec378",
+        "latitude": 33.083333333333336,
+        "longitude": 41.18333333333333,
+        "name": "GIBUX"
+      },
+      {
+        "id": "wp_1783465070563_cd9d37f9bb2a9",
+        "latitude": 33.03333333333333,
+        "longitude": 42.333333333333336,
+        "name": "SIGBI"
+      },
+      {
+        "id": "wp_1783465070563_ef47fb17f14e78",
+        "latitude": 32.983333333333334,
+        "longitude": 43.483333333333334,
+        "name": "SILBO"
+      },
+      {
+        "id": "wp_1783465070563_20883dfd6527f",
+        "latitude": 30.566111111111113,
+        "longitude": 47.187777777777775,
+        "name": "GADSI"
+      },
+      {
+        "id": "wp_1783465070563_f7d67474d3f63",
+        "latitude": 31.205277777777777,
+        "longitude": 46.31222222222222,
+        "name": "ALPET"
+      },
+      {
+        "id": "wp_1783465070563_fe5537b5ee3658",
+        "latitude": 31.793055555555558,
+        "longitude": 45.488055555555555,
+        "name": "UROKO"
+      },
+      {
+        "id": "wp_1783465070563_62e5c13846072",
+        "latitude": 32.17194444444444,
+        "longitude": 44.950833333333335,
+        "name": "MUTLO"
+      },
+      {
+        "id": "wp_1783465070563_19215198e0a52",
+        "latitude": 33.5,
+        "longitude": 42.95472222222222,
+        "name": "ASNOT"
+      },
+      {
+        "id": "wp_1783465070563_f9ed617920e89",
+        "latitude": 33.818333333333335,
+        "longitude": 42.48083333333334,
+        "name": "GEPAP"
+      },
+      {
+        "id": "wp_1783465070563_02c9ffc4144218",
+        "latitude": 34.69166666666666,
+        "longitude": 41.15,
+        "name": "ELEXI"
+      },
+      {
+        "id": "wp_1783465070563_f49d46377f4b68",
+        "latitude": 33.17055555555555,
+        "longitude": 44.284166666666664,
+        "name": "DEBNI"
+      },
+      {
+        "id": "wp_1783465070563_b019807e4b8468",
+        "latitude": 34.499722222222225,
+        "longitude": 44.13805555555555,
+        "name": "TAGRU"
+      },
+      {
+        "id": "wp_1783465070563_9a5a9f3dc0f1e",
+        "latitude": 35.29472222222222,
+        "longitude": 43.718611111111116,
+        "name": "UMESA"
+      },
+      {
+        "id": "wp_1783465070563_970650b2832d7",
+        "latitude": 36.09666666666667,
+        "longitude": 43.28777777777778,
+        "name": "SEVKU"
+      },
+      {
+        "id": "wp_1783465070563_6c707d20508c1",
+        "latitude": 36.769999999999996,
+        "longitude": 42.915,
+        "name": "EMIDO"
+      },
+      {
+        "id": "wp_1783465070563_3a74a7562504f8",
+        "latitude": 37.24888888888889,
+        "longitude": 42.64972222222222,
+        "name": "KABAN"
+      },
+      {
+        "id": "wp_1783465070563_6e5644c164fd08",
+        "latitude": 35.28333333333333,
+        "longitude": 44.31666666666667,
+        "name": "OTALO"
+      },
+      {
+        "id": "wp_1783465070563_e643a555bc0448",
+        "latitude": 35.26694444444444,
+        "longitude": 44.66833333333333,
+        "name": "TOTAM"
+      },
+      {
+        "id": "wp_1783465070563_1ffa8f10d6d74",
+        "latitude": 35.29,
+        "longitude": 45.209722222222226,
+        "name": "DAVAS"
+      },
+      {
+        "id": "wp_1783465070563_d6d47d45bbf08",
+        "latitude": 35.29,
+        "longitude": 46.155833333333334,
+        "name": "BOXIX"
+      },
+      {
+        "id": "wp_1783465070563_74d10d7be27408",
+        "latitude": 37.24055555555556,
+        "longitude": 43.93444444444444,
+        "name": "RATVO"
+      },
+      {
+        "id": "wp_1783465070563_978383ecf4f578",
+        "latitude": 36.771388888888886,
+        "longitude": 44.152499999999996,
+        "name": "KEDIM"
+      },
+      {
+        "id": "wp_1783465070563_ac8ea54c493f9",
+        "latitude": 34.5,
+        "longitude": 45.16888888888889,
+        "name": "SOBIL"
+      },
+      {
+        "id": "wp_1783465070563_751bcf3f9e92c",
+        "latitude": 33.3,
+        "longitude": 45.25,
+        "name": "VAXEN"
+      },
+      {
+        "id": "wp_1783465070563_a4c2005807a408",
+        "latitude": 32.835,
+        "longitude": 45.68694444444444,
+        "name": "SISIN"
+      },
+      {
+        "id": "wp_1783465070563_eb8b09980dfda",
+        "latitude": 30.83972222222222,
+        "longitude": 47.49944444444444,
+        "name": "ULDUR"
+      },
+      {
+        "id": "wp_1783465070563_bf7a60f04c75b8",
+        "latitude": 29.87527777777778,
+        "longitude": 48.495555555555555,
+        "name": "SIDAD"
+      },
+      {
+        "id": "wp_1783465070563_3cfb8331d7e098",
+        "latitude": 32.11361111111111,
+        "longitude": 42.414722222222224,
+        "name": "ANBAR"
+      },
+      {
+        "id": "wp_1783465070563_57fce85af8156",
+        "latitude": 32.665,
+        "longitude": 40.519999999999996,
+        "name": "KASIR"
+      },
+      {
+        "id": "wp_1783465070563_639d858eb7a5c8",
+        "latitude": 31.75,
+        "longitude": 46.06666666666667,
+        "name": "KODAV"
+      },
+      {
+        "id": "wp_1783465070563_9c4f08e214b1c8",
+        "latitude": 32.55138888888889,
+        "longitude": 45.26444444444444,
+        "name": "RESAK"
+      },
+      {
+        "id": "wp_1783465070563_d9e190d4a71b8",
+        "latitude": 33.21666666666667,
+        "longitude": 44.733333333333334,
+        "name": "SEPTU"
+      },
+      {
+        "id": "wp_1783465070563_f42ed0a44562b8",
+        "latitude": 34.5075,
+        "longitude": 44.692499999999995,
+        "name": "NAMDI"
+      },
+      {
+        "id": "wp_1783465070563_606744920ca05",
+        "latitude": 35.816111111111105,
+        "longitude": 44.04138888888889,
+        "name": "TOMSI"
+      },
+      {
+        "id": "wp_1783465070563_336bb67116191",
+        "latitude": 36.276944444444446,
+        "longitude": 43.8,
+        "name": "VUSEB"
+      },
+      {
+        "id": "wp_1783465070563_7bc78db086be88",
+        "latitude": 36.74583333333334,
+        "longitude": 43.55611111111111,
+        "name": "ROXOP"
+      },
+      {
+        "id": "wp_1783465070563_89603d81f9742",
+        "latitude": 37.35,
+        "longitude": 43.21666666666667,
+        "name": "NINVA"
+      },
+      {
+        "id": "wp_1783465070563_1a1fa006f5f1f8",
+        "latitude": 36.566111111111105,
+        "longitude": 41.683055555555555,
+        "name": "SIDNA"
+      },
+      {
+        "id": "wp_1783465070563_da91958ce566e",
+        "latitude": 35.29,
+        "longitude": 42.909444444444446,
+        "name": "TUBEN"
+      },
+      {
+        "id": "wp_1783465070563_4ce4cb27ddf44",
+        "latitude": 34.50083333333333,
+        "longitude": 43.64277777777778,
+        "name": "MUTAG"
+      },
+      {
+        "id": "wp_1783465070563_b74e2e85ea93d8",
+        "latitude": 34.20333333333333,
+        "longitude": 43.915,
+        "name": "SOGUM"
+      },
+      {
+        "id": "wp_1783465070563_4ae97f3efeacd",
+        "latitude": 33.53333333333333,
+        "longitude": 44.61666666666667,
+        "name": "PUTSI"
+      },
+      {
+        "id": "wp_1783465070563_fb2628cd15dbc8",
+        "latitude": 32.62694444444445,
+        "longitude": 45.5775,
+        "name": "KATUT"
+      },
+      {
+        "id": "wp_1783465070563_4a97ecb4b968a8",
+        "latitude": 32.37444444444444,
+        "longitude": 45.85611111111111,
+        "name": "DENKI"
+      },
+      {
+        "id": "wp_1783465070563_f8fccd59091c6",
+        "latitude": 31.359166666666667,
+        "longitude": 46.95055555555556,
+        "name": "ILMAP"
+      },
+      {
+        "id": "wp_1783465070563_0dbc8d3d506748",
+        "latitude": 32.086666666666666,
+        "longitude": 39.621944444444445,
+        "name": "DAXAN"
+      },
+      {
+        "id": "wp_1783465070563_5ce6aaa0ae4a",
+        "latitude": 32.57972222222222,
+        "longitude": 43.07666666666667,
+        "name": "BABIL"
+      },
+      {
+        "id": "wp_1783465070563_decdf25d3859",
+        "latitude": 32.36888888888889,
+        "longitude": 43.833333333333336,
+        "name": "TAGLA"
+      },
+      {
+        "id": "wp_1783465070563_d865a4d30337a",
+        "latitude": 35.769999999999996,
+        "longitude": 43.757777777777775,
+        "name": "DAXOG"
+      }
+    ],
+    "navaids": [],
+    "airports": []
   }
 ]

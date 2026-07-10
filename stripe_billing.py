@@ -18,6 +18,7 @@ from datetime import date, datetime, timezone
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 from user_auth import (
+    PASS_TYPE_MONTHLY,
     PASS_TYPE_ONE_DAY,
     cancel_subscription_by_stripe_id,
     create_one_day_pass,
@@ -30,6 +31,7 @@ from user_auth import (
     user_can_access_platform,
     user_is_approved,
     _fetch_active_subscription,
+    _fetch_active_subscription_by_type,
     _subscription_to_api,
     _user_to_api,
 )
@@ -214,8 +216,39 @@ def _ensure_stripe_customer(user):
     return customer.id
 
 
+def _billing_account_summary(user):
+    monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
+    one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
+    monthly_api = _subscription_to_api(monthly)
+    return {
+        'activeMonthlySubscription': monthly_api,
+        'activeOneDayPass': _subscription_to_api(one_day),
+        'canCancelViaStripe': bool(monthly and monthly.get('stripe_subscription_id')),
+        'hasStripeCustomer': bool((user.get('stripe_customer_id') or '').strip()),
+    }
+
+
 def init_stripe_billing(app):
     app.register_blueprint(billing_bp)
+
+
+@billing_bp.route('/manage-subscription')
+def manage_subscription_page():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('user_auth.login_page', next='/manage-subscription'))
+    if not user_is_approved(user):
+        return redirect(url_for('user_auth.login_page', reason=user.get('status') or 'pending'))
+    if user.get('is_admin'):
+        return redirect(url_for('index'))
+
+    summary = _billing_account_summary(user)
+    return render_template(
+        'manage_subscription.html',
+        summary=summary,
+        products=_billing_products_payload(),
+        stripe_configured=stripe_configured(),
+    )
 
 
 @billing_bp.route('/subscribe')
@@ -279,11 +312,14 @@ def api_billing_status():
     user = get_current_user()
     if not user:
         return jsonify({'ok': False, 'error': 'Authentication required'}), 401
-    active = _fetch_active_subscription(user['id'])
+    summary = _billing_account_summary(user)
     return jsonify({
         'ok': True,
         'canAccessPlatform': user_can_access_platform(user),
-        'activeSubscription': _subscription_to_api(active),
+        'activeSubscription': _subscription_to_api(_fetch_active_subscription(user['id'])),
+        'canCancelViaStripe': summary['canCancelViaStripe'],
+        'activeMonthlySubscription': summary['activeMonthlySubscription'],
+        'activeOneDayPass': summary['activeOneDayPass'],
         'user': _user_to_api(user, include_subscription=True),
     })
 
@@ -380,7 +416,7 @@ def api_customer_portal():
     try:
         portal = stripe.billing_portal.Session.create(
             customer=customer_id,
-            return_url=f'{_app_base_url()}/subscribe',
+            return_url=f'{_app_base_url()}/manage-subscription',
         )
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 502

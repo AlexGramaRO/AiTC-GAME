@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage subscription — AiTC</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body.auth-page {
+            background: linear-gradient(135deg, rgba(10, 25, 41, 0.85) 0%, rgba(26, 47, 74, 0.8) 50%, rgba(44, 62, 80, 0.85) 100%),
+                url("{{ url_for('static', filename='images/Background_v2.png') }}") center center / cover no-repeat fixed !important;
+        }
+    </style>
+</head>
+<body class="auth-page subscribe-page">
+    <div class="auth-shell subscribe-shell">
+        <div class="auth-card subscribe-card">
+            <div class="auth-brand">
+                <h1>Manage subscription</h1>
+                <p class="auth-tagline">View and cancel your AiTC access plans</p>
+            </div>
+
+            <div id="manageSubscriptionMessage" class="auth-message" style="display:none;"></div>
+
+            <div class="subscribe-plan-box" id="monthlyPlanBox">
+                <h2>Monthly subscription</h2>
+                <p class="subscribe-plan-detail" id="monthlyPlanDetail">No active monthly subscription.</p>
+                <div id="monthlyPlanActions" class="subscribe-actions" style="margin-top:0.75rem;"></div>
+            </div>
+
+            <div class="subscribe-plan-box" id="oneDayPlanBox">
+                <h2>One Day Pass</h2>
+                <p class="subscribe-plan-detail" id="oneDayPlanDetail">No active One Day Pass.</p>
+            </div>
+
+            <div class="subscribe-actions">
+                <a href="{{ url_for('stripe_billing.subscribe_page') }}" class="btn btn-secondary auth-submit">Buy or change plan</a>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary auth-submit">Back to simulator</a>
+                <button type="button" class="btn btn-secondary auth-submit" id="manageLogoutBtn">Sign out</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.AITC_MANAGE = {
+            canCancelViaStripe: {{ 'true' if summary.canCancelViaStripe else 'false' }},
+            stripeConfigured: {{ 'true' if stripe_configured else 'false' }},
+            monthly: {{ summary.activeMonthlySubscription | tojson if summary.activeMonthlySubscription else 'null' }},
+            oneDay: {{ summary.activeOneDayPass | tojson if summary.activeOneDayPass else 'null' }},
+        };
+    </script>
+    <script src="{{ url_for('static', filename='js/manage_subscription.js') }}"></script>
+</body>
+</html>

@@ -2,6 +2,7 @@
     'use strict';
 
     const planButtons = document.querySelectorAll('.subscribe-plan-btn');
+    const manageBtn = document.getElementById('subscribeManageBtn');
     const portalBtn = document.getElementById('subscribePortalBtn');
     const homeBtn = document.getElementById('subscribeHomeBtn');
     const logoutBtn = document.getElementById('subscribeLogoutBtn');
@@ -49,7 +50,10 @@
             }
 
             const sub = data.activeSubscription;
-            if (sub && sub.passType !== 'one_day' && sub.stripeSubscriptionId && portalBtn) {
+            if (manageBtn) {
+                manageBtn.style.display = 'inline-flex';
+            }
+            if (data.canCancelViaStripe && portalBtn) {
                 portalBtn.style.display = 'inline-flex';
             }
             return data;

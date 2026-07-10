@@ -1,0 +1,32 @@
+[
+  {
+    "minFl": 0,
+    "maxFl": 99,
+    "minDps": 3.5,
+    "maxDps": 4.5
+  },
+  {
+    "minFl": 100,
+    "maxFl": 199,
+    "minDps": 2.5,
+    "maxDps": 3.2
+  },
+  {
+    "minFl": 200,
+    "maxFl": 299,
+    "minDps": 1.8,
+    "maxDps": 2.5
+  },
+  {
+    "minFl": 300,
+    "maxFl": 350,
+    "minDps": 1,
+    "maxDps": 1.4
+  },
+  {
+    "minFl": 351,
+    "maxFl": null,
+    "minDps": 0.5,
+    "maxDps": 1
+  }
+]

@@ -9,7 +9,7 @@
     <style>
         body {
             background: linear-gradient(135deg, rgba(10, 25, 41, 0.75) 0%, rgba(26, 47, 74, 0.7) 50%, rgba(44, 62, 80, 0.75) 100%),
-                url("{{ url_for('static', filename='images/Background_v2.png') }}") center center / cover no-repeat fixed !important;
+                url("{{ url_for('static', filename='images/Background_v2.png') }}") center center / cover no-repeat scroll !important;
         }
     </style>
 </head>
@@ -17,6 +17,7 @@
     <div id="userSessionBar" class="user-session-bar" style="display:none;">
         <span id="userSessionEmail" class="user-session-email"></span>
         <a href="/admin/users" id="userAdminLinkBtn" class="btn btn-secondary" style="display:none;">Users</a>
+        <a href="/manage-subscription" id="userManageSubscriptionBtn" class="btn btn-secondary" style="display:none;">Manage subscription</a>
         <button type="button" class="btn btn-secondary" id="userLogoutBtn">Sign out</button>
     </div>
     <div class="container">
@@ -341,6 +342,12 @@
                     </button>
                     <p class="hint-text">Default aircraft label layout for all positions (profiles coming later).</p>
                 </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary admin-ai-pilot-instructions-btn" id="openAdminLoadSystemSettingBtn">
+                        Load System Setting
+                    </button>
+                    <p class="hint-text">Pick a saved preset (Sim Settings, Map, and Colors) to become the default for every user on every computer. Users who already customized their own settings locally keep theirs.</p>
+                </div>
                 <div id="adminSettingsMessage" class="admin-message-text" style="display:none;"></div>
             </div>
             <div class="modal-footer admin-modal-footer">
@@ -372,6 +379,26 @@
                 <button type="button" class="btn btn-tertiary" id="resetAdminAiPilotInstructionsBtn">Reset Default</button>
                 <button type="button" class="btn btn-primary" id="saveAdminAiPilotInstructionsBtn">Save</button>
                 <button type="button" class="btn btn-secondary" id="cancelAdminAiPilotInstructionsBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin: Load System Setting (choose platform-wide default preset) -->
+    <div id="adminLoadSystemSettingModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Load System Setting</h2>
+                <button class="modal-close" id="closeAdminLoadSystemSettingBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="hint-text">Select a saved preset (Sim Settings, Map, and Colors) to make it the platform-wide default. Any user opening the app on any computer, without their own saved local settings, will start from this preset.</p>
+                <p id="adminSystemDefaultCurrentLabel" class="hint-text"></p>
+                <ul id="adminLoadSystemSettingList" class="sim-presets-list"></ul>
+                <p id="adminLoadSystemSettingEmpty" class="hint-text" style="display:none;">No saved presets yet. In Simulation Settings, use &quot;Save all settings&quot; to create one first.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="clearAdminSystemDefaultBtn">Clear system default</button>
+                <button type="button" class="btn btn-secondary" id="cancelAdminLoadSystemSettingBtn">Close</button>
             </div>
         </div>
     </div>
@@ -1644,6 +1671,11 @@
                     <canvas id="sectorCanvas"></canvas>
                     <div id="sectorMapPrintAreaOverlay" class="sector-map-print-area-overlay" aria-hidden="true"></div>
                     <div id="sectorMapSatBgAreaOverlay" class="sector-map-satbg-area-overlay" aria-hidden="true"></div>
+                    <div id="sectorMapBgLiveCalibBar" class="sector-map-bg-live-calib-bar" style="display: none;" aria-hidden="true">
+                        <span id="sectorMapBgLiveCalibHint" class="sector-map-bg-live-calib-hint">Click a spot on the picture, then click its correct map position. Middle-click a point to remove it.</span>
+                        <span id="sectorMapBgLiveCalibCount" class="sector-map-bg-live-calib-count">0 calibration points</span>
+                        <button type="button" id="sectorMapBgLiveCalibFinishBtn" class="btn btn-success sector-map-bg-live-calib-finish-btn">FINISH BACKGROUND CALIBRATION</button>
+                    </div>
                 </div>
 
                 <!-- Scroll to Waypoints/Routes/Boundaries Section -->
@@ -3100,6 +3132,17 @@
                     <div class="hint-text">What to draw on the trajectory at waypoints. FL is always computed; hide only affects display.</div>
                 </div>
                 <div class="form-group">
+                    <label class="form-label" for="simulationTtsVoiceSelect">TTS Voice Pack</label>
+                    <div class="sim-probing-row">
+                        <select id="simulationTtsVoiceSelect" class="form-select">
+                            <option value="">System default</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary sim-settings-subpanel-btn" id="simulationUpdateVoicePacksBtn">Update Voice Packs</button>
+                        <button type="button" class="btn btn-secondary sim-settings-subpanel-btn" id="openSimulationRealisticFrequencyBtn">Realistic Frequency</button>
+                    </div>
+                    <div class="hint-text" id="simulationUpdateVoicePacksStatus">Voice used for TTS readbacks. Click "Update Voice Packs" to search this computer for newly installed voices.</div>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Aircraft label</label>
                     <button type="button" class="btn btn-secondary sim-settings-subpanel-btn" id="openSimulationLabelEditorBtn">Edit Label</button>
                     <div class="hint-text">Label layout is configured in Admin settings → Global Aircraft Label (including Generic, Single User, and Hosted Sessions defaults).</div>
@@ -3483,6 +3526,74 @@
             <div class="modal-footer stca-parameters-footer">
                 <button type="button" class="btn btn-primary stca-parameters-compact-btn" id="saveStcaParametersBtn">Save</button>
                 <button type="button" class="btn btn-secondary stca-parameters-compact-btn" id="closeStcaParametersFooterBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Realistic Frequency (radio static + squelch) - opened from Sim Settings -->
+    <div id="simulationRealisticFrequencyModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Realistic Frequency</h2>
+                <button class="modal-close" id="closeSimulationRealisticFrequencyBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-checkbox-row">
+                        <input type="checkbox" id="simulationRadioStaticEnabled" class="form-checkbox" />
+                        <span>Background frequency static</span>
+                    </label>
+                    <div class="hint-text">Adds a continuous radio-static hiss under TTS transmissions, like a real VHF frequency.</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="simulationRadioStaticNoiseType">Noise type</label>
+                    <select id="simulationRadioStaticNoiseType" class="form-select">
+                        <option value="white">White noise</option>
+                        <option value="pink">Pink noise</option>
+                        <option value="brown">Brown noise (low rumble)</option>
+                        <option value="hiss">Carrier hiss (high static)</option>
+                    </select>
+                    <div class="hint-text">Character of the background static.</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="simulationRadioStaticFrequency">Noise frequency (Hz): <span id="simulationRadioStaticFrequencyValue">1000</span></label>
+                    <input type="range" id="simulationRadioStaticFrequency" min="200" max="4000" step="50" value="1000" />
+                    <div class="hint-text">Tunes where the static is centered — lower for a duller rumble, higher for a sharper hiss.</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="simulationRadioStaticIntensity">Static intensity: <span id="simulationRadioStaticIntensityValue">30</span>%</label>
+                    <input type="range" id="simulationRadioStaticIntensity" min="0" max="100" step="1" value="30" />
+                    <div class="hint-text">Loudness of the background static relative to the voice.</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-checkbox-row">
+                        <input type="checkbox" id="simulationSquelchEnabled" class="form-checkbox" />
+                        <span>Squelch at start/end of transmission</span>
+                    </label>
+                    <div class="hint-text">Plays a short squelch break just before and after each TTS transmission.</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="simulationSquelchType">Squelch type</label>
+                    <select id="simulationSquelchType" class="form-select">
+                        <option value="classic">Classic VHF (static break)</option>
+                        <option value="relay">Analog relay (click + static)</option>
+                        <option value="soft">Soft / Digital (brief hiss)</option>
+                    </select>
+                    <div class="hint-text">Real VHF radios don't "beep" for squelch — this plays the short burst of receiver static heard as the carrier locks/unlocks.</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="simulationSquelchIntensity">Squelch intensity: <span id="simulationSquelchIntensityValue">50</span>%</label>
+                    <input type="range" id="simulationSquelchIntensity" min="0" max="100" step="1" value="50" />
+                    <div class="hint-text">Loudness of the squelch break.</div>
+                </div>
+                <div class="form-group sim-radio-preview-group">
+                    <button type="button" class="btn btn-secondary sim-settings-subpanel-btn" id="simulationRadioPreviewBtn">Preview</button>
+                    <div class="hint-text">Plays a demo transmission ("Radio check, one two three four five") with the settings above.</div>
+                </div>
+            </div>
+            <div class="modal-footer stca-parameters-footer">
+                <button type="button" class="btn btn-primary stca-parameters-compact-btn" id="saveSimulationRealisticFrequencyBtn">Save</button>
+                <button type="button" class="btn btn-secondary stca-parameters-compact-btn" id="closeSimulationRealisticFrequencyFooterBtn">Close</button>
             </div>
         </div>
     </div>
@@ -4963,7 +5074,7 @@
 
     <!-- Edit Airspace: session-only calibrated map background (not saved with sector) -->
     <div id="sectorMapBackgroundModal" class="modal">
-        <div class="modal-content modal-large">
+        <div class="modal-content modal-large modal-bg-wizard">
             <div class="modal-header">
                 <h2 id="sectorMapBackgroundModalTitle">Add Background</h2>
                 <button type="button" class="modal-close" id="closeSectorMapBackgroundModalBtn">&times;</button>
@@ -4975,104 +5086,23 @@
                     <div class="hint-text">JPG, PNG, WebP, GIF, etc. Used only while editing this airspace; not stored in the sector file.</div>
                 </div>
                 <div id="sectorMapBackgroundCalibPanel" class="sector-map-bg-calib-panel" style="display: none;">
-                    <p id="sectorMapBackgroundCalibHint" class="sector-map-bg-calib-hint" aria-live="polite"></p>
+                    <div class="sector-map-bg-calib-hint-row">
+                        <p id="sectorMapBackgroundCalibHint" class="sector-map-bg-calib-hint" aria-live="polite"></p>
+                        <span id="sectorMapBackgroundPointCountStatus" class="sector-map-bg-point-count-status" aria-live="polite"></span>
+                    </div>
                     <div class="hint-text sector-map-bg-panzoom-hint" style="margin-bottom: 0.5rem;">
-                        <strong>Zoom &amp; pan:</strong> use the <strong>mouse wheel</strong> on the picture to zoom in or out for precise point placement.
-                        <strong>Middle-click and hold</strong> to drag (pan) the picture when zoomed.
-                        After a point is placed, <strong>drag the orange dot</strong> with the left button to fine-tune it.
+                        <strong>Placing points:</strong> click anywhere on the picture to drop a calibration point (just 2 — no morphing here, this only sets position/rotation/scale).
+                        <strong>Zoom &amp; pan:</strong> use the <strong>mouse wheel</strong> to zoom for precise placement; <strong>middle-click and hold</strong> to drag (pan) when zoomed.
+                        <strong>Drag an orange dot</strong> to fine-tune it, <strong>click a dot</strong> to open/close its coordinate card, and use <strong>Remove</strong> on a card to redo it.
+                        After <strong>ADD to map</strong>, you can add unlimited fine-tuning points directly on the map: left-click a spot on the picture, then left-click where it should actually be; middle-click a point to remove it. Press <strong>FINISH BACKGROUND CALIBRATION</strong> when done.
                     </div>
-                    <div id="sectorMapBackgroundImgHost" class="sector-map-bg-img-host">
-                        <div id="sectorMapBackgroundPanZoom" class="sector-map-bg-panzoom-layer">
-                            <img id="sectorMapBackgroundCalibImg" class="sector-map-bg-calib-img" alt="Background calibration" />
-                        </div>
-                        <div id="sectorMapBgMarker1" class="sector-map-bg-calib-marker" style="display: none;" title="Point 1 — drag to move"></div>
-                        <div id="sectorMapBgMarker2" class="sector-map-bg-calib-marker" style="display: none;" title="Point 2 — drag to move"></div>
-                        <div id="sectorMapBgMarker3" class="sector-map-bg-calib-marker" style="display: none;" title="Point 3 — drag to move"></div>
-                        <div id="sectorMapBgMarker4" class="sector-map-bg-calib-marker" style="display: none;" title="Point 4 — drag to move"></div>
-                    </div>
-                    <div id="sectorMapBackgroundCoordBlock1" class="sector-map-bg-coord-block" style="display: none;">
-                        <div class="sector-map-bg-coord-block-title">Point 1 — latitude / longitude (DMS)</div>
-                        <div class="hint-text" style="margin-bottom: 0.5rem;">Latitude: <code>DDMMSS</code> + <code>N</code> or <code>S</code> (e.g. <code>232545N</code>). Longitude: <code>DDDMMSS</code> + <code>E</code> or <code>W</code> (e.g. <code>0754255E</code>). No spaces.</div>
-                        <div class="sector-map-bg-coord-row">
-                            <div class="form-group sector-map-bg-coord-field-compact" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgLat1">Latitude (DDMMSS + N/S)</label>
-                                <input type="text" id="sectorMapBgLat1" class="form-input" placeholder="e.g. 232545N" autocomplete="off" spellcheck="false" />
-                            </div>
-                            <div class="form-group sector-map-bg-coord-field-compact" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgLon1">Longitude (DDDMMSS + E/W)</label>
-                                <input type="text" id="sectorMapBgLon1" class="form-input" placeholder="e.g. 0754255E" autocomplete="off" spellcheck="false" />
-                            </div>
-                            <div class="form-group sector-map-bg-coord-field-waypoint" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgExistingWp1">Existing waypoint</label>
-                                <div class="sector-map-bg-wp-get-row">
-                                    <input type="text" id="sectorMapBgExistingWp1" class="form-input sector-map-bg-wp-input" placeholder="Name" autocomplete="off" spellcheck="false" title="Waypoint name in this airspace, then click Get coord." />
-                                    <button type="button" class="btn btn-secondary sector-map-bg-wp-get-btn" id="sectorMapBgGetCoord1">Get coord</button>
-                                </div>
+                    <div id="sectorMapBackgroundCalibWrap" class="sector-map-bg-calib-wrap">
+                        <div id="sectorMapBackgroundImgHost" class="sector-map-bg-img-host">
+                            <div id="sectorMapBackgroundPanZoom" class="sector-map-bg-panzoom-layer">
+                                <img id="sectorMapBackgroundCalibImg" class="sector-map-bg-calib-img" alt="Background calibration" />
                             </div>
                         </div>
-                    </div>
-                    <div id="sectorMapBackgroundCoordBlock2" class="sector-map-bg-coord-block" style="display: none;">
-                        <div class="sector-map-bg-coord-block-title">Point 2 — latitude / longitude (DMS)</div>
-                        <div class="hint-text" style="margin-bottom: 0.5rem;">Same format as point 1.</div>
-                        <div class="sector-map-bg-coord-row">
-                            <div class="form-group sector-map-bg-coord-field-compact" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgLat2">Latitude (DDMMSS + N/S)</label>
-                                <input type="text" id="sectorMapBgLat2" class="form-input" placeholder="e.g. 232600N" autocomplete="off" spellcheck="false" />
-                            </div>
-                            <div class="form-group sector-map-bg-coord-field-compact" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgLon2">Longitude (DDDMMSS + E/W)</label>
-                                <input type="text" id="sectorMapBgLon2" class="form-input" placeholder="e.g. 0754300E" autocomplete="off" spellcheck="false" />
-                            </div>
-                            <div class="form-group sector-map-bg-coord-field-waypoint" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgExistingWp2">Existing waypoint</label>
-                                <div class="sector-map-bg-wp-get-row">
-                                    <input type="text" id="sectorMapBgExistingWp2" class="form-input sector-map-bg-wp-input" placeholder="Name" autocomplete="off" spellcheck="false" title="Waypoint name in this airspace, then click Get coord." />
-                                    <button type="button" class="btn btn-secondary sector-map-bg-wp-get-btn" id="sectorMapBgGetCoord2">Get coord</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="sectorMapBackgroundCoordBlock3" class="sector-map-bg-coord-block" style="display: none;">
-                        <div class="sector-map-bg-coord-block-title">Point 3 — latitude / longitude (DMS)</div>
-                        <div class="hint-text" style="margin-bottom: 0.5rem;">Same format as point 1. Use four corners in order around the map (e.g. 1→2→3→4 clockwise).</div>
-                        <div class="sector-map-bg-coord-row">
-                            <div class="form-group sector-map-bg-coord-field-compact" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgLat3">Latitude (DDMMSS + N/S)</label>
-                                <input type="text" id="sectorMapBgLat3" class="form-input" placeholder="e.g. 232600N" autocomplete="off" spellcheck="false" />
-                            </div>
-                            <div class="form-group sector-map-bg-coord-field-compact" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgLon3">Longitude (DDDMMSS + E/W)</label>
-                                <input type="text" id="sectorMapBgLon3" class="form-input" placeholder="e.g. 0754300E" autocomplete="off" spellcheck="false" />
-                            </div>
-                            <div class="form-group sector-map-bg-coord-field-waypoint" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgExistingWp3">Existing waypoint</label>
-                                <div class="sector-map-bg-wp-get-row">
-                                    <input type="text" id="sectorMapBgExistingWp3" class="form-input sector-map-bg-wp-input" placeholder="Name" autocomplete="off" spellcheck="false" title="Waypoint name in this airspace, then click Get coord." />
-                                    <button type="button" class="btn btn-secondary sector-map-bg-wp-get-btn" id="sectorMapBgGetCoord3">Get coord</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="sectorMapBackgroundCoordBlock4" class="sector-map-bg-coord-block" style="display: none;">
-                        <div class="sector-map-bg-coord-block-title">Point 4 — latitude / longitude (DMS)</div>
-                        <div class="hint-text" style="margin-bottom: 0.5rem;">Same format as point 1.</div>
-                        <div class="sector-map-bg-coord-row">
-                            <div class="form-group sector-map-bg-coord-field-compact" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgLat4">Latitude (DDMMSS + N/S)</label>
-                                <input type="text" id="sectorMapBgLat4" class="form-input" placeholder="e.g. 232600N" autocomplete="off" spellcheck="false" />
-                            </div>
-                            <div class="form-group sector-map-bg-coord-field-compact" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgLon4">Longitude (DDDMMSS + E/W)</label>
-                                <input type="text" id="sectorMapBgLon4" class="form-input" placeholder="e.g. 0754300E" autocomplete="off" spellcheck="false" />
-                            </div>
-                            <div class="form-group sector-map-bg-coord-field-waypoint" style="margin: 0;">
-                                <label class="form-label" for="sectorMapBgExistingWp4">Existing waypoint</label>
-                                <div class="sector-map-bg-wp-get-row">
-                                    <input type="text" id="sectorMapBgExistingWp4" class="form-input sector-map-bg-wp-input" placeholder="Name" autocomplete="off" spellcheck="false" title="Waypoint name in this airspace, then click Get coord." />
-                                    <button type="button" class="btn btn-secondary sector-map-bg-wp-get-btn" id="sectorMapBgGetCoord4">Get coord</button>
-                                </div>
-                            </div>
-                        </div>
+                        <div id="sectorMapBackgroundPopupLayer" class="sector-map-bg-popup-layer"></div>
                     </div>
                 </div>
             </div>

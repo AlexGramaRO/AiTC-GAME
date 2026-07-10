@@ -1063,7 +1063,7 @@ FIELD: tts (spoken readback — placeholders + spoken phraseology)
 tts contains two kinds of content; combine them into ONE natural pilot reply that ends with {CALLSIGN}.
 
 A) PLACEHOLDERS — for these cleared values use the placeholder ONLY; the simulator expands each into correct phraseology from the aircraft's live state (climb/descend, turn direction, increase/reduce). Do NOT speak these values or their verbs yourself:
-- {ALVnnn} — assigned level, the same 3 digits as the ALV command (e.g. {ALV340}, {ALV030}).
+- {ALVnnn} — assigned level; use the same 3-digit ALV token as in command (see TRANSITION LEVEL below). The simulator expands this into altitude or flight level phraseology.
 - {TLHnnn} / {TRHnnn} — turn left / turn right to heading (e.g. {TLH200}).
 - {HDGnnn} — fly heading, shortest turn (e.g. {HDG270}).
 - {IASnnn} — indicated airspeed (e.g. {IAS280}).
@@ -1076,7 +1076,8 @@ B) SPOKEN PHRASEOLOGY — for EVERYTHING that has no placeholder, write the read
 - HOLD BEMBO → "holding at BEMBO"; EXITHOLD → "leaving the hold"
 - ILS08R → "cleared ILS runway zero eight right"
 - ROCD rate → full English number with thousands + "feet per minute" (1200 → "one thousand two hundred feet per minute"; never digit-by-digit, never drop "thousand")
-- Frequency/contact → read the frequency back naturally; repeat QNH when given.
+- Frequency/contact → read the frequency back naturally.
+- QNH with altitude clearances → read back in tts only (never in command): spell "Q N H", then each digit separately with a space, then the unit — "hectopascals" or "inches" (e.g. Q N H 1 0 1 4 hectopascals; Q N H 2 9 9 4 inches).
 Never put ICAO codes or raw command tokens (TLH, ALV, DCT, HOLD, ILS, ...) in the spoken text — placeholders for group A, proper phraseology for group B.
 Example shape: command "ETD855 DCT BEMBO ALV340" → tts "Proceeding direct BEMBO, {ALV340}, {CALLSIGN}".
 
@@ -1086,11 +1087,23 @@ The exercise may include Context Information (set in the AI Pilot tab when editi
 COMMAND TOKENS
 - Heading: TLHnnn (left), TRHnnn (right), HDGnnn (fly heading) — 3 digits.
 - Direct/route/hold: DCT FIX | RTE FIX1 FIX2 ... | HOLD FIX | EXITHOLD (fixes from the exercise lists).
-- Altitude: ALVnnn — 3 digits, no units. FL → those 3 digits (FL240 → ALV240); feet → feet/100 (3000 ft → ALV030).
+- Altitude: ALVnnn — 3 digits, no units in command (see TRANSITION LEVEL).
 - Speed: IASnnn, or Mach as Mnnn (Mach 0.78 → M078).
 - Rate of climb/descent: ROCDfpm, signed, digits only (climb 1500 → ROCD1500; descent 2500 → ROCD-2500). Exact controller value 100–5000, do not round. Use ALV alone for a level with no rate; use ROCD only when a rate is instructed.
 - ILS/approach: ILSnnX (e.g. ILS08R).
 - Label transfer-in: LBL_TIN-nnn (exercise initial-call scripts only; never spoken in tts).
+
+TRANSITION LEVEL — altitude vs flight level (command ALV and {ALV} placeholder)
+Each ATC sector has a TRANSITION FL (listed with sector data for this exercise). Compare the cleared level to that transition FL:
+- At or above transition FL: the controller uses flight level. command ALVnnn = the FL number (cleared FL240 → ALV240). Use {ALV240} in tts.
+- Below transition FL: the controller uses altitude in feet. command ALVnnn = feet ÷ 100 (any integer hundred, not only multiples of 10): 5000 ft → ALV050, 4500 ft → ALV045, 4750 ft → ALV048. Use the matching {ALVnnn} in tts. The radar label may show the same ALV code; spoken readback uses "altitude … feet" below transition and "flight level …" at/above transition — the simulator expands {ALVnnn} accordingly; do not speak the level yourself.
+- QNH is never in command. When the controller gives an altitude clearance with QNH, read QNH back in tts after the {ALV} placeholder using digit-by-digit format: Q N H 1 0 1 4 hectopascals or Q N H 2 9 9 4 inches.
+- If no transition FL is listed for the relevant sector in this exercise (missing from sector data below) and the cleared level's altitude-vs-flight-level treatment is ambiguous, do NOT guess: tts "Could you please confirm the transition level for us, {CALLSIGN}", command "".
+- WRONG-LEVEL-TYPE REFUSAL — when the transition FL IS known and the controller's clearance uses the wrong level type for that value, do NOT build an ALV command; refuse with "unable" and state the transition FL:
+  - Controller gives an ALTITUDE IN FEET that is AT OR ABOVE the transition FL (should have been a flight level): tts "Unable, the transition level is [transition FL spoken as flight level], {CALLSIGN}", command "".
+  - Controller gives a FLIGHT LEVEL that is BELOW the transition FL (should have been an altitude in feet): tts "Unable, the transition level is [transition FL spoken as flight level], {CALLSIGN}", command "".
+  - Speak the transition FL the same way as any flight level (e.g. transition FL 60 → "flight level six zero"; digits spoken individually, not "sixty").
+  - This refusal applies ONLY to the level-type mismatch itself; do not apply it to other parts of a compound instruction that are otherwise valid.
 
 COMPOUND (several instructions, same aircraft)
 - command: chain tokens after one callsign, or repeat the callsign per clause separated by semicolons.
@@ -1898,6 +1911,7 @@ function closeModal(modalId) {
             try { hideSimulationFlightStatusPopup(); } catch (e) {}
             try { disableAiPp(); } catch (e) {}
             try { if (isSimulationTtsSupported()) window.speechSynthesis.cancel(); } catch (e) {}
+            try { stopSimRadioStatic(0); } catch (e) {}
             simulationIsSelectingHeading = false;
             simulationSelectingHeadingAircraftId = null;
             simulationHeadingSelectMouse = null;
@@ -1972,6 +1986,7 @@ function closeModal(modalId) {
             try { hideSectorMapContextMenu(); } catch (e2) {}
             try { hideSectorMapAddRouteCommitMenu(); } catch (e3) {}
             try { hideSectorMapRouteEditCommitMenu(); } catch (e4) {}
+            try { finishSectorMapBgLiveCalibration(); } catch (eBgCalib) {}
             try { clearSectorMapSessionBackground(); } catch (eBg) {}
             try { endSectorMapPrintAreaPickMode(); } catch (ePm) {}
             try { endSectorMapSatBgPickMode(); } catch (eSat) {}
@@ -2001,6 +2016,14 @@ function closeModal(modalId) {
                     openModal('sectorMapBackgroundPickDeleteModal');
                 });
             }
+        }
+        if (modalId === 'editExerciseModal') {
+            try { cancelExerciseEditorPendingRedraws(); } catch (eExRaf) {}
+            try { resetExerciseSectorLoadUi(); } catch (eExSl) {}
+            exercisePreviewScriptMarkerHoverId = null;
+            exercisePreviewInitialCallMarkerHoverId = null;
+            exercisePreviewLblTinMarkerHoverId = null;
+            try { hideExerciseScriptMarkerTooltip(); } catch (eExTip) {}
         }
         if (modalId === 'deleteWaypointConfirmModal') {
             pendingDeleteWaypointId = null;
@@ -3565,6 +3588,7 @@ let exercisePreviewDraggingAircraftId = null;
 let exercisePreviewLabelDragAnchorX = 0;
 let exercisePreviewLabelDragAnchorY = 0;
 let exercisePreviewLabelDragDrawRafId = null;
+let exerciseEditorCanvasRedrawRafId = null;
 /** @type {Record<string, { labelOffsetX: number, labelOffsetY: number, labelLeaderOffsetToCenter?: boolean }>} */
 let exercisePreviewLabelOffsetsByAircraftId = {};
 let exercisePreviewLabelZOrder = [];
@@ -4630,6 +4654,30 @@ function renderEditExerciseExistingFlowsList() {
     }).join('');
 }
 
+function isEditExerciseModalActive() {
+    return !!document.getElementById('editExerciseModal')?.classList.contains('active');
+}
+
+function cancelExerciseEditorPendingRedraws() {
+    if (exerciseEditorCanvasRedrawRafId != null) {
+        cancelAnimationFrame(exerciseEditorCanvasRedrawRafId);
+        exerciseEditorCanvasRedrawRafId = null;
+    }
+    if (exercisePreviewScriptDragRafId != null) {
+        cancelAnimationFrame(exercisePreviewScriptDragRafId);
+        exercisePreviewScriptDragRafId = null;
+    }
+    if (exercisePreviewSpawnDragRafId != null) {
+        cancelAnimationFrame(exercisePreviewSpawnDragRafId);
+        exercisePreviewSpawnDragRafId = null;
+    }
+    if (exercisePreviewLabelDragDrawRafId != null) {
+        cancelAnimationFrame(exercisePreviewLabelDragDrawRafId);
+        exercisePreviewLabelDragDrawRafId = null;
+    }
+    exerciseFlightsHeavyPreviewRefreshPending = false;
+}
+
 function openEditExerciseModal() {
     currentEditingExerciseId = null;
     currentEditingSectorId = null;
@@ -4650,7 +4698,7 @@ function openEditExerciseModal() {
     setEditExerciseButtonsEnabled(false);
     populateEditExerciseSectorSelect();
 
-    renderExerciseFlightsList();
+    renderExerciseFlightsList({ deferPreview: true });
     resetExerciseSectorLoadUi();
 
     openModal('editExerciseModal');
@@ -4717,10 +4765,10 @@ async function loadExerciseForEditing(exerciseId) {
 
     document.getElementById('editExerciseTitle').textContent = `Edit Exercise: ${exercise.name} - ${sector.name}`;
     setEditExerciseButtonsEnabled(true);
-    renderExerciseFlightsList();
+    renderExerciseFlightsList({ deferPreview: true });
     initExerciseEditorCanvas();
     autoFitExerciseEditorZoom();
-    drawExerciseEditorCanvas();
+    scheduleExerciseFlightsHeavyPreviewRefresh();
     if (exerciseAiPilotActive) syncExerciseAiPilotPanelFromExercise();
 }
 
@@ -5040,10 +5088,12 @@ function getExercisePreviewMaxSecondsFromFlights() {
     return maxSec;
 }
 
-function refreshExercisePreviewTimeSlider() {
+function refreshExercisePreviewTimeSlider(opts) {
+    const skipSectorLoad = !!(opts && opts.skipSectorLoad);
     const slider = document.getElementById('exercisePreviewTimeSlider');
     const clock = document.getElementById('exercisePreviewTimeClock');
     if (!slider || !clock) return;
+    if (!isEditExerciseModalActive()) return;
 
     const hasExercise = !!currentEditingExerciseId;
     const hasFlights = currentEditingFlights.length > 0;
@@ -5056,7 +5106,9 @@ function refreshExercisePreviewTimeSlider() {
         slider.value = '0';
         slider.setAttribute('aria-valuetext', '00:00');
         clock.textContent = '00:00';
-        try { renderExerciseSectorLoadGraph(); } catch (e) {}
+        if (!skipSectorLoad) {
+            try { renderExerciseSectorLoadGraph(); } catch (e) {}
+        }
         return;
     }
 
@@ -5070,7 +5122,9 @@ function refreshExercisePreviewTimeSlider() {
     const label = formatPreviewClockMMSS(v);
     clock.textContent = label;
     slider.setAttribute('aria-valuetext', label);
-    try { renderExerciseSectorLoadGraph(); } catch (e) {}
+    if (!skipSectorLoad) {
+        try { renderExerciseSectorLoadGraph(); } catch (e) {}
+    }
 }
 
 function getExercisePreviewAtcSectorsList() {
@@ -5286,7 +5340,7 @@ function renderExerciseSectorLoadLegend(data) {
 
 function renderExerciseSectorLoadGraph() {
     const panel = document.getElementById('exerciseSectorLoadPanel');
-    if (!panel || panel.hidden || !exerciseSectorLoadActive) return;
+    if (!isEditExerciseModalActive() || !panel || panel.hidden || !exerciseSectorLoadActive) return;
 
     layoutExerciseSectorLoadCanvas();
     const canvas = document.getElementById('exerciseSectorLoadCanvas');
@@ -5843,9 +5897,8 @@ function toggleExercisePreviewTrajectoryForAircraftId(aircraftId, opts = {}) {
     if (forceOff) exercisePreviewTrajectoryAircraftIds.delete(k);
     else if (wasOn) exercisePreviewTrajectoryAircraftIds.delete(k);
     else exercisePreviewTrajectoryAircraftIds.add(k);
-    if (!forceOff && !wasOn && exercisePreviewTrajectoryAircraftIds.has(k)) {
-        try { syncExerciseInitialCallScriptsForAircraft(aircraftId); } catch (eSync) {}
-    }
+    // Route overlay toggle only — do not run full-timeline simulation / auto-generate
+    // initial-call scripts here (use “Generate initial calls” when scripts are needed).
 }
 
 function pickExercisePreviewCallsignAircraftIdAtCanvasXY(clickX, clickY) {
@@ -6343,15 +6396,43 @@ function syncExerciseInitialCallScriptsForAircraft(aircraftId, opts = {}) {
     }
 }
 
-function syncExerciseInitialCallScriptsForAllFlights() {
+function syncExerciseInitialCallScriptsForFlightIds(flightIds, opts = {}) {
     if (!currentEditingExerciseId) return;
+    const ids = (flightIds || []).filter(id => id != null);
+    if (!ids.length) return;
+    const idSet = new Set(ids.map(id => String(id)));
     (currentEditingFlights || []).forEach(f => {
-        if (f && f.id != null) {
+        if (f && f.id != null && idSet.has(String(f.id))) {
             syncExerciseInitialCallScriptsForAircraft(f.id, { skipPersist: true });
         }
     });
+    if (!opts.skipPersist) {
+        persistCurrentEditingAiPilotScripts();
+        renderExerciseScriptsList();
+    }
+}
+
+function syncExerciseInitialCallScriptsForAllFlights() {
+    if (!currentEditingExerciseId) return;
+    const ids = (currentEditingFlights || []).map(f => f && f.id).filter(id => id != null);
+    syncExerciseInitialCallScriptsForFlightIds(ids, { skipPersist: true });
     persistCurrentEditingAiPilotScripts();
     renderExerciseScriptsList();
+}
+
+/** Drop AI-pilot initial-call scripts (and suppressions) for a removed flight — no simulation. */
+function pruneExerciseInitialCallScriptsForDeletedFlight(flightId) {
+    if (flightId == null) return;
+    const wanted = String(flightId);
+    const before = currentEditingAiPilotScripts.length;
+    currentEditingAiPilotScripts = currentEditingAiPilotScripts.filter(s => !s || String(s.aircraftId) !== wanted);
+    currentEditingSuppressedInitialPilotCalls = currentEditingSuppressedInitialPilotCalls.filter(
+        e => !e || String(e.aircraftId) !== wanted
+    );
+    if (currentEditingAiPilotScripts.length !== before) {
+        persistCurrentEditingAiPilotScripts();
+        renderExerciseScriptsList();
+    }
 }
 
 function deleteExerciseInitialPilotCallScript(scriptId) {
@@ -6642,7 +6723,42 @@ function tryStartExercisePreviewScriptDragAt(scriptId, dragTarget, canvasX, canv
     return true;
 }
 
-function drawExercisePreviewScriptMarkersLayer(ctx, centre, lonScale, originX, originY, radarSec) {
+/**
+ * Aircraft position at simSec for trajectory script markers — reuses clones already
+ * integrated to the preview slider time when possible; otherwise one deeper integration
+ * per aircraft per draw pass (not one per script marker).
+ */
+function getExercisePreviewAircraftStateForMarkerDraw(flight, simSec, radarSec, previewIntegratedById, deeperIntegrationById, previewIntegratedToSec) {
+    if (!flight) return null;
+    const sec = Math.max(0, Math.floor(Number(simSec) || 0));
+    const spawn = parseInt(flight.spawnTime, 10) || 0;
+    if (sec < spawn) return null;
+    const id = String(flight.id);
+
+    const tryStateFromClone = (clone) => {
+        if (!clone) return null;
+        const st = getAircraftPositionAtRadarUpdate(clone, sec, radarSec);
+        if (!st || !isFinite(st.lat) || !isFinite(st.lon)) return null;
+        return st;
+    };
+
+    const previewClone = previewIntegratedById.get(id);
+    if (previewClone && sec <= previewIntegratedToSec) {
+        const st = tryStateFromClone(previewClone);
+        if (st) return st;
+    }
+
+    let deeper = deeperIntegrationById.get(id);
+    if (!deeper || deeper.integratedToSec < sec) {
+        const clone = getExercisePreviewIntegratedAircraftCloneAtSimSec(flight, sec, radarSec);
+        if (!clone) return null;
+        deeper = { clone, integratedToSec: sec };
+        deeperIntegrationById.set(id, deeper);
+    }
+    return tryStateFromClone(deeper.clone);
+}
+
+function drawExercisePreviewScriptMarkersLayer(ctx, centre, lonScale, originX, originY, radarSec, markerDrawCtx) {
     if (!exerciseAiPilotActive) return;
     if (!currentEditingAiPilotScripts.length) return;
     const toCanvasXY = (lat, lon) => {
@@ -6670,7 +6786,14 @@ function drawExercisePreviewScriptMarkersLayer(ctx, centre, lonScale, originX, o
         const simSec = Math.max(0, parseInt(script.previewTimeSec, 10) || 0);
         const spawn = parseInt(flight.spawnTime, 10) || 0;
         if (simSec < spawn) return;
-        const st = getExercisePreviewAircraftStateAtSimSecForFlight(flight, simSec, radarSec);
+        const st = markerDrawCtx
+            ? getExercisePreviewAircraftStateForMarkerDraw(
+                flight, simSec, radarSec,
+                markerDrawCtx.previewIntegratedById,
+                markerDrawCtx.deeperIntegrationById,
+                markerDrawCtx.previewIntegratedToSec
+            )
+            : getExercisePreviewAircraftStateAtSimSecForFlight(flight, simSec, radarSec);
         if (!st || !isFinite(st.lat) || !isFinite(st.lon)) return;
         const cxy = toCanvasXY(st.lat, st.lon);
         if (!isFinite(cxy.x) || !isFinite(cxy.y)) return;
@@ -6700,7 +6823,7 @@ function drawExercisePreviewScriptMarkersLayer(ctx, centre, lonScale, originX, o
     });
 }
 
-function drawExercisePreviewInitialCallMarkersLayer(ctx, centre, lonScale, originX, originY, radarSec) {
+function drawExercisePreviewInitialCallMarkersLayer(ctx, centre, lonScale, originX, originY, radarSec, markerDrawCtx) {
     if (!exerciseAiPilotActive) return;
     if (!currentEditingAiPilotScripts.length) return;
     ensureExerciseInitialCallLblTinFieldsSynced({ skipPersist: true });
@@ -6728,7 +6851,14 @@ function drawExercisePreviewInitialCallMarkersLayer(ctx, centre, lonScale, origi
         const simSec = Math.max(0, parseInt(script.previewTimeSec, 10) || 0);
         const spawn = parseInt(flight.spawnTime, 10) || 0;
         if (simSec < spawn) return;
-        const st = getExercisePreviewAircraftStateAtSimSecForFlight(flight, simSec, radarSec);
+        const st = markerDrawCtx
+            ? getExercisePreviewAircraftStateForMarkerDraw(
+                flight, simSec, radarSec,
+                markerDrawCtx.previewIntegratedById,
+                markerDrawCtx.deeperIntegrationById,
+                markerDrawCtx.previewIntegratedToSec
+            )
+            : getExercisePreviewAircraftStateAtSimSecForFlight(flight, simSec, radarSec);
         if (!st || !isFinite(st.lat) || !isFinite(st.lon)) return;
         const cxy = toCanvasXY(st.lat, st.lon);
         if (!isFinite(cxy.x) || !isFinite(cxy.y)) return;
@@ -6797,7 +6927,14 @@ function drawExercisePreviewInitialCallMarkersLayer(ctx, centre, lonScale, origi
         const spawn = parseInt(flight.spawnTime, 10) || 0;
         const simSec = getInitialCallLblTinPreviewTimeSec(script, spawn);
         if (simSec == null || simSec < spawn) return;
-        const st = getExercisePreviewAircraftStateAtSimSecForFlight(flight, simSec, radarSec);
+        const st = markerDrawCtx
+            ? getExercisePreviewAircraftStateForMarkerDraw(
+                flight, simSec, radarSec,
+                markerDrawCtx.previewIntegratedById,
+                markerDrawCtx.deeperIntegrationById,
+                markerDrawCtx.previewIntegratedToSec
+            )
+            : getExercisePreviewAircraftStateAtSimSecForFlight(flight, simSec, radarSec);
         if (!st || !isFinite(st.lat) || !isFinite(st.lon)) return;
         const cxy = toCanvasXY(st.lat, st.lon);
         if (!isFinite(cxy.x) || !isFinite(cxy.y)) return;
@@ -7050,12 +7187,36 @@ function pickExercisePreviewAircraftIdAtCanvasXY(clickX, clickY) {
     return null;
 }
 
-function renderExerciseFlightsList() {
+let exerciseFlightsHeavyPreviewRefreshPending = false;
+
+/** Sector-load graph + exercise editor canvas refresh (full timeline integration — keep off the hot path). */
+function runExerciseFlightsHeavyPreviewRefresh() {
+    if (!isEditExerciseModalActive()) return;
+    try { refreshExercisePreviewTimeSlider(); } catch (e) {}
+    try { renderExerciseSectorLoadGraph(); } catch (e) {}
+    try { drawExerciseEditorCanvas(); } catch (e) {}
+}
+
+/** Defer heavy preview work so flight list/import handlers return before simulating every track. */
+function scheduleExerciseFlightsHeavyPreviewRefresh() {
+    if (!isEditExerciseModalActive()) return;
+    if (exerciseFlightsHeavyPreviewRefreshPending) return;
+    exerciseFlightsHeavyPreviewRefreshPending = true;
+    requestAnimationFrame(() => {
+        exerciseFlightsHeavyPreviewRefreshPending = false;
+        runExerciseFlightsHeavyPreviewRefresh();
+    });
+}
+
+function renderExerciseFlightsList(opts) {
+    const deferPreview = !!(opts && opts.deferPreview);
     const container = document.getElementById('exerciseFlightsContainer');
     if (!container) return;
     try {
         updateExerciseFlightsSectionCount();
-        refreshExercisePreviewTimeSlider();
+        if (!deferPreview) {
+            refreshExercisePreviewTimeSlider();
+        }
 
         if (!currentEditingExerciseId) {
         container.innerHTML = `
@@ -7111,9 +7272,11 @@ function renderExerciseFlightsList() {
         });
     });
     } finally {
-        exerciseSectorLoadCache = { sig: '', data: null };
-        try { renderExerciseSectorLoadGraph(); } catch (e) {}
-        try { drawExerciseEditorCanvas(); } catch (e) {}
+        if (deferPreview) {
+            scheduleExerciseFlightsHeavyPreviewRefresh();
+        } else {
+            try { drawExerciseEditorCanvas(); } catch (e) {}
+        }
     }
 }
 
@@ -7265,11 +7428,12 @@ function isAiPilotCommandStartToken(token) {
     return false;
 }
 
-/** AI_PP ALV token → simulator FL (030 = 3000 ft; 240 = FL240; 3000 feet legacy → 30). */
+/** AI_PP ALV token → simulator level index (030 = 3000 ft below transition; 240 = FL240; raw feet ≥1000 → ÷100). */
 function normalizeAiPilotAlvToFl(rawValue) {
     let n = parseInt(String(rawValue ?? '').trim(), 10);
     if (!Number.isFinite(n)) return null;
     if (n >= 1000) n = Math.round(n / 100);
+    n = Math.max(0, Math.min(500, n));
     return n;
 }
 
@@ -7998,8 +8162,8 @@ function deleteCurrentEditingFlightById(flightId) {
     if (!flight) return false;
     if (!confirm(`Delete flight ${flight.callsign}? This cannot be undone.`)) return false;
     currentEditingFlights = currentEditingFlights.filter(x => x && x.id !== flightId);
-    renderExerciseFlightsList();
-    try { syncExerciseInitialCallScriptsForAllFlights(); } catch (eSync) {}
+    pruneExerciseInitialCallScriptsForDeletedFlight(flightId);
+    renderExerciseFlightsList({ deferPreview: true });
     return true;
 }
 
@@ -10325,7 +10489,7 @@ function initExerciseEditorCanvas() {
                 }
                 return;
             }
-            if (exerciseEditorCanvas && document.getElementById('editExerciseModal')?.classList.contains('active')) {
+            if (isEditExerciseModalActive() && exerciseEditorCanvas) {
                 const rect = exerciseEditorCanvas.getBoundingClientRect();
                 if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
                     const mx = e.clientX - rect.left;
@@ -10333,18 +10497,20 @@ function initExerciseEditorCanvas() {
                     const initialHovered = pickExercisePreviewInitialCallMarkerAtCanvasXY(mx, my);
                     const lblTinHovered = initialHovered ? null : pickExercisePreviewLblTinMarkerAtCanvasXY(mx, my);
                     const scriptHovered = (initialHovered || lblTinHovered) ? null : pickExercisePreviewScriptMarkerAtCanvasXY(mx, my);
+                    let hoverChanged = false;
                     if (initialHovered !== exercisePreviewInitialCallMarkerHoverId) {
                         exercisePreviewInitialCallMarkerHoverId = initialHovered;
-                        try { drawExerciseEditorCanvas(); } catch (errIc) {}
+                        hoverChanged = true;
                     }
                     if (lblTinHovered !== exercisePreviewLblTinMarkerHoverId) {
                         exercisePreviewLblTinMarkerHoverId = lblTinHovered;
-                        try { drawExerciseEditorCanvas(); } catch (errLt) {}
+                        hoverChanged = true;
                     }
                     if (scriptHovered !== exercisePreviewScriptMarkerHoverId) {
                         exercisePreviewScriptMarkerHoverId = scriptHovered;
-                        try { drawExerciseEditorCanvas(); } catch (errSc) {}
+                        hoverChanged = true;
                     }
+                    if (hoverChanged) scheduleExerciseEditorCanvasRedraw();
                     if (initialHovered) {
                         const icScript = currentEditingAiPilotScripts.find(s => s && String(s.id) === String(initialHovered));
                         const tip = document.getElementById('exerciseScriptMarkerTooltip');
@@ -10397,7 +10563,7 @@ function initExerciseEditorCanvas() {
                     exercisePreviewInitialCallMarkerHoverId = null;
                     exercisePreviewLblTinMarkerHoverId = null;
                     hideExerciseScriptMarkerTooltip();
-                    try { drawExerciseEditorCanvas(); } catch (err2) {}
+                    scheduleExerciseEditorCanvasRedraw();
                 }
             }
             if (!exerciseEditorIsDragging) return;
@@ -10872,7 +11038,7 @@ function exerciseEditorRoutePickMouseDownCapture(e) {
         const trajEstId = pickExercisePreviewTrajectoryEstimateAircraftIdAtCanvasXY(mx, my);
         if (trajEstId != null) {
             toggleExercisePreviewTrajectoryForAircraftId(trajEstId, { forceOff: true });
-            try { drawExerciseEditorCanvas(); } catch (err) {}
+            scheduleExerciseEditorCanvasRedraw();
             e.preventDefault();
             e.stopPropagation();
             return;
@@ -10880,7 +11046,7 @@ function exerciseEditorRoutePickMouseDownCapture(e) {
         const csId = pickExercisePreviewCallsignAircraftIdAtCanvasXY(mx, my);
         if (csId != null) {
             toggleExercisePreviewTrajectoryForAircraftId(csId);
-            try { drawExerciseEditorCanvas(); } catch (err) {}
+            scheduleExerciseEditorCanvasRedraw();
             e.preventDefault();
             e.stopPropagation();
             return;
@@ -11294,6 +11460,14 @@ function drawExerciseEditorPreviewAircraftLayer(ctx, centre, lonScale, originX, 
     const radarSec = Math.max(1, parseInt(radarSecRaw, 10) || SIM_SETTINGS_DEFAULTS.radarUpdateSeconds);
 
     const acClones = getExercisePreviewIntegratedClonesAtSec(previewSec, radarSec);
+    const previewIntegratedById = new Map(
+        acClones.filter(Boolean).map(ac => [String(ac.id), ac])
+    );
+    const markerDrawCtx = {
+        previewIntegratedById,
+        deeperIntegrationById: new Map(),
+        previewIntegratedToSec: previewSec
+    };
 
     const previewProximityConflictIds = computeExercisePreviewProximityConflictIds(acClones, previewSec, radarSec);
     const previewConflictLabelColor = '#dc2626';
@@ -11486,11 +11660,22 @@ function drawExerciseEditorPreviewAircraftLayer(ctx, centre, lonScale, originX, 
         });
     });
 
-    drawExercisePreviewScriptMarkersLayer(ctx, centre, lonScale, originX, originY, radarSec);
-    drawExercisePreviewInitialCallMarkersLayer(ctx, centre, lonScale, originX, originY, radarSec);
+    drawExercisePreviewScriptMarkersLayer(ctx, centre, lonScale, originX, originY, radarSec, markerDrawCtx);
+    drawExercisePreviewInitialCallMarkersLayer(ctx, centre, lonScale, originX, originY, radarSec, markerDrawCtx);
+}
+
+function scheduleExerciseEditorCanvasRedraw() {
+    if (!isEditExerciseModalActive()) return;
+    if (exerciseEditorCanvasRedrawRafId != null) return;
+    exerciseEditorCanvasRedrawRafId = requestAnimationFrame(() => {
+        exerciseEditorCanvasRedrawRafId = null;
+        if (!isEditExerciseModalActive()) return;
+        try { drawExerciseEditorCanvas(); } catch (e) {}
+    });
 }
 
 function drawExerciseEditorCanvas() {
+    if (!isEditExerciseModalActive()) return;
     if (!exerciseEditorCtx || !exerciseEditorCanvas) return;
     const ctx = exerciseEditorCtx;
     ctx.fillStyle = '#ffffff';
@@ -12243,6 +12428,7 @@ function isSimulationHostedMultiplayerSession() {
 
 function stopHostedSessionTts() {
     try { window.speechSynthesis.cancel(); } catch (e) {}
+    try { stopSimRadioStatic(0); } catch (e) {}
     simulationTtsIsSpeaking = false;
     try {
         (window.simulationData?.aircraft || []).forEach(ac => {
@@ -14288,7 +14474,7 @@ function pushHostSessionStateNowIfHosting() {
 function applySimulationAlvDisplaySelectionToAircraft(ac, targetFl) {
     if (!ac || !isJoinerExeOrPlnClient()) return false;
     const next = Math.max(0, Math.min(500, Math.trunc(Number(targetFl))));
-    if (!Number.isFinite(next) || next % 10 !== 0) return false;
+    if (!Number.isFinite(next)) return false;
     const alvNow = Math.max(0, Math.min(500, parseInt(ac.assignedFl ?? ac.alv, 10) || 0));
     if (next === alvNow) return false;
     ac.assignedFl = next;
@@ -14314,7 +14500,7 @@ function applySimulationAlvLevelToAircraft(ac, targetFl, opts = {}) {
     }
     if (!ac || simulationOperationModeId !== 'DL') return false;
     const next = Math.max(0, Math.min(500, Math.trunc(Number(targetFl))));
-    if (!Number.isFinite(next) || next % 10 !== 0) return false;
+    if (!Number.isFinite(next)) return false;
     const alvNow = Math.max(0, Math.min(500, parseInt(ac.assignedFl ?? ac.alv, 10) || 0));
     const msNow = Math.max(0, Math.min(500, parseInt(ac.modeSFl ?? ac.alv, 10) || 0));
     if (next === alvNow && next === msNow) return false;
@@ -14324,11 +14510,13 @@ function applySimulationAlvLevelToAircraft(ac, targetFl, opts = {}) {
         try {
             const mcFeetNow = Number(ac?.publishedModeCFeet ?? ac?.modeCFeet);
             const flNow = isFinite(mcFeetNow) ? Math.round(mcFeetNow / 100) : msNow;
-            const flTxt = String(Math.max(0, Math.min(999, Math.trunc(next)))).padStart(3, '0');
-            const flSpoken = flTxt.split('').join(' ');
+            const transitionFl = getAiPpActiveTransitionFl();
+            const levelPhrase = formatPilotCallLevelPhrase(next, transitionFl);
             const msg = (Number.isFinite(flNow) && next < flNow)
-                ? `Descending to Flight Level ${flSpoken}`
-                : `Climbing to Flight Level ${flSpoken}`;
+                ? `Descending to ${levelPhrase}`
+                : (Number.isFinite(flNow) && next > flNow)
+                    ? `Climbing to ${levelPhrase}`
+                    : `Maintaining ${levelPhrase}`;
             queueSimulationAircraftTtsReply(ac, 'ALV', msg);
         } catch (e) {}
     }
@@ -16515,6 +16703,14 @@ const SIM_SETTINGS_DEFAULTS = {
     spvEnabled: true,
     spvMinutes: 1,
     ttsEnabled: true,
+    ttsVoiceURI: '', // '' => browser/system default voice
+    radioStaticEnabled: false,
+    radioStaticNoiseType: 'white', // 'white' | 'pink' | 'brown' | 'hiss'
+    radioStaticFrequencyHz: 1000, // 200-4000: tunes the noise coloring filter
+    radioStaticIntensity: 30, // 0-100
+    squelchEnabled: false,
+    squelchType: 'classic', // 'classic' | 'relay' | 'soft'
+    squelchIntensity: 50, // 0-100
     trajectoryDisplayMode: 'turn_radius', // 'point_to_point' | 'turn_radius' (display only)
     trajectoryShowLabels: 'estimates_and_fl', // 'estimates_only' | 'estimates_and_fl' (FL still computed when hidden)
     zoomSensitivity: 2,
@@ -16707,6 +16903,8 @@ let simulationLabelDragAnchorX = 0;
 let simulationLabelDragAnchorY = 0;
 /** Coalesce canvas redraws during label drag to one per animation frame (reduces jank with many aircraft). */
 let simulationLabelDragDrawRafId = null;
+let simulationPanDragDrawRafId = null;
+let simulationMeasureDragDrawRafId = null;
 let simulationHoveredAircraftLabelId = null;
 let simulationLabelZOrder = []; // aircraftId[] (last = topmost)
 let simulationAircraftScreenStates = []; // [{aircraftId, x, y, lat, lon}]
@@ -17454,7 +17652,6 @@ function appendSimulationHoldingListMtihToContainer(container, ac) {
         if (e.target === input) return;
         e.preventDefault();
         e.stopPropagation();
-        if (isSimulationTtsSpeakingNow()) return;
         beginEdit();
     });
     input.addEventListener('mousedown', (e) => {
@@ -17575,7 +17772,6 @@ function createSimulationHoldingListExitHoldButton(ac) {
     btn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (isSimulationTtsSpeakingNow()) return;
         openHoldingListExitHoldConfirm(ac);
     });
     return btn;
@@ -17615,7 +17811,6 @@ function appendSimulationHoldingListDataCells(tr, ac) {
     alvBtn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (isSimulationTtsSpeakingNow()) return;
         openSimulationAlvPicker(ac.id, e.clientX, e.clientY);
     });
     tdAlv.appendChild(alvBtn);
@@ -17757,7 +17952,6 @@ function buildSimulationHoldingListAvlbMultiRow(fl, aircraftList, hasConflict) {
         alvBtn.addEventListener('mousedown', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (isSimulationTtsSpeakingNow()) return;
             openSimulationAlvPicker(ac.id, e.clientX, e.clientY);
         });
         itemAlv.appendChild(alvBtn);
@@ -18159,7 +18353,6 @@ function createDetachedHoldingListPanel(wpName) {
     mergeWrap.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (isSimulationTtsSpeakingNow()) return;
         const groups = groupAssumedHoldAircraftByWaypoint(collectAircraftForHoldingList());
         openHoldingListMergePopup(wpName, groups.map(([wp]) => wp));
     });
@@ -25721,6 +25914,21 @@ function loadSimulationSettings() {
     simulationSettings.spvMinutes = (Number.isFinite(spv) && spv >= 0 && spv <= 60) ? spv : SIM_SETTINGS_DEFAULTS.spvMinutes;
 
     simulationSettings.ttsEnabled = !!(simulationSettings.ttsEnabled ?? SIM_SETTINGS_DEFAULTS.ttsEnabled);
+    simulationSettings.ttsVoiceURI = (typeof simulationSettings.ttsVoiceURI === 'string') ? simulationSettings.ttsVoiceURI : SIM_SETTINGS_DEFAULTS.ttsVoiceURI;
+
+    simulationSettings.radioStaticEnabled = !!(simulationSettings.radioStaticEnabled ?? SIM_SETTINGS_DEFAULTS.radioStaticEnabled);
+    const rsnt = (simulationSettings.radioStaticNoiseType || SIM_SETTINGS_DEFAULTS.radioStaticNoiseType).toString().toLowerCase();
+    simulationSettings.radioStaticNoiseType = (rsnt === 'pink' || rsnt === 'brown' || rsnt === 'hiss' || rsnt === 'white') ? rsnt : SIM_SETTINGS_DEFAULTS.radioStaticNoiseType;
+    const rsf = parseInt(simulationSettings.radioStaticFrequencyHz, 10);
+    simulationSettings.radioStaticFrequencyHz = (Number.isFinite(rsf) && rsf >= 200 && rsf <= 4000) ? rsf : SIM_SETTINGS_DEFAULTS.radioStaticFrequencyHz;
+    const rsi = parseInt(simulationSettings.radioStaticIntensity, 10);
+    simulationSettings.radioStaticIntensity = (Number.isFinite(rsi) && rsi >= 0 && rsi <= 100) ? rsi : SIM_SETTINGS_DEFAULTS.radioStaticIntensity;
+
+    simulationSettings.squelchEnabled = !!(simulationSettings.squelchEnabled ?? SIM_SETTINGS_DEFAULTS.squelchEnabled);
+    const sqt = (simulationSettings.squelchType || SIM_SETTINGS_DEFAULTS.squelchType).toString().toLowerCase();
+    simulationSettings.squelchType = (sqt === 'relay' || sqt === 'soft' || sqt === 'classic') ? sqt : SIM_SETTINGS_DEFAULTS.squelchType;
+    const sqi = parseInt(simulationSettings.squelchIntensity, 10);
+    simulationSettings.squelchIntensity = (Number.isFinite(sqi) && sqi >= 0 && sqi <= 100) ? sqi : SIM_SETTINGS_DEFAULTS.squelchIntensity;
 
     const tdm = (simulationSettings.trajectoryDisplayMode || SIM_SETTINGS_DEFAULTS.trajectoryDisplayMode).toString().toLowerCase();
     simulationSettings.trajectoryDisplayMode = (tdm === 'turn_radius' || tdm === 'point_to_point') ? tdm : SIM_SETTINGS_DEFAULTS.trajectoryDisplayMode;
@@ -25878,16 +26086,117 @@ function hasAnyLocalSimSettingsStorage() {
 }
 
 function tryApplyDefaultSimSettingsPresetFromServer() {
-    return fetch('/api/sim-settings-presets')
+    return fetch('/api/system-default-sim-settings')
         .then((r) => r.json())
         .then((data) => {
-            const presets = Array.isArray(data?.presets) ? data.presets : [];
-            const preset = presets.find((p) => p && (String(p.name || '').trim() === 'Default_Settings' || p.id === 'default'));
-            if (preset && preset.settings) {
-                applySimPreset(preset);
+            if (data && data.settings && typeof data.settings === 'object') {
+                applySimPreset({ settings: data.settings });
+                return;
             }
+            // Back-compat: fall back to a shared preset explicitly named "Default_Settings"
+            return fetch('/api/sim-settings-presets')
+                .then((r) => r.json())
+                .then((data2) => {
+                    const presets = Array.isArray(data2?.presets) ? data2.presets : [];
+                    const preset = presets.find((p) => p && (String(p.name || '').trim() === 'Default_Settings' || p.id === 'default'));
+                    if (preset && preset.settings) {
+                        applySimPreset(preset);
+                    }
+                });
         })
         .catch(() => {});
+}
+
+// --- Admin: Load System Setting (platform-wide default preset, applies to any user/computer) ---
+function fillAdminLoadSystemSettingList() {
+    const listEl = document.getElementById('adminLoadSystemSettingList');
+    const emptyEl = document.getElementById('adminLoadSystemSettingEmpty');
+    const currentLabelEl = document.getElementById('adminSystemDefaultCurrentLabel');
+    if (!listEl || !emptyEl) return;
+    listEl.innerHTML = '';
+    emptyEl.style.display = 'none';
+    if (currentLabelEl) currentLabelEl.textContent = 'Loading current system default…';
+
+    const presetsPromise = fetch('/api/sim-settings-presets').then(r => r.json()).catch(() => ({ presets: [] }));
+    const currentPromise = fetch('/api/system-default-sim-settings').then(r => r.json()).catch(() => ({ settings: null }));
+
+    Promise.all([presetsPromise, currentPromise]).then(([presetsData, currentData]) => {
+        const presets = Array.isArray(presetsData?.presets) ? presetsData.presets : [];
+        const hasCurrentDefault = !!(currentData && currentData.settings);
+        if (currentLabelEl) {
+            currentLabelEl.textContent = hasCurrentDefault
+                ? `Current system default: ${currentData.name ? currentData.name : 'Unnamed preset'}`
+                : 'Current system default: none (using built-in factory defaults).';
+        }
+        if (!presets.length) {
+            emptyEl.style.display = 'block';
+            return;
+        }
+        presets.forEach((p) => {
+            const li = document.createElement('li');
+            li.className = 'sim-preset-row';
+            const name = (p.name || 'Unnamed').trim() || 'Unnamed';
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'sim-preset-name';
+            nameSpan.textContent = name;
+            nameSpan.addEventListener('click', () => {
+                setSystemDefaultSimSettingsFromPreset(p);
+            });
+            li.appendChild(nameSpan);
+            listEl.appendChild(li);
+        });
+    });
+}
+
+function openAdminLoadSystemSettingModal() {
+    fillAdminLoadSystemSettingList();
+    openModal('adminLoadSystemSettingModal');
+}
+
+function setSystemDefaultSimSettingsFromPreset(preset) {
+    const name = (preset?.name || 'Unnamed').trim() || 'Unnamed';
+    if (!confirm(`Make "${name}" the default settings for every user on this platform (including on other computers)?`)) return;
+    if (!adminUnlockedPassword) {
+        alert('Admin session expired. Please close and reopen Admin settings.');
+        return;
+    }
+    fetch('/api/admin/system-default-sim-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: adminUnlockedPassword, settings: preset.settings, name })
+    })
+        .then(r => r.json().then(body => ({ ok: r.ok, body })))
+        .then(({ ok, body }) => {
+            if (ok && body && body.ok) {
+                closeModal('adminLoadSystemSettingModal');
+                alert(`"${name}" is now the system default for all users.`);
+            } else {
+                alert((body && body.error) || 'Could not save system default.');
+            }
+        })
+        .catch(() => alert('Could not save system default to server.'));
+}
+
+function clearAdminSystemDefaultSimSettings() {
+    if (!confirm('Clear the system default? New users will fall back to the built-in factory defaults.')) return;
+    if (!adminUnlockedPassword) {
+        alert('Admin session expired. Please close and reopen Admin settings.');
+        return;
+    }
+    fetch('/api/admin/system-default-sim-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: adminUnlockedPassword, clear: true })
+    })
+        .then(r => r.json().then(body => ({ ok: r.ok, body })))
+        .then(({ ok, body }) => {
+            if (ok && body && body.ok) {
+                fillAdminLoadSystemSettingList();
+            } else {
+                alert((body && body.error) || 'Could not clear system default.');
+            }
+        })
+        .catch(() => alert('Could not clear system default on server.'));
 }
 
 function getFirstFlightStatusActionForAircraftId(aircraftId) {
@@ -26171,6 +26480,418 @@ function updateSpvUi() {
 
 function isSimulationTtsSupported() {
     return (typeof window !== 'undefined') && ('speechSynthesis' in window) && (typeof SpeechSynthesisUtterance !== 'undefined');
+}
+
+let simulationTtsVoicesChangedListenerAttached = false;
+
+/** Attaches (once) a listener so newly detected system voice packs auto-refresh the SIM Settings dropdown. */
+function ensureSimulationTtsVoicesChangedListener() {
+    if (simulationTtsVoicesChangedListenerAttached || !isSimulationTtsSupported()) return;
+    try {
+        window.speechSynthesis.addEventListener('voiceschanged', () => populateSimulationTtsVoiceSelect());
+        simulationTtsVoicesChangedListenerAttached = true;
+    } catch (e) {}
+}
+
+/** Rebuilds the TTS Voice Pack <select> from the voices the browser currently reports for this system. */
+function populateSimulationTtsVoiceSelect(statusOverride) {
+    const sel = document.getElementById('simulationTtsVoiceSelect');
+    if (!sel) return [];
+    let voices = [];
+    try { voices = (window.speechSynthesis?.getVoices() || []).slice(); } catch (e) { voices = []; }
+    voices.sort((a, b) => {
+        const al = (a.lang || '').toLowerCase();
+        const bl = (b.lang || '').toLowerCase();
+        if (al !== bl) return al.localeCompare(bl);
+        return (a.name || '').localeCompare(b.name || '');
+    });
+
+    const wanted = (simulationSettings?.ttsVoiceURI ?? sel.value ?? '').toString();
+    sel.innerHTML = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = '';
+    defOpt.textContent = 'System default';
+    sel.appendChild(defOpt);
+    voices.forEach((v) => {
+        const opt = document.createElement('option');
+        opt.value = v.voiceURI;
+        opt.textContent = `${v.name} (${v.lang})${v.default ? ' — Default' : ''}`;
+        sel.appendChild(opt);
+    });
+    sel.value = (wanted && voices.some((v) => v.voiceURI === wanted)) ? wanted : '';
+
+    const status = document.getElementById('simulationUpdateVoicePacksStatus');
+    if (status) {
+        status.textContent = statusOverride != null
+            ? statusOverride
+            : (voices.length
+                ? `${voices.length} voice pack${voices.length === 1 ? '' : 's'} found on this system.`
+                : 'No voice packs found on this system yet.');
+    }
+    return voices;
+}
+
+/** "Update Voice Packs" button: re-queries the OS/browser for installed voices and refreshes the dropdown. */
+function updateSimulationVoicePacks() {
+    const btn = document.getElementById('simulationUpdateVoicePacksBtn');
+    const status = document.getElementById('simulationUpdateVoicePacksStatus');
+    if (!isSimulationTtsSupported()) {
+        if (status) status.textContent = 'Text-to-speech is not supported in this browser.';
+        return;
+    }
+    ensureSimulationTtsVoicesChangedListener();
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'Searching this computer for installed voice packs…';
+    try { window.speechSynthesis.getVoices(); } catch (e) {}
+    setTimeout(() => {
+        populateSimulationTtsVoiceSelect();
+        if (btn) btn.disabled = false;
+    }, 300);
+}
+
+/** Resolves the user's chosen TTS voice (by voiceURI) against the voices currently available on this system. */
+function getSimulationTtsVoiceByURI(voiceURI) {
+    if (!voiceURI || !isSimulationTtsSupported()) return null;
+    try {
+        const voices = window.speechSynthesis.getVoices() || [];
+        return voices.find((v) => v.voiceURI === voiceURI) || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/** Applies the SIM Settings voice pack selection to an utterance; falls back to the browser/system default voice. */
+function applySimulationTtsVoiceToUtterance(u) {
+    try {
+        const voice = getSimulationTtsVoiceByURI(simulationSettings?.ttsVoiceURI);
+        if (voice) u.voice = voice;
+    } catch (e) {}
+}
+
+// --- "Realistic Frequency" radio effects: background static + start/end squelch (Web Audio API) ---
+let simRadioAudioCtx = null;
+let simRadioLongNoiseBuffer = null; // cached loopable noise buffer for continuous static
+let simRadioShortNoiseBuffer = null; // cached short noise buffer for squelch bursts
+let simRadioStaticActiveNodes = null; // { src, filter, gain } while static is playing
+
+function getSimRadioAudioContext() {
+    try {
+        if (!simRadioAudioCtx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            simRadioAudioCtx = new AC();
+        }
+        if (simRadioAudioCtx.state === 'suspended') {
+            try { simRadioAudioCtx.resume(); } catch (e) {}
+        }
+        return simRadioAudioCtx;
+    } catch (e) {
+        return null;
+    }
+}
+
+function createSimRadioNoiseBuffer(ctx, durationSeconds) {
+    const sampleRate = ctx.sampleRate;
+    const length = Math.max(1, Math.floor(sampleRate * durationSeconds));
+    const buffer = ctx.createBuffer(1, length, sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+    return buffer;
+}
+
+function getSimRadioLongNoiseBuffer(ctx) {
+    if (!simRadioLongNoiseBuffer || simRadioLongNoiseBuffer.sampleRate !== ctx.sampleRate) {
+        simRadioLongNoiseBuffer = createSimRadioNoiseBuffer(ctx, 3);
+    }
+    return simRadioLongNoiseBuffer;
+}
+
+function getSimRadioShortNoiseBuffer(ctx) {
+    if (!simRadioShortNoiseBuffer || simRadioShortNoiseBuffer.sampleRate !== ctx.sampleRate) {
+        simRadioShortNoiseBuffer = createSimRadioNoiseBuffer(ctx, 0.4);
+    }
+    return simRadioShortNoiseBuffer;
+}
+
+function clampSimRadioNumber(value, fallback, min, max) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(min, Math.min(max, n));
+}
+
+/** Starts (or restarts) the looping background radio-static hiss under a live transmission. */
+function startSimRadioStatic(opts = {}) {
+    const ctx = getSimRadioAudioContext();
+    if (!ctx) return;
+    stopSimRadioStatic(0);
+
+    const noiseType = (opts.noiseType || 'white').toString().toLowerCase();
+    const freq = clampSimRadioNumber(opts.frequencyHz, 1000, 100, 8000);
+    const amt = clampSimRadioNumber(opts.intensity, 30, 0, 100) / 100;
+
+    const src = ctx.createBufferSource();
+    src.buffer = getSimRadioLongNoiseBuffer(ctx);
+    src.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    switch (noiseType) {
+        case 'pink':
+            filter.type = 'lowpass';
+            filter.frequency.value = freq;
+            filter.Q.value = 0.3;
+            break;
+        case 'brown':
+            filter.type = 'lowpass';
+            filter.frequency.value = Math.max(80, freq * 0.4);
+            filter.Q.value = 0.2;
+            break;
+        case 'hiss':
+            filter.type = 'highpass';
+            filter.frequency.value = freq;
+            filter.Q.value = 0.3;
+            break;
+        default: // white
+            filter.type = 'bandpass';
+            filter.frequency.value = freq;
+            filter.Q.value = 0.6;
+            break;
+    }
+
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    const target = amt * 0.45;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(target, now + 0.06);
+
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    try { src.start(); } catch (e) {}
+
+    simRadioStaticActiveNodes = { src, filter, gain };
+}
+
+/** Stops the background static (if playing), with a short fade to avoid clicks. */
+function stopSimRadioStatic(fadeMs = 60) {
+    const nodes = simRadioStaticActiveNodes;
+    if (!nodes) return;
+    simRadioStaticActiveNodes = null;
+    try {
+        const ctx = nodes.gain.context;
+        const now = ctx.currentTime;
+        nodes.gain.gain.cancelScheduledValues(now);
+        nodes.gain.gain.setValueAtTime(Math.max(nodes.gain.gain.value, 0.0001), now);
+        nodes.gain.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, fadeMs) / 1000);
+    } catch (e) {}
+    setTimeout(() => {
+        try { nodes.src.stop(); } catch (e) {}
+        try { nodes.src.disconnect(); } catch (e) {}
+        try { nodes.filter.disconnect(); } catch (e) {}
+        try { nodes.gain.disconnect(); } catch (e) {}
+    }, Math.max(0, fadeMs) + 30);
+}
+
+/**
+ * Plays a brief squelch break (start/end of transmission). Returns a promise resolving after playback.
+ *
+ * Real VHF/AM aviation radios don't "beep" for squelch — when a carrier appears or drops, the receiver's
+ * squelch circuit takes a few milliseconds to lock/unlock, letting a short burst of raw broadband receiver
+ * noise through (the classic "kssht" break). Older/analog sets also add a faint mechanical thump from the
+ * relay/PTT switch just before that noise burst. All types below are built from filtered noise only.
+ */
+function playSimRadioSquelch(opts = {}) {
+    const ctx = getSimRadioAudioContext();
+    const amt = clampSimRadioNumber(opts.intensity, 50, 0, 100) / 100;
+    if (!ctx || amt <= 0) return Promise.resolve();
+    const type = (opts.type || 'classic').toString().toLowerCase();
+
+    try {
+        const now = ctx.currentTime;
+        const master = ctx.createGain();
+        master.gain.value = Math.min(1, amt * 0.85);
+        master.connect(ctx.destination);
+
+        const playNoiseBurst = (startAt, durationSec, { filterType = 'bandpass', freq = 1600, q = 0.6, peak = 1, attack = 0.006 } = {}) => {
+            const src = ctx.createBufferSource();
+            src.buffer = getSimRadioShortNoiseBuffer(ctx);
+            const filter = ctx.createBiquadFilter();
+            filter.type = filterType;
+            filter.frequency.value = freq;
+            filter.Q.value = q;
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.0001, startAt);
+            g.gain.exponentialRampToValueAtTime(peak, startAt + attack);
+            g.gain.exponentialRampToValueAtTime(0.0001, startAt + durationSec);
+            src.connect(filter);
+            filter.connect(g);
+            g.connect(master);
+            src.start(startAt);
+            src.stop(startAt + durationSec + 0.02);
+        };
+
+        // Faint low-frequency "thump" from an analog relay/PTT switch engaging.
+        const playThump = (startAt) => {
+            const src = ctx.createBufferSource();
+            src.buffer = getSimRadioShortNoiseBuffer(ctx);
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 180;
+            filter.Q.value = 0.4;
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.9, startAt);
+            g.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.035);
+            src.connect(filter);
+            filter.connect(g);
+            g.connect(master);
+            src.start(startAt);
+            src.stop(startAt + 0.05);
+        };
+
+        let totalDurationSec;
+        if (type === 'relay') {
+            // Vintage analog set: mechanical click, then a fuller-bodied static break.
+            playThump(now);
+            playNoiseBurst(now + 0.012, 0.17, { filterType: 'bandpass', freq: 1200, q: 0.5, peak: 1, attack: 0.006 });
+            totalDurationSec = 0.2;
+        } else if (type === 'soft') {
+            // Modern/solid-state radio: shorter, gentler, brighter hiss with a smoother fade.
+            playNoiseBurst(now, 0.1, { filterType: 'highpass', freq: 2200, q: 0.5, peak: 0.65, attack: 0.02 });
+            totalDurationSec = 0.12;
+        } else {
+            // Classic VHF carrier squelch break — the familiar quick "kssht".
+            playNoiseBurst(now, 0.15, { filterType: 'bandpass', freq: 1500, q: 0.5, peak: 1, attack: 0.006 });
+            totalDurationSec = 0.17;
+        }
+
+        return new Promise((resolve) => setTimeout(resolve, Math.round(totalDurationSec * 1000) + 30));
+    } catch (e) {
+        return Promise.resolve();
+    }
+}
+
+/** Wraps an utterance's onstart/onend/onerror handlers with the saved radio-static + squelch effects. */
+function attachSimulationRadioEffectsToUtterance(u) {
+    try {
+        const staticEnabled = !!simulationSettings?.radioStaticEnabled;
+        const squelchEnabled = !!simulationSettings?.squelchEnabled;
+        if (!staticEnabled && !squelchEnabled) return;
+
+        const staticOpts = {
+            noiseType: simulationSettings?.radioStaticNoiseType,
+            frequencyHz: simulationSettings?.radioStaticFrequencyHz,
+            intensity: simulationSettings?.radioStaticIntensity
+        };
+        const squelchOpts = {
+            type: simulationSettings?.squelchType,
+            intensity: simulationSettings?.squelchIntensity
+        };
+
+        if (squelchEnabled) { try { playSimRadioSquelch(squelchOpts); } catch (e) {} }
+
+        const prevOnStart = u.onstart;
+        const prevOnEnd = u.onend;
+        const prevOnError = u.onerror;
+
+        u.onstart = function (ev) {
+            if (staticEnabled) { try { startSimRadioStatic(staticOpts); } catch (e) {} }
+            if (typeof prevOnStart === 'function') prevOnStart(ev);
+        };
+        const onFinish = function () {
+            if (staticEnabled) { try { stopSimRadioStatic(); } catch (e) {} }
+            if (squelchEnabled) { try { playSimRadioSquelch(squelchOpts); } catch (e) {} }
+        };
+        u.onend = function (ev) {
+            onFinish();
+            if (typeof prevOnEnd === 'function') prevOnEnd(ev);
+        };
+        u.onerror = function (ev) {
+            onFinish();
+            if (typeof prevOnError === 'function') prevOnError(ev);
+        };
+    } catch (e) {}
+}
+
+/** "Preview" button in the Realistic Frequency popup: speaks a demo transmission using the unsaved control values. */
+function previewSimulationRealisticFrequency() {
+    if (!isSimulationTtsSupported()) return;
+    const staticEnabled = !!document.getElementById('simulationRadioStaticEnabled')?.checked;
+    const staticOpts = {
+        noiseType: document.getElementById('simulationRadioStaticNoiseType')?.value,
+        frequencyHz: parseInt(document.getElementById('simulationRadioStaticFrequency')?.value, 10),
+        intensity: parseInt(document.getElementById('simulationRadioStaticIntensity')?.value, 10)
+    };
+    const squelchEnabled = !!document.getElementById('simulationSquelchEnabled')?.checked;
+    const squelchOpts = {
+        type: document.getElementById('simulationSquelchType')?.value,
+        intensity: parseInt(document.getElementById('simulationSquelchIntensity')?.value, 10)
+    };
+
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    stopSimRadioStatic(0);
+
+    const u = new SpeechSynthesisUtterance('Radio check, one, two, three, four, five.');
+    u.rate = 1;
+    u.pitch = 1;
+    u.volume = 1;
+    applySimulationTtsVoiceToUtterance(u);
+
+    if (squelchEnabled) { try { playSimRadioSquelch(squelchOpts); } catch (e) {} }
+    u.onstart = () => { if (staticEnabled) { try { startSimRadioStatic(staticOpts); } catch (e) {} } };
+    const finish = () => {
+        if (staticEnabled) { try { stopSimRadioStatic(); } catch (e) {} }
+        if (squelchEnabled) { try { playSimRadioSquelch(squelchOpts); } catch (e) {} }
+    };
+    u.onend = finish;
+    u.onerror = finish;
+    try { window.speechSynthesis.resume(); } catch (e) {}
+    window.speechSynthesis.speak(u);
+}
+
+function syncSimulationRealisticFrequencyControlsFromState() {
+    const se = document.getElementById('simulationRadioStaticEnabled');
+    if (se) se.checked = !!(simulationSettings?.radioStaticEnabled ?? SIM_SETTINGS_DEFAULTS.radioStaticEnabled);
+    const nt = document.getElementById('simulationRadioStaticNoiseType');
+    if (nt) nt.value = (simulationSettings?.radioStaticNoiseType ?? SIM_SETTINGS_DEFAULTS.radioStaticNoiseType) || 'white';
+    const freq = document.getElementById('simulationRadioStaticFrequency');
+    if (freq) freq.value = String(simulationSettings?.radioStaticFrequencyHz ?? SIM_SETTINGS_DEFAULTS.radioStaticFrequencyHz);
+    const freqVal = document.getElementById('simulationRadioStaticFrequencyValue');
+    if (freqVal) freqVal.textContent = String(simulationSettings?.radioStaticFrequencyHz ?? SIM_SETTINGS_DEFAULTS.radioStaticFrequencyHz);
+    const si = document.getElementById('simulationRadioStaticIntensity');
+    if (si) si.value = String(simulationSettings?.radioStaticIntensity ?? SIM_SETTINGS_DEFAULTS.radioStaticIntensity);
+    const siVal = document.getElementById('simulationRadioStaticIntensityValue');
+    if (siVal) siVal.textContent = String(simulationSettings?.radioStaticIntensity ?? SIM_SETTINGS_DEFAULTS.radioStaticIntensity);
+
+    const sq = document.getElementById('simulationSquelchEnabled');
+    if (sq) sq.checked = !!(simulationSettings?.squelchEnabled ?? SIM_SETTINGS_DEFAULTS.squelchEnabled);
+    const st = document.getElementById('simulationSquelchType');
+    if (st) st.value = (simulationSettings?.squelchType ?? SIM_SETTINGS_DEFAULTS.squelchType) || 'classic';
+    const sqi = document.getElementById('simulationSquelchIntensity');
+    if (sqi) sqi.value = String(simulationSettings?.squelchIntensity ?? SIM_SETTINGS_DEFAULTS.squelchIntensity);
+    const sqiVal = document.getElementById('simulationSquelchIntensityValue');
+    if (sqiVal) sqiVal.textContent = String(simulationSettings?.squelchIntensity ?? SIM_SETTINGS_DEFAULTS.squelchIntensity);
+}
+
+function applySimulationRealisticFrequencyFromControls() {
+    const se = document.getElementById('simulationRadioStaticEnabled');
+    simulationSettings.radioStaticEnabled = !!se?.checked;
+
+    const nt = (document.getElementById('simulationRadioStaticNoiseType')?.value || '').toString().toLowerCase();
+    simulationSettings.radioStaticNoiseType = (nt === 'pink' || nt === 'brown' || nt === 'hiss' || nt === 'white') ? nt : SIM_SETTINGS_DEFAULTS.radioStaticNoiseType;
+
+    const freq = parseInt(document.getElementById('simulationRadioStaticFrequency')?.value, 10);
+    simulationSettings.radioStaticFrequencyHz = (Number.isFinite(freq) && freq >= 200 && freq <= 4000) ? freq : SIM_SETTINGS_DEFAULTS.radioStaticFrequencyHz;
+
+    const si = parseInt(document.getElementById('simulationRadioStaticIntensity')?.value, 10);
+    simulationSettings.radioStaticIntensity = (Number.isFinite(si) && si >= 0 && si <= 100) ? si : SIM_SETTINGS_DEFAULTS.radioStaticIntensity;
+
+    const sq = document.getElementById('simulationSquelchEnabled');
+    simulationSettings.squelchEnabled = !!sq?.checked;
+
+    const st = (document.getElementById('simulationSquelchType')?.value || '').toString().toLowerCase();
+    simulationSettings.squelchType = (st === 'relay' || st === 'soft' || st === 'classic') ? st : SIM_SETTINGS_DEFAULTS.squelchType;
+
+    const sqi = parseInt(document.getElementById('simulationSquelchIntensity')?.value, 10);
+    simulationSettings.squelchIntensity = (Number.isFinite(sqi) && sqi >= 0 && sqi <= 100) ? sqi : SIM_SETTINGS_DEFAULTS.squelchIntensity;
 }
 
 let simulationTtsIsSpeaking = false;
@@ -27403,9 +28124,11 @@ function simulationSpeakNow(text, opts = {}) {
             u.rate = 1;
             u.pitch = 1;
             u.volume = 1;
+            applySimulationTtsVoiceToUtterance(u);
             u.onstart = () => { simulationTtsIsSpeaking = true; };
             u.onend = () => { simulationTtsIsSpeaking = false; };
             u.onerror = () => { simulationTtsIsSpeaking = false; };
+            attachSimulationRadioEffectsToUtterance(u);
             try { window.speechSynthesis.resume(); } catch (e) {}
             window.speechSynthesis.speak(u);
             return;
@@ -27974,6 +28697,7 @@ function resetSimulationGlobalTtsState() {
         simulationGlobalTtsPumpTimerId = null;
     }
     try { window.speechSynthesis.cancel(); } catch (e) {}
+    try { stopSimRadioStatic(0); } catch (e) {}
     simulationTtsIsSpeaking = false;
 }
 
@@ -28045,6 +28769,7 @@ function playSimulationGlobalTtsItem(item) {
         u.rate = 1;
         u.pitch = 1;
         u.volume = 1;
+        applySimulationTtsVoiceToUtterance(u);
         const finish = () => {
             simulationTtsIsSpeaking = false;
             simulationTtsGapUntilMs = Date.now() + SIMULATION_TTS_POST_GAP_MS;
@@ -28055,6 +28780,7 @@ function playSimulationGlobalTtsItem(item) {
         u.onstart = () => { simulationTtsIsSpeaking = true; };
         u.onend = finish;
         u.onerror = finish;
+        attachSimulationRadioEffectsToUtterance(u);
         window.speechSynthesis.speak(u);
     } catch (e) {
         pumpSimulationGlobalTtsOnce();
@@ -30926,7 +31652,6 @@ function hideSimulationRocPicker() {
 function openSimulationRocPicker(aircraftId, clientX, clientY) {
     if (!canUseSimulationLabelFieldPickers()) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
-    if (isSimulationTtsSpeakingNow()) return;
     if (!window.simulationData || !Array.isArray(window.simulationData.aircraft)) return;
     const ac = window.simulationData.aircraft.find(a => a && a.id === aircraftId);
     if (!ac || !canOpenSimulationRocPicker(ac)) return;
@@ -31206,7 +31931,6 @@ function openSimulationRwyPicker(aircraftId, clientX, clientY) {
     if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
     if (!usesSimulationRwyPickerDomain()) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
-    if (isSimulationTtsSpeakingNow()) return;
     const picker = document.getElementById('simulationRwyPicker');
     const list = document.getElementById('simulationRwyPickerList');
     const canvasWrap = document.getElementById('simulationCanvas');
@@ -31796,7 +32520,6 @@ function applyAutoSpeedReadoutMode(ac) {
 function openSimulationSpeedPicker(aircraftId, clientX, clientY) {
     if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
-    if (isSimulationTtsSpeakingNow()) return;
     if (!window.simulationData || !Array.isArray(window.simulationData.aircraft)) return;
     const ac = window.simulationData.aircraft.find(a => a && a.id === aircraftId);
     if (!ac) return;
@@ -31919,7 +32642,6 @@ function openSimulationSpeedPicker(aircraftId, clientX, clientY) {
 function openSimulationDctPicker(aircraftId, clientX, clientY) {
     if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
-    if (isSimulationTtsSpeakingNow()) return;
     if (!window.simulationData || !Array.isArray(window.simulationData.aircraft)) return;
     const ac = window.simulationData.aircraft.find(a => a && a.id === aircraftId);
     const acDct = getAircraftForDctTrajectoryUi(ac);
@@ -32490,7 +33212,6 @@ function commitSimulationAlvPickerSelection(aircraftId, next) {
 function openSimulationAlvPicker(aircraftId, clientX, clientY) {
     if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
-    if (isSimulationTtsSpeakingNow()) return;
     const acOpen = getSimulationAircraftById(aircraftId);
     if (!acOpen) return;
     try { markSimulationAircraftTtsInputStart(acOpen, 'ALV'); } catch (e) {}
@@ -32576,6 +33297,8 @@ function syncSimulationSettingsControlsFromState() {
     if (srCol) srCol.value = simulationSettings.selectedAircraftRingColor ?? SIM_SETTINGS_DEFAULTS.selectedAircraftRingColor;
     const srTh = document.getElementById('simulationSelectedAircraftRingThickness');
     if (srTh) srTh.value = String(simulationSettings.selectedAircraftRingThicknessPx ?? SIM_SETTINGS_DEFAULTS.selectedAircraftRingThicknessPx);
+    ensureSimulationTtsVoicesChangedListener();
+    populateSimulationTtsVoiceSelect();
     syncSimulationLabelEditorControlsFromState();
 }
 
@@ -32680,6 +33403,9 @@ function applySimulationSettingsFromControls() {
     simulationSettings.selectedAircraftRingColor = isHex6(srCol?.value) ? srCol.value : SIM_SETTINGS_DEFAULTS.selectedAircraftRingColor;
     const rt = parseInt(srTh?.value, 10);
     simulationSettings.selectedAircraftRingThicknessPx = (Number.isFinite(rt) && rt >= 1 && rt <= 12) ? rt : SIM_SETTINGS_DEFAULTS.selectedAircraftRingThicknessPx;
+
+    const voiceSel = document.getElementById('simulationTtsVoiceSelect');
+    simulationSettings.ttsVoiceURI = (voiceSel?.value || '').toString();
 
     applySimulationLabelEditorControlsToState();
 }
@@ -34558,10 +35284,21 @@ function DMSToDecimal(degrees, minutes, seconds, direction) {
 
 function decimalToDMS(decimal, isLatitude) {
     const absDecimal = Math.abs(decimal);
-    const degrees = Math.floor(absDecimal);
+    let degrees = Math.floor(absDecimal);
     const minutesFloat = (absDecimal - degrees) * 60;
-    const minutes = Math.floor(minutesFloat);
-    const seconds = Math.round((minutesFloat - minutes) * 60);
+    let minutes = Math.floor(minutesFloat);
+    let seconds = Math.round((minutesFloat - minutes) * 60);
+    // Rounding seconds up can carry over to 60 (e.g. minutesFloat = 45.999999998 due to float
+    // error): roll that into minutes, and minutes rolling to 60 into degrees, so displayed values
+    // are always valid (00–59) instead of showing an impossible "...60" seconds/minutes field.
+    if (seconds >= 60) {
+        seconds -= 60;
+        minutes += 1;
+    }
+    if (minutes >= 60) {
+        minutes -= 60;
+        degrees += 1;
+    }
     
     let direction;
     if (isLatitude) {
@@ -35820,7 +36557,6 @@ function setupSimulationCanvasInteractions() {
 
             // RWY click (DL mode, not monitor-only): left-click on RW segment opens runway picker (opaque label only)
             if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftRwyTextBounds.length) {
-                if (isSimulationTtsSpeakingNow()) return;
                 const rwById = new Map(simulationAircraftRwyTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -35838,7 +36574,6 @@ function setupSimulationCanvasInteractions() {
 
             // DCT click (DL mode, not monitor-only): left-click on HDG/DCT field opens waypoint picker (opaque label only)
             if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftHdgDctTextBounds.length) {
-                if (isSimulationTtsSpeakingNow()) return;
                 const hdgById = new Map(simulationAircraftHdgDctTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -35856,7 +36591,6 @@ function setupSimulationCanvasInteractions() {
 
             // Speed select (left click on IAS/MACH field) opens IAS/MACH picker (not monitor-only)
             if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftSpeedTextBounds.length) {
-                if (isSimulationTtsSpeakingNow()) return;
                 const spById = new Map(simulationAircraftSpeedTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -35874,7 +36608,6 @@ function setupSimulationCanvasInteractions() {
 
             // ROC/D select (left click on rate-of-climb field) opens ROC/D picker
             if (canUseSimulationLabelFieldPickers() && simulationAircraftRocTextBounds.length) {
-                if (isSimulationTtsSpeakingNow()) return;
                 const rocById = new Map(simulationAircraftRocTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -36317,21 +37050,30 @@ function setupSimulationCanvasInteractions() {
         if (isDragging) {
             const deltaX = e.clientX - dragStartX;
             const deltaY = e.clientY - dragStartY;
-            
             simulationPanX = dragStartPanX + deltaX;
             simulationPanY = dragStartPanY + deltaY;
-            
-            drawSimulationCanvas();
-        } else if (isMeasuring && rightMouseDown) {
-            // Update measurement line while dragging
+            if (simulationPanDragDrawRafId == null) {
+                simulationPanDragDrawRafId = requestAnimationFrame(() => {
+                    simulationPanDragDrawRafId = null;
+                    drawSimulationCanvas();
+                });
+            }
+            return;
+        }
+        if (isMeasuring && rightMouseDown) {
             const rect = simulationCanvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
-            
             measureCurrentMousePos = { x: mouseX, y: mouseY };
             const hit = getAircraftAtScreenPoint(mouseX, mouseY);
             measureCurrentEndAircraftId = hit?.aircraftId || null;
-            drawSimulationCanvas();
+            if (simulationMeasureDragDrawRafId == null) {
+                simulationMeasureDragDrawRafId = requestAnimationFrame(() => {
+                    simulationMeasureDragDrawRafId = null;
+                    drawSimulationCanvas();
+                });
+            }
+            return;
         }
 
         // Hover detection for aircraft label background
@@ -40467,6 +41209,21 @@ function setupCanvasInteractions() {
     
     // Mouse drag panning
     canvas.addEventListener('mousedown', function(e) {
+        if (sectorMapBgLiveCalibActive()) {
+            const p = eventToSectorCanvasPixel(e);
+            if (!p) return;
+            if (e.button === 0) {
+                e.preventDefault();
+                sectorMapBgLiveCalibHandleLeftClick(p.x, p.y);
+                return;
+            }
+            if (e.button === 1) {
+                e.preventDefault();
+                sectorMapBgLiveCalibHandleMiddleClick(p.x, p.y);
+                return;
+            }
+            return;
+        }
         if (e.button === 1) {
             if (!document.getElementById('editSectorModal')?.classList.contains('active')) return;
             if (sectorMapWaypointPlacementActive || sectorMapWaypointDeleteActive || sectorMapWaypointEditActive || sectorMapNavaidDeleteActive || sectorMapNavaidEditActive || sectorMapAddRoutePickingActive || sectorMapRouteDeleteActive || sectorMapRouteEditActive || sectorMapAddAtcSectorActive || sectorMapAtcSectorEditActive || sectorMapAtcSectorDeleteActive || sectorMapAddMapAreaActive || sectorMapMapAreaPickActive()) return;
@@ -40499,6 +41256,10 @@ function setupCanvasInteractions() {
     });
     
     canvas.addEventListener('mousemove', function(e) {
+        if (sectorMapBgLiveCalibActive()) {
+            canvas.style.cursor = 'crosshair';
+            return;
+        }
         if (sectorMapWaypointPlacementActive || sectorMapWaypointDeleteActive || sectorMapWaypointEditActive || sectorMapNavaidDeleteActive || sectorMapNavaidEditActive) {
             canvas.style.cursor = 'crosshair';
             return;
@@ -40522,7 +41283,7 @@ function setupCanvasInteractions() {
     canvas.addEventListener('mouseup', function(e) {
         if (e.button === 0) {
             isDragging = false;
-            if (sectorMapWaypointPlacementActive || sectorMapWaypointDeleteActive || sectorMapWaypointEditActive || sectorMapNavaidDeleteActive || sectorMapNavaidEditActive || sectorMapAddRoutePickingActive || sectorMapRouteDeleteActive || sectorMapRouteEditActive || sectorMapAddAtcSectorActive || sectorMapAtcSectorEditActive || sectorMapAtcSectorDeleteActive || sectorMapAddMapAreaActive || sectorMapMapAreaPickActive()) {
+            if (sectorMapBgLiveCalibActive() || sectorMapWaypointPlacementActive || sectorMapWaypointDeleteActive || sectorMapWaypointEditActive || sectorMapNavaidDeleteActive || sectorMapNavaidEditActive || sectorMapAddRoutePickingActive || sectorMapRouteDeleteActive || sectorMapRouteEditActive || sectorMapAddAtcSectorActive || sectorMapAtcSectorEditActive || sectorMapAtcSectorDeleteActive || sectorMapAddMapAreaActive || sectorMapMapAreaPickActive()) {
                 canvas.style.cursor = 'crosshair';
             } else {
                 canvas.style.cursor = 'default';
@@ -41669,6 +42430,8 @@ function drawCanvas() {
             }
         }
     }
+
+    sectorMapBgLiveCalibDrawOverlay();
 }
 
 // Convert canvas coordinates to world coordinates
@@ -42319,20 +43082,19 @@ let sectorMapBackgroundWizardEditOriginalBlobUrl = null;
 /** Original filename from the file input, or carried from the layer when editing. */
 let sectorMapBackgroundWizardChosenFileName = null;
 /**
- * Linear flow: pick1→coords1→pick2→coords2→pick3→coords3→pick4→coords4 for new images.
- * When false (upgrading a legacy 2-point layer), all markers are shown and host clicks do not place points.
+ * The wizard only places this many points (simple placement, no morphing — a plain similarity
+ * transform). Further calibration points, unlimited in number, are added live on the map itself
+ * (alternating background-pick / map-target clicks) after ADD to map, until the user presses
+ * FINISH BACKGROUND CALIBRATION — see the "Live on-map background calibration" section below.
  */
-let sectorMapBackgroundWizardLinearFlow = true;
-/** @type {'idle'|'pick1'|'coords1'|'pick2'|'coords2'|'pick3'|'coords3'|'pick4'|'coords4'} */
-let sectorMapBackgroundWizardStep = 'idle';
-let sectorMapBackgroundIx1 = 0;
-let sectorMapBackgroundIy1 = 0;
-let sectorMapBackgroundIx2 = 0;
-let sectorMapBackgroundIy2 = 0;
-let sectorMapBackgroundIx3 = 0;
-let sectorMapBackgroundIy3 = 0;
-let sectorMapBackgroundIx4 = 0;
-let sectorMapBackgroundIy4 = 0;
+const SECTOR_MAP_BG_WIZARD_POINTS = 2;
+/** Monotonically increasing id so removed-then-readded points never collide with stale DOM refs. */
+let sectorMapBackgroundWizardPointSeq = 0;
+/**
+ * Calibration points currently placed in the wizard (simple 2-point placement flow).
+ * @type {Array<{ uid: number, ix: number, iy: number, lat: number|null, lon: number|null, markerEl: HTMLElement|null, popupEl: HTMLElement|null }>}
+ */
+let sectorMapBackgroundWizardPoints = [];
 
 /** Add Background preview: pan/zoom in modal (not persisted). */
 let sectorMapBgPanX = 0;
@@ -42362,6 +43124,34 @@ function sectorMapBackgroundApplyPreviewPanZoom() {
     el.style.transform = `translate(${sectorMapBgPanX}px, ${sectorMapBgPanY}px) scale(${sectorMapBgZoom})`;
 }
 
+/**
+ * Keep the picture properly framed at every zoom level: clamp pan so the scaled image can never be
+ * dragged/zoomed fully out of the host, and — crucially — so that at the minimum zoom (1, i.e. the
+ * picture already fits the host via object-fit:contain) pan is forced back to (0,0). Without this,
+ * panning while zoomed in and then zooming back out could leave a residual offset that clips part
+ * of the picture against the host edge, which reads as the picture "jumping"/re-framing oddly once
+ * you reach max zoom-out. Clamping makes the fully-zoomed-out state deterministic and prevents any
+ * jarring jump at other zoom levels too.
+ */
+function sectorMapBackgroundClampPreviewPan() {
+    const host = document.getElementById('sectorMapBackgroundImgHost');
+    const img = document.getElementById('sectorMapBackgroundCalibImg');
+    if (!host || !img || !img.naturalWidth) return;
+    const HW = host.clientWidth;
+    const HH = host.clientHeight;
+    // clientWidth/Height reflect the image's untransformed (zoom=1) laid-out size, since CSS
+    // transforms do not affect layout geometry.
+    const baseW = img.clientWidth;
+    const baseH = img.clientHeight;
+    if (HW <= 0 || HH <= 0 || baseW <= 0 || baseH <= 0) return;
+    const dispW = baseW * sectorMapBgZoom;
+    const dispH = baseH * sectorMapBgZoom;
+    const maxPanX = Math.max(0, (dispW - HW) / 2);
+    const maxPanY = Math.max(0, (dispH - HH) / 2);
+    sectorMapBgPanX = Math.max(-maxPanX, Math.min(maxPanX, sectorMapBgPanX));
+    sectorMapBgPanY = Math.max(-maxPanY, Math.min(maxPanY, sectorMapBgPanY));
+}
+
 function sectorMapBackgroundResetPreviewPanZoom() {
     sectorMapBgPanX = 0;
     sectorMapBgPanY = 0;
@@ -42372,25 +43162,103 @@ function sectorMapBackgroundResetPreviewPanZoom() {
     sectorMapBackgroundApplyPreviewPanZoom();
 }
 
+/** Find a wizard calibration point by its stable uid (survives array reordering on remove). */
+function sectorMapBackgroundFindPointByUid(uid) {
+    return sectorMapBackgroundWizardPoints.find(p => p.uid === uid) || null;
+}
+
 function sectorMapBackgroundRefreshCalibMarkers() {
     const host = document.getElementById('sectorMapBackgroundImgHost');
-    const m1 = document.getElementById('sectorMapBgMarker1');
-    const m2 = document.getElementById('sectorMapBgMarker2');
-    const m3 = document.getElementById('sectorMapBgMarker3');
-    const m4 = document.getElementById('sectorMapBgMarker4');
     if (!host) return;
-    if (m1 && m1.style.display !== 'none') {
-        positionSectorMapBackgroundMarker(host, sectorMapBackgroundIx1, sectorMapBackgroundIy1, m1);
-    }
-    if (m2 && m2.style.display !== 'none') {
-        positionSectorMapBackgroundMarker(host, sectorMapBackgroundIx2, sectorMapBackgroundIy2, m2);
-    }
-    if (m3 && m3.style.display !== 'none') {
-        positionSectorMapBackgroundMarker(host, sectorMapBackgroundIx3, sectorMapBackgroundIy3, m3);
-    }
-    if (m4 && m4.style.display !== 'none') {
-        positionSectorMapBackgroundMarker(host, sectorMapBackgroundIx4, sectorMapBackgroundIy4, m4);
-    }
+    sectorMapBackgroundWizardPoints.forEach(p => {
+        if (p.markerEl) positionSectorMapBackgroundMarker(host, p.ix, p.iy, p.markerEl);
+    });
+    sectorMapBackgroundRefreshVisibleCoordPopups();
+}
+
+/**
+ * Position the floating coordinate/name card for point `uid` next to its marker on the picture.
+ * The card lives in a sibling overlay layer (not clipped by the img-host's overflow:hidden) but is
+ * positioned using the same host-relative geometry as the marker itself, then flipped/clamped so
+ * it always stays fully inside the calibration picture area.
+ */
+function positionSectorMapBackgroundCoordPopup(uid) {
+    const wrap = document.getElementById('sectorMapBackgroundCalibWrap');
+    const host = document.getElementById('sectorMapBackgroundImgHost');
+    const img = document.getElementById('sectorMapBackgroundCalibImg');
+    const point = sectorMapBackgroundFindPointByUid(uid);
+    if (!wrap || !host || !img || !img.naturalWidth || !point || !point.popupEl) return;
+    const popup = point.popupEl;
+    if (popup.style.display === 'none') return;
+    const wrapRect = wrap.getBoundingClientRect();
+    const hostRect = host.getBoundingClientRect();
+    const ir = img.getBoundingClientRect();
+    if (ir.width <= 0 || ir.height <= 0 || wrapRect.width <= 0 || wrapRect.height <= 0) return;
+    const fx = point.ix / img.naturalWidth;
+    const fy = point.iy / img.naturalHeight;
+    const markerClientX = ir.left + fx * ir.width;
+    const markerClientY = ir.top + fy * ir.height;
+    const markerX = markerClientX - wrapRect.left;
+    const markerY = markerClientY - wrapRect.top;
+    const GAP = 14;
+    const popupW = popup.offsetWidth || 280;
+    const popupH = popup.offsetHeight || 160;
+    // Open toward whichever side of the host has more room (keeps corner cards pointing "inward").
+    const hostMidX = hostRect.left + hostRect.width / 2;
+    const hostMidY = hostRect.top + hostRect.height / 2;
+    const openRight = markerClientX <= hostMidX;
+    const openBelow = markerClientY <= hostMidY;
+    let left = openRight ? (markerX + GAP) : (markerX - GAP - popupW);
+    let top = openBelow ? (markerY + GAP) : (markerY - GAP - popupH);
+    const maxLeft = Math.max(0, wrapRect.width - popupW);
+    const maxTop = Math.max(0, wrapRect.height - popupH);
+    left = Math.max(0, Math.min(maxLeft, left));
+    top = Math.max(0, Math.min(maxTop, top));
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+}
+
+/** Re-run positioning for any coordinate popups currently shown (called after pan/zoom/drag). */
+function sectorMapBackgroundRefreshVisibleCoordPopups() {
+    sectorMapBackgroundWizardPoints.forEach(p => {
+        if (p.popupEl && p.popupEl.style.display !== 'none') positionSectorMapBackgroundCoordPopup(p.uid);
+    });
+}
+
+/** Hide every point's coordinate card except (optionally) one — keeps the picture uncluttered. */
+function sectorMapBackgroundCloseAllCoordPopups(exceptUid) {
+    sectorMapBackgroundWizardPoints.forEach(p => {
+        if (p.uid !== exceptUid && p.popupEl) p.popupEl.style.display = 'none';
+    });
+}
+
+/** Show (and position + focus) the coordinate card for point `uid`; hides all other cards. */
+function openSectorMapBackgroundCoordPopup(uid, opts) {
+    sectorMapBackgroundCloseAllCoordPopups(uid);
+    const point = sectorMapBackgroundFindPointByUid(uid);
+    if (!point || !point.popupEl) return;
+    point.popupEl.style.display = 'block';
+    requestAnimationFrame(function() {
+        positionSectorMapBackgroundCoordPopup(uid);
+        if (opts && opts.focus) {
+            const latField = point.popupEl.querySelector('.sector-map-bg-lat-input');
+            if (latField && !latField.value) {
+                try { latField.focus(); } catch (e) {}
+            }
+        }
+    });
+}
+
+function closeSectorMapBackgroundCoordPopup(uid) {
+    const point = sectorMapBackgroundFindPointByUid(uid);
+    if (point && point.popupEl) point.popupEl.style.display = 'none';
+}
+
+function sectorMapBackgroundToggleCoordPopup(uid) {
+    const point = sectorMapBackgroundFindPointByUid(uid);
+    if (!point || !point.popupEl) return;
+    if (point.popupEl.style.display !== 'none') closeSectorMapBackgroundCoordPopup(uid);
+    else openSectorMapBackgroundCoordPopup(uid, { focus: false });
 }
 
 function sectorMapBackgroundOnCalibWheel(e) {
@@ -42413,6 +43281,7 @@ function sectorMapBackgroundOnCalibWheel(e) {
     sectorMapBgZoom = newZ;
     sectorMapBgPanX = sx - (hx - ctr.cx) * newZ - ctr.cx;
     sectorMapBgPanY = sy - (hy - ctr.cy) * newZ - ctr.cy;
+    sectorMapBackgroundClampPreviewPan();
     sectorMapBackgroundApplyPreviewPanZoom();
     sectorMapBackgroundRefreshCalibMarkers();
 }
@@ -42424,6 +43293,7 @@ function sectorMapBackgroundOnCalibMouseMove(e) {
     if (Math.hypot(dx, dy) > 2) sectorMapBgMiddleDragMoved = true;
     sectorMapBgPanX = sectorMapBgPanGrabX + dx;
     sectorMapBgPanY = sectorMapBgPanGrabY + dy;
+    sectorMapBackgroundClampPreviewPan();
     sectorMapBackgroundApplyPreviewPanZoom();
     sectorMapBackgroundRefreshCalibMarkers();
 }
@@ -42436,60 +43306,140 @@ function sectorMapBackgroundOnCalibMouseUp(e) {
 }
 
 function sectorMapBackgroundOnCalibHostClick(ev) {
-    if (!sectorMapBackgroundWizardLinearFlow) return;
     if (!sectorMapBackgroundWizardObjectUrl) return;
     if (ev.button != null && ev.button > 0) return;
     if (ev.target.closest('.sector-map-bg-calib-marker')) return;
-    const pt = sectorMapBackgroundEventToNaturalImageXY(ev.clientX, ev.clientY);
-    if (!pt) return;
-    const host = document.getElementById('sectorMapBackgroundImgHost');
-    const m1 = document.getElementById('sectorMapBgMarker1');
-    const m2 = document.getElementById('sectorMapBgMarker2');
-    const m3 = document.getElementById('sectorMapBgMarker3');
-    const m4 = document.getElementById('sectorMapBgMarker4');
+    if (ev.target.closest('.sector-map-bg-coord-popup')) return;
     const hint = document.getElementById('sectorMapBackgroundCalibHint');
-    if (sectorMapBackgroundWizardStep === 'pick1') {
-        sectorMapBackgroundIx1 = pt.ix;
-        sectorMapBackgroundIy1 = pt.iy;
-        if (m1 && host) positionSectorMapBackgroundMarker(host, pt.ix, pt.iy, m1);
-        sectorMapBackgroundWizardStep = 'coords1';
-        const b1 = document.getElementById('sectorMapBackgroundCoordBlock1');
-        if (b1) b1.style.display = 'block';
+    if (sectorMapBackgroundWizardPoints.length >= SECTOR_MAP_BG_WIZARD_POINTS) {
         if (hint) {
             hint.textContent =
-                'Enter point 1: latitude DDMMSS+N/S, longitude DDDMMSS+E/W (no spaces). Then pick point 2 on the image.';
+                `Only ${SECTOR_MAP_BG_WIZARD_POINTS} points are placed here. Open a point's card and click Remove to redo one, or add more calibration points on the map after ADD to map.`;
         }
-    } else if (sectorMapBackgroundWizardStep === 'pick2') {
-        sectorMapBackgroundIx2 = pt.ix;
-        sectorMapBackgroundIy2 = pt.iy;
-        if (m2 && host) positionSectorMapBackgroundMarker(host, pt.ix, pt.iy, m2);
-        sectorMapBackgroundWizardStep = 'coords2';
-        const b2 = document.getElementById('sectorMapBackgroundCoordBlock2');
-        if (b2) b2.style.display = 'block';
-        if (hint) {
-            hint.textContent =
-                'Enter point 2 the same way. Then pick point 3 along the edge (e.g. clockwise around the map).';
-        }
-        sectorMapBackgroundWizardRefreshAddEnabled();
-    } else if (sectorMapBackgroundWizardStep === 'pick3') {
-        sectorMapBackgroundIx3 = pt.ix;
-        sectorMapBackgroundIy3 = pt.iy;
-        if (m3 && host) positionSectorMapBackgroundMarker(host, pt.ix, pt.iy, m3);
-        sectorMapBackgroundWizardStep = 'coords3';
-        const b3 = document.getElementById('sectorMapBackgroundCoordBlock3');
-        if (b3) b3.style.display = 'block';
-        if (hint) hint.textContent = 'Enter point 3 coordinates, then pick point 4 on the image.';
-        sectorMapBackgroundWizardRefreshAddEnabled();
-    } else if (sectorMapBackgroundWizardStep === 'pick4') {
-        sectorMapBackgroundIx4 = pt.ix;
-        sectorMapBackgroundIy4 = pt.iy;
-        if (m4 && host) positionSectorMapBackgroundMarker(host, pt.ix, pt.iy, m4);
-        sectorMapBackgroundWizardStep = 'coords4';
-        const b4 = document.getElementById('sectorMapBackgroundCoordBlock4');
-        if (b4) b4.style.display = 'block';
-        if (hint) hint.textContent = 'Enter point 4 coordinates, then click ADD to map.';
-        sectorMapBackgroundWizardRefreshAddEnabled();
+        return;
     }
+    // Tolerant conversion: accepts clicks a few pixels outside the rendered image edge (clamped to
+    // the nearest valid pixel) so picks near the picture's border always register, while still
+    // ignoring clicks that clearly land outside the picture (e.g. in letterboxed empty space).
+    const pt = sectorMapBackgroundEventToNaturalImageXYTolerant(ev.clientX, ev.clientY);
+    if (!pt) {
+        if (hint) hint.textContent = 'Click directly on the picture to place a point.';
+        return;
+    }
+    sectorMapBackgroundAddPoint(pt.ix, pt.iy);
+}
+
+/** Create the marker dot (drag + click-to-toggle-card) for calibration point `point`. */
+function sectorMapBackgroundCreateMarkerEl(point) {
+    const host = document.getElementById('sectorMapBackgroundImgHost');
+    if (!host) return null;
+    const el = document.createElement('div');
+    el.className = 'sector-map-bg-calib-marker';
+    el.style.display = 'none';
+    el.dataset.pointUid = String(point.uid);
+    el.title = 'Drag to move, click to edit coordinates';
+    host.appendChild(el);
+    el.addEventListener('pointerdown', sectorMapBackgroundOnCalibMarkerPointerDown);
+    el.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        sectorMapBackgroundToggleCoordPopup(point.uid);
+    });
+    return el;
+}
+
+/** Create the floating name/lat/lon card for calibration point `point`. */
+function sectorMapBackgroundCreatePopupEl(point) {
+    const layer = document.getElementById('sectorMapBackgroundPopupLayer');
+    if (!layer) return null;
+    const el = document.createElement('div');
+    el.className = 'sector-map-bg-coord-popup';
+    el.style.display = 'none';
+    el.dataset.pointUid = String(point.uid);
+    el.innerHTML =
+        '<div class="sector-map-bg-coord-popup-head">' +
+        '<span class="sector-map-bg-coord-block-title">Point</span>' +
+        '<button type="button" class="sector-map-bg-coord-popup-remove">Remove</button>' +
+        '<button type="button" class="sector-map-bg-coord-popup-close" aria-label="Close point card">&times;</button>' +
+        '</div>' +
+        '<div class="sector-map-bg-coord-popup-body">' +
+        '<div class="form-group sector-map-bg-coord-field-waypoint" style="margin: 0;">' +
+        '<label class="form-label">Name (optional)</label>' +
+        '<div class="sector-map-bg-wp-get-row">' +
+        '<input type="text" class="form-input sector-map-bg-wp-input sector-map-bg-wp-name" placeholder="Waypoint name" autocomplete="off" spellcheck="false" title="Waypoint name in this airspace, then click Get to fill coordinates." />' +
+        '<button type="button" class="btn btn-secondary sector-map-bg-wp-get-btn">Get</button>' +
+        '</div>' +
+        '</div>' +
+        '<div class="sector-map-bg-coord-popup-latlon">' +
+        '<div class="form-group" style="margin: 0;">' +
+        '<label class="form-label">Latitude</label>' +
+        '<input type="text" class="form-input sector-map-bg-lat-input" placeholder="232545N" autocomplete="off" spellcheck="false" />' +
+        '</div>' +
+        '<div class="form-group" style="margin: 0;">' +
+        '<label class="form-label">Longitude</label>' +
+        '<input type="text" class="form-input sector-map-bg-lon-input" placeholder="0754255E" autocomplete="off" spellcheck="false" />' +
+        '</div>' +
+        '</div>' +
+        '<div class="hint-text sector-map-bg-coord-popup-hint">DDMMSS+N/S, DDDMMSS+E/W — no spaces.</div>' +
+        '</div>';
+    layer.appendChild(el);
+    el.querySelector('.sector-map-bg-coord-popup-close').addEventListener('click', () => closeSectorMapBackgroundCoordPopup(point.uid));
+    el.querySelector('.sector-map-bg-coord-popup-remove').addEventListener('click', () => sectorMapBackgroundRemovePoint(point.uid));
+    const latIn = el.querySelector('.sector-map-bg-lat-input');
+    const lonIn = el.querySelector('.sector-map-bg-lon-input');
+    const wpIn = el.querySelector('.sector-map-bg-wp-name');
+    const getBtn = el.querySelector('.sector-map-bg-wp-get-btn');
+    latIn.addEventListener('input', () => sectorMapBackgroundOnCoordInputForPoint(point.uid));
+    lonIn.addEventListener('input', () => sectorMapBackgroundOnCoordInputForPoint(point.uid));
+    getBtn.addEventListener('click', () => sectorMapBackgroundApplyExistingWaypoint(point.uid, 'user'));
+    wpIn.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            sectorMapBackgroundApplyExistingWaypoint(point.uid, 'user');
+        }
+    });
+    return el;
+}
+
+/** Refresh "Point N" labels/titles to match current array order (after add/remove). */
+function sectorMapBackgroundRenumberPopups() {
+    sectorMapBackgroundWizardPoints.forEach((p, i) => {
+        if (p.markerEl) p.markerEl.title = 'Point ' + (i + 1) + ' — drag to move, click to edit';
+        const titleEl = p.popupEl && p.popupEl.querySelector('.sector-map-bg-coord-block-title');
+        if (titleEl) titleEl.textContent = 'Point ' + (i + 1);
+    });
+}
+
+/** Add a new calibration point at natural image coordinates (ix, iy) and open its card. */
+function sectorMapBackgroundAddPoint(ix, iy) {
+    const host = document.getElementById('sectorMapBackgroundImgHost');
+    const point = {
+        uid: ++sectorMapBackgroundWizardPointSeq,
+        ix, iy,
+        lat: null, lon: null,
+        markerEl: null, popupEl: null
+    };
+    sectorMapBackgroundWizardPoints.push(point);
+    point.markerEl = sectorMapBackgroundCreateMarkerEl(point);
+    point.popupEl = sectorMapBackgroundCreatePopupEl(point);
+    sectorMapBackgroundRenumberPopups();
+    if (host && point.markerEl) positionSectorMapBackgroundMarker(host, ix, iy, point.markerEl);
+    openSectorMapBackgroundCoordPopup(point.uid, { focus: true });
+    sectorMapBackgroundUpdateHintForPointCount();
+    sectorMapBackgroundWizardRefreshAddEnabled();
+    return point;
+}
+
+/** Remove a calibration point (its marker + card) and re-run validation. */
+function sectorMapBackgroundRemovePoint(uid) {
+    const idx = sectorMapBackgroundWizardPoints.findIndex(p => p.uid === uid);
+    if (idx === -1) return;
+    const point = sectorMapBackgroundWizardPoints[idx];
+    if (point.markerEl && point.markerEl.parentNode) point.markerEl.parentNode.removeChild(point.markerEl);
+    if (point.popupEl && point.popupEl.parentNode) point.popupEl.parentNode.removeChild(point.popupEl);
+    sectorMapBackgroundWizardPoints.splice(idx, 1);
+    sectorMapBackgroundRenumberPopups();
+    sectorMapBackgroundUpdateHintForPointCount();
+    sectorMapBackgroundWizardRefreshAddEnabled();
 }
 
 function sectorMapBackgroundOnCalibMarkerPointerDown(e) {
@@ -42509,29 +43459,18 @@ function sectorMapBackgroundOnCalibMarkerPointerMove(e) {
     if (e.pointerId !== d.pointerId) return;
     const pt = sectorMapBackgroundEventToNaturalImageXYClamped(e.clientX, e.clientY);
     if (!pt) return;
-    const img = document.getElementById('sectorMapBackgroundCalibImg');
     const host = document.getElementById('sectorMapBackgroundImgHost');
-    if (!img || !host) return;
-    const ix = pt.ix;
-    const iy = pt.iy;
-    if (d.el.id === 'sectorMapBgMarker1') {
-        sectorMapBackgroundIx1 = ix;
-        sectorMapBackgroundIy1 = iy;
-        positionSectorMapBackgroundMarker(host, ix, iy, d.el);
-    } else if (d.el.id === 'sectorMapBgMarker2') {
-        sectorMapBackgroundIx2 = ix;
-        sectorMapBackgroundIy2 = iy;
-        positionSectorMapBackgroundMarker(host, ix, iy, d.el);
-    } else if (d.el.id === 'sectorMapBgMarker3') {
-        sectorMapBackgroundIx3 = ix;
-        sectorMapBackgroundIy3 = iy;
-        positionSectorMapBackgroundMarker(host, ix, iy, d.el);
-    } else if (d.el.id === 'sectorMapBgMarker4') {
-        sectorMapBackgroundIx4 = ix;
-        sectorMapBackgroundIy4 = iy;
-        positionSectorMapBackgroundMarker(host, ix, iy, d.el);
+    if (!host) return;
+    const uid = Number(d.el.dataset.pointUid);
+    const point = sectorMapBackgroundFindPointByUid(uid);
+    if (!point) return;
+    point.ix = pt.ix;
+    point.iy = pt.iy;
+    positionSectorMapBackgroundMarker(host, pt.ix, pt.iy, d.el);
+    if (point.popupEl && point.popupEl.style.display !== 'none') {
+        positionSectorMapBackgroundCoordPopup(uid);
     }
-    sectorMapBackgroundWizardOnCoordInput();
+    sectorMapBackgroundWizardRefreshAddEnabled();
 }
 
 function sectorMapBackgroundOnCalibMarkerPointerUp(e) {
@@ -42541,18 +43480,6 @@ function sectorMapBackgroundOnCalibMarkerPointerUp(e) {
     try { d.el.releasePointerCapture(e.pointerId); } catch (err2) {}
     d.el.classList.remove('sector-map-bg-calib-marker-dragging');
     sectorMapBgCalibMarkerDrag = null;
-}
-
-function sectorMapBackgroundBindCalibMarkerDragTargets() {
-    ['sectorMapBgMarker1', 'sectorMapBgMarker2', 'sectorMapBgMarker3', 'sectorMapBgMarker4'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el || el.dataset.sectorMapBgDragBound === '1') return;
-        el.dataset.sectorMapBgDragBound = '1';
-        el.addEventListener('pointerdown', sectorMapBackgroundOnCalibMarkerPointerDown);
-        el.addEventListener('click', function(ev) {
-            ev.stopPropagation();
-        });
-    });
 }
 
 function ensureSectorMapBackgroundPanZoomListeners() {
@@ -42577,7 +43504,6 @@ function ensureSectorMapBackgroundPanZoomListeners() {
     document.addEventListener('pointermove', sectorMapBackgroundOnCalibMarkerPointerMove);
     document.addEventListener('pointerup', sectorMapBackgroundOnCalibMarkerPointerUp);
     document.addEventListener('pointercancel', sectorMapBackgroundOnCalibMarkerPointerUp);
-    sectorMapBackgroundBindCalibMarkerDragTargets();
 }
 
 function sectorMapBackgroundRemoveLayerAt(index) {
@@ -42587,6 +43513,13 @@ function sectorMapBackgroundRemoveLayerAt(index) {
         try { URL.revokeObjectURL(layer.blobUrl); } catch (e) {}
     }
     sectorMapSessionBackgroundLayers.splice(index, 1);
+    if (sectorMapBgLiveCalibLayerIndex != null) {
+        if (sectorMapBgLiveCalibLayerIndex === index) {
+            finishSectorMapBgLiveCalibration();
+        } else if (sectorMapBgLiveCalibLayerIndex > index) {
+            sectorMapBgLiveCalibLayerIndex -= 1;
+        }
+    }
     syncSectorMapBgOpacityControlVisibility();
     try { drawCanvas(); } catch (e) {}
 }
@@ -42607,6 +43540,7 @@ function clearSectorMapSessionBackground() {
         }
     });
     sectorMapSessionBackgroundLayers = [];
+    try { finishSectorMapBgLiveCalibration(); } catch (e) {}
     sectorMapBackgroundsOpacity = 1;
     const opS = document.getElementById('sectorMapBackgroundsOpacitySlider');
     const opL = document.getElementById('sectorMapBackgroundsOpacityValue');
@@ -42921,6 +43855,261 @@ function drawSectorMapSessionBackgroundLayerSimilarity(ctx, bg, im, alpha, c1, c
     ctx.restore();
 }
 
+/** Solve a 3×3 linear system via Gaussian elimination with partial pivoting; null if singular. */
+function sectorMapBackgroundSolveLinearSystem3(rows, rhs) {
+    const M = rows.map((row, i) => [row[0], row[1], row[2], rhs[i]]);
+    for (let col = 0; col < 3; col++) {
+        let piv = col;
+        let best = Math.abs(M[piv][col]);
+        for (let r = col + 1; r < 3; r++) {
+            const v = Math.abs(M[r][col]);
+            if (v > best) {
+                best = v;
+                piv = r;
+            }
+        }
+        if (best < 1e-9) return null;
+        if (piv !== col) {
+            const tmp = M[col];
+            M[col] = M[piv];
+            M[piv] = tmp;
+        }
+        const div = M[col][col];
+        for (let j = col; j <= 3; j++) M[col][j] /= div;
+        for (let r = 0; r < 3; r++) {
+            if (r === col) continue;
+            const f = M[r][col];
+            if (Math.abs(f) < 1e-15) continue;
+            for (let j = col; j <= 3; j++) M[r][j] -= f * M[col][j];
+        }
+    }
+    return [M[0][3], M[1][3], M[2][3]];
+}
+
+/**
+ * 2-point similarity transform (uniform scale + rotation + translation, no morphing) mapping
+ * image-space correspondence points `s1`/`s2` onto canvas-space points `d1`/`d2`. Same
+ * [a, b, c, d, tx, ty] convention as `CanvasRenderingContext2D.setTransform`.
+ * @returns {{a:number,b:number,c:number,d:number,tx:number,ty:number}|null}
+ */
+function sectorMapBackgroundComputeSimilarityAffine(s1, s2, d1, d2) {
+    const vix = s2.ix - s1.ix;
+    const viy = s2.iy - s1.iy;
+    const vcx = d2.x - d1.x;
+    const vcy = d2.y - d1.y;
+    const lenI = Math.hypot(vix, viy);
+    const lenC = Math.hypot(vcx, vcy);
+    if (lenI < 1e-6 || lenC < 1e-6) return null;
+    const s = lenC / lenI;
+    const theta = Math.atan2(vcy, vcx) - Math.atan2(viy, vix);
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+    const a = s * cos;
+    const b = s * sin;
+    const c = -s * sin;
+    const d = s * cos;
+    return {
+        a, b, c, d,
+        tx: d1.x - (a * s1.ix + c * s1.iy),
+        ty: d1.y - (b * s1.ix + d * s1.iy)
+    };
+}
+
+/**
+ * Invert an affine transform in the [a, b, c, d, tx, ty] convention, so applying the result to a
+ * *destination*-space point yields the corresponding *source*-space point. Used to map a click on
+ * the live map back to the underlying picture's natural pixel coordinates.
+ * @returns {{a:number,b:number,c:number,d:number,tx:number,ty:number}|null}
+ */
+function sectorMapBackgroundInvertAffine(m) {
+    const det = m.a * m.d - m.c * m.b;
+    if (!isFinite(det) || Math.abs(det) < 1e-9) return null;
+    return {
+        a: m.d / det,
+        b: -m.b / det,
+        c: -m.c / det,
+        d: m.a / det,
+        tx: (-m.d * m.tx + m.c * m.ty) / det,
+        ty: (m.b * m.tx - m.a * m.ty) / det
+    };
+}
+
+/**
+ * Affine (6 DOF) transform mapping 3 src points onto 3 dst points exactly, in the same
+ * [a, b, c, d, tx, ty] convention as `CanvasRenderingContext2D.setTransform`.
+ * @returns {{a:number,b:number,c:number,d:number,tx:number,ty:number}|null}
+ */
+function sectorMapBackgroundSolveAffine3(src, dst) {
+    const rows = src.map(p => [p.x, p.y, 1]);
+    const solX = sectorMapBackgroundSolveLinearSystem3(rows, dst.map(p => p.x));
+    if (!solX) return null;
+    const solY = sectorMapBackgroundSolveLinearSystem3(rows, dst.map(p => p.y));
+    if (!solY) return null;
+    return { a: solX[0], c: solX[1], tx: solX[2], b: solY[0], d: solY[1], ty: solY[2] };
+}
+
+/**
+ * Global least-squares affine fit through every correspondence point (not just 3) — used as a
+ * "base" transform for the whole picture so it never disappears outside the triangulated mesh
+ * (which only covers the convex hull of the calibration points). Solves the two independent 3x3
+ * normal-equation systems for [a,c,tx] and [b,d,ty] via the existing Gaussian-elimination solver.
+ * @returns {{a:number,b:number,c:number,d:number,tx:number,ty:number}|null}
+ */
+function sectorMapBackgroundLeastSquaresAffine(srcPts, dstPts) {
+    const n = srcPts.length;
+    if (n < 2) return null;
+    let Suu = 0, Suv = 0, Su = 0, Svv = 0, Sv = 0;
+    let Sux = 0, Svx = 0, Sx = 0, Suy = 0, Svy = 0, Sy = 0;
+    for (let i = 0; i < n; i++) {
+        const u = srcPts[i].x, v = srcPts[i].y;
+        const x = dstPts[i].x, y = dstPts[i].y;
+        Suu += u * u; Suv += u * v; Su += u;
+        Svv += v * v; Sv += v;
+        Sux += u * x; Svx += v * x; Sx += x;
+        Suy += u * y; Svy += v * y; Sy += y;
+    }
+    const rows = [
+        [Suu, Suv, Su],
+        [Suv, Svv, Sv],
+        [Su, Sv, n]
+    ];
+    const solX = sectorMapBackgroundSolveLinearSystem3(rows, [Sux, Svx, Sx]);
+    if (!solX) return null;
+    const solY = sectorMapBackgroundSolveLinearSystem3(rows, [Suy, Svy, Sy]);
+    if (!solY) return null;
+    return { a: solX[0], c: solX[1], tx: solX[2], b: solY[0], d: solY[1], ty: solY[2] };
+}
+
+/** Point-in-circumcircle test for triangle abc (orientation-independent; standard determinant form). */
+function sectorMapBackgroundPointInCircumcircle(p, a, b, c) {
+    const cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    let B = b;
+    let C = c;
+    if (cross < 0) {
+        B = c;
+        C = b;
+    }
+    const ax = a.x - p.x;
+    const ay = a.y - p.y;
+    const bx = B.x - p.x;
+    const by = B.y - p.y;
+    const cx = C.x - p.x;
+    const cy = C.y - p.y;
+    const det =
+        (ax * ax + ay * ay) * (bx * cy - cx * by) -
+        (bx * bx + by * by) * (ax * cy - cx * ay) +
+        (cx * cx + cy * cy) * (ax * by - bx * ay);
+    return det > 1e-7;
+}
+
+/**
+ * Brute-force Delaunay triangulation (O(n^4)): checks every triple's circumcircle against every
+ * other point. Calibration point counts are user-placed one at a time by clicking, so in practice
+ * this stays in the tens of points — cheap and robust without needing an incremental/sweep
+ * algorithm. Would need revisiting if this were ever used for hundreds+ of points.
+ * @returns {number[][]} array of [i, j, k] index triples into `pts`
+ */
+function sectorMapBackgroundDelaunayTriangles(pts) {
+    const n = pts.length;
+    const tris = [];
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            for (let k = j + 1; k < n; k++) {
+                const area2 =
+                    (pts[j].x - pts[i].x) * (pts[k].y - pts[i].y) -
+                    (pts[k].x - pts[i].x) * (pts[j].y - pts[i].y);
+                if (Math.abs(area2) < 1e-6) continue;
+                let ok = true;
+                for (let m = 0; m < n; m++) {
+                    if (m === i || m === j || m === k) continue;
+                    if (sectorMapBackgroundPointInCircumcircle(pts[m], pts[i], pts[j], pts[k])) {
+                        ok = false;
+                        break;
+                    }
+                }
+                if (ok) tris.push([i, j, k]);
+            }
+        }
+    }
+    return tris;
+}
+
+/**
+ * Draws a picture background calibrated by its `points` array: exactly 2 points use a plain
+ * similarity transform (position + rotation + uniform scale, no morphing); 3+ points trigger a
+ * "rubber sheet" piecewise-affine warp — the picture is triangulated in image space (Delaunay),
+ * and each triangle is drawn independently with its own affine transform, clipped to the
+ * corresponding destination triangle on the map. This lets local calibration points only
+ * influence the picture nearby, instead of one rigid whole-image warp, and is how unlimited
+ * live on-map fine-tuning points (see {@link startSectorMapBgLiveCalibration}) progressively
+ * improve the fit as they're added.
+ * @param {(lat: number, lon: number) => ({x:number,y:number}|null)} geoToPixel projector to use
+ *   (live canvas view or a print/export layout — see {@link sectorLatLonToCanvasPixel} /
+ *   {@link sectorMapPrintGeoToPixel}).
+ */
+function drawSectorMapSessionBackgroundLayerMesh(ctx, bg, im, alpha, geoToPixel) {
+    const pts = bg.points;
+    if (!Array.isArray(pts) || pts.length < 2) return;
+    const iw = bg.naturalWidth || im.naturalWidth;
+    const ih = bg.naturalHeight || im.naturalHeight;
+    if (pts.length === 2) {
+        const d1 = geoToPixel(pts[0].lat, pts[0].lon);
+        const d2 = geoToPixel(pts[1].lat, pts[1].lon);
+        if (!d1 || !d2 || !isFinite(d1.x) || !isFinite(d1.y) || !isFinite(d2.x) || !isFinite(d2.y)) return;
+        const aff = sectorMapBackgroundComputeSimilarityAffine(pts[0], pts[1], d1, d2);
+        if (!aff) return;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+        try {
+            ctx.setTransform(aff.a, aff.b, aff.c, aff.d, aff.tx, aff.ty);
+            ctx.drawImage(im, 0, 0, iw, ih);
+        } catch (e) {
+            /* ignore draw errors (e.g. tainted) */
+        }
+        ctx.restore();
+        return;
+    }
+    const imgPts = pts.map(p => ({ x: p.ix, y: p.iy }));
+    const dstPts = pts.map(p => geoToPixel(p.lat, p.lon));
+    if (dstPts.some(p => !p || !isFinite(p.x) || !isFinite(p.y))) return;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    try {
+        // Base layer first: a global least-squares fit through every point keeps the *whole*
+        // picture visible and roughly aligned even outside the triangulated mesh below (which only
+        // covers the convex hull of the calibration points) — without this, most of the picture
+        // would vanish the moment there are 3+ points and only a small triangle exists.
+        const baseAff = sectorMapBackgroundLeastSquaresAffine(imgPts, dstPts);
+        if (baseAff) {
+            ctx.setTransform(baseAff.a, baseAff.b, baseAff.c, baseAff.d, baseAff.tx, baseAff.ty);
+            ctx.drawImage(im, 0, 0, iw, ih);
+        }
+        const tris = sectorMapBackgroundDelaunayTriangles(imgPts);
+        for (let t = 0; t < tris.length; t++) {
+            const [i, j, k] = tris[t];
+            const src = [imgPts[i], imgPts[j], imgPts[k]];
+            const dst = [dstPts[i], dstPts[j], dstPts[k]];
+            const area = Math.abs(sectorMapBackgroundPolygonSignedAreaXY(dst));
+            if (!isFinite(area) || area < 1) continue;
+            const aff = sectorMapBackgroundSolveAffine3(src, dst);
+            if (!aff) continue;
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(dst[0].x, dst[0].y);
+            ctx.lineTo(dst[1].x, dst[1].y);
+            ctx.lineTo(dst[2].x, dst[2].y);
+            ctx.closePath();
+            ctx.clip();
+            ctx.setTransform(aff.a, aff.b, aff.c, aff.d, aff.tx, aff.ty);
+            ctx.drawImage(im, 0, 0, iw, ih);
+            ctx.restore();
+        }
+    } catch (e) {
+        /* ignore draw errors (e.g. tainted) */
+    }
+    ctx.restore();
+}
+
 function drawSectorMapSessionBackgroundLayer() {
     if (!ctx || !canvas || !sectorMapSessionBackgroundLayers.length) return;
     const alpha = Math.max(0, Math.min(1, sectorMapBackgroundsOpacity));
@@ -42930,6 +44119,10 @@ function drawSectorMapSessionBackgroundLayer() {
         if (!bg || !bg.image) continue;
         const im = bg.image;
         if (!im.complete || !im.naturalWidth || !im.naturalHeight) continue;
+        if (Array.isArray(bg.points) && bg.points.length >= 2) {
+            drawSectorMapSessionBackgroundLayerMesh(ctx, bg, im, alpha, sectorLatLonToCanvasPixel);
+            continue;
+        }
         const useHomography =
             isFinite(bg.lat3) &&
             isFinite(bg.lon3) &&
@@ -42954,89 +44147,47 @@ function sectorMapBackgroundGeoPairValid(lat, lon) {
     return isFinite(lat) && isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
 }
 
-function sectorMapBackgroundWizardParseFourGeoFromInputs() {
-    const lat1 = parseLatitudeDMSegment(document.getElementById('sectorMapBgLat1')?.value);
-    const lon1 = parseLongitudeDMSegment(document.getElementById('sectorMapBgLon1')?.value);
-    const lat2 = parseLatitudeDMSegment(document.getElementById('sectorMapBgLat2')?.value);
-    const lon2 = parseLongitudeDMSegment(document.getElementById('sectorMapBgLon2')?.value);
-    const lat3 = parseLatitudeDMSegment(document.getElementById('sectorMapBgLat3')?.value);
-    const lon3 = parseLongitudeDMSegment(document.getElementById('sectorMapBgLon3')?.value);
-    const lat4 = parseLatitudeDMSegment(document.getElementById('sectorMapBgLat4')?.value);
-    const lon4 = parseLongitudeDMSegment(document.getElementById('sectorMapBgLon4')?.value);
-    return { lat1, lon1, lat2, lon2, lat3, lon3, lat4, lon4 };
+/** Read lat/lon currently typed into a calibration point's card. */
+function sectorMapBackgroundReadPointGeoFromInputs(point) {
+    if (!point || !point.popupEl) return { lat: null, lon: null };
+    const latIn = point.popupEl.querySelector('.sector-map-bg-lat-input');
+    const lonIn = point.popupEl.querySelector('.sector-map-bg-lon-input');
+    return {
+        lat: parseLatitudeDMSegment(latIn?.value),
+        lon: parseLongitudeDMSegment(lonIn?.value)
+    };
 }
 
-function sectorMapBackgroundWizardFourGeoAllValid(g) {
-    if (!g) return false;
-    return (
-        g.lat1 != null &&
-        g.lon1 != null &&
-        g.lat2 != null &&
-        g.lon2 != null &&
-        g.lat3 != null &&
-        g.lon3 != null &&
-        g.lat4 != null &&
-        g.lon4 != null &&
-        sectorMapBackgroundGeoPairValid(g.lat1, g.lon1) &&
-        sectorMapBackgroundGeoPairValid(g.lat2, g.lon2) &&
-        sectorMapBackgroundGeoPairValid(g.lat3, g.lon3) &&
-        sectorMapBackgroundGeoPairValid(g.lat4, g.lon4)
-    );
-}
-
-/** True if no two geographic control points coincide (approx). */
-function sectorMapBackgroundWizardFourGeoDistinct(g) {
-    if (!sectorMapBackgroundWizardFourGeoAllValid(g)) return false;
-    const pts = [
-        [g.lat1, g.lon1],
-        [g.lat2, g.lon2],
-        [g.lat3, g.lon3],
-        [g.lat4, g.lon4]
-    ];
-    const eps = 1e-7;
-    for (let i = 0; i < 4; i++) {
-        for (let j = i + 1; j < 4; j++) {
-            if (Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]) <= eps) return false;
+/**
+ * Validate the wizard's simple 2-point placement: exactly 2 points, both with valid/distinct
+ * coordinates, and placed far enough apart on the picture to define a stable orientation/scale.
+ * No morphing/triangulation happens here — this is a plain similarity (position + rotation +
+ * uniform scale) placement; fine-tuning with unlimited extra points happens live on the map after
+ * ADD to map, via {@link startSectorMapBgLiveCalibration}.
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+function sectorMapBackgroundWizardValidateCalibration() {
+    const pts = sectorMapBackgroundWizardPoints;
+    const n = pts.length;
+    if (n < SECTOR_MAP_BG_WIZARD_POINTS) {
+        return { ok: false, reason: `Place ${SECTOR_MAP_BG_WIZARD_POINTS} points (currently ${n}).` };
+    }
+    for (let i = 0; i < n; i++) {
+        if (pts[i].lat == null || pts[i].lon == null || !sectorMapBackgroundGeoPairValid(pts[i].lat, pts[i].lon)) {
+            return { ok: false, reason: `Point ${i + 1} needs a valid latitude and longitude.` };
         }
     }
-    return true;
-}
-
-function sectorMapBackgroundWizardImageQuadPts() {
-    return [
-        { x: sectorMapBackgroundIx1, y: sectorMapBackgroundIy1 },
-        { x: sectorMapBackgroundIx2, y: sectorMapBackgroundIy2 },
-        { x: sectorMapBackgroundIx3, y: sectorMapBackgroundIy3 },
-        { x: sectorMapBackgroundIx4, y: sectorMapBackgroundIy4 }
-    ];
-}
-
-function sectorMapBackgroundWizardMinEdgeImagePts(ixy) {
-    let m = Infinity;
-    for (let i = 0; i < 4; i++) {
-        const j = (i + 1) % 4;
-        m = Math.min(m, Math.hypot(ixy[i].x - ixy[j].x, ixy[i].y - ixy[j].y));
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            if (Math.hypot(pts[i].lat - pts[j].lat, pts[i].lon - pts[j].lon) <= 1e-7) {
+                return { ok: false, reason: `Points ${i + 1} and ${j + 1} have the same coordinates — they must differ.` };
+            }
+            if (Math.hypot(pts[i].ix - pts[j].ix, pts[i].iy - pts[j].iy) <= 3) {
+                return { ok: false, reason: `Points ${i + 1} and ${j + 1} are placed too close together on the picture.` };
+            }
+        }
     }
-    return m;
-}
-
-/** Homography solvable and non-degenerate quads in image + canvas space. */
-function sectorMapBackgroundWizardHomographyOk(ixyImg, g) {
-    if (!ixyImg || ixyImg.length !== 4) return false;
-    const ai = Math.abs(sectorMapBackgroundPolygonSignedAreaXY(ixyImg));
-    if (ai < 200 || !isFinite(ai)) return false;
-    const dstPts = [
-        sectorLatLonToCanvasPixel(g.lat1, g.lon1),
-        sectorLatLonToCanvasPixel(g.lat2, g.lon2),
-        sectorLatLonToCanvasPixel(g.lat3, g.lon3),
-        sectorLatLonToCanvasPixel(g.lat4, g.lon4)
-    ];
-    if (!dstPts[0] || !dstPts[1] || !dstPts[2] || !dstPts[3]) return false;
-    const ac = Math.abs(sectorMapBackgroundPolygonSignedAreaXY(dstPts));
-    if (ac < 200 || !isFinite(ac)) return false;
-    const H = computeSectorMapBackgroundHomographyImageToCanvas(ixyImg, dstPts);
-    if (!H) return false;
-    return !!invertSectorMapBackground3x3(H);
+    return { ok: true };
 }
 
 /**
@@ -43071,16 +44222,17 @@ function sectorMapBackgroundFindWaypointByName(raw) {
 }
 
 /**
- * @param {1|2|3|4} pointIndex
+ * @param {number} uid point uid
  * @param {'silent'|'user'} feedback — `user`: alert if empty / not found
  * @returns {boolean} true if coordinates were filled
  */
-function sectorMapBackgroundApplyExistingWaypoint(pointIndex, feedback) {
+function sectorMapBackgroundApplyExistingWaypoint(uid, feedback) {
     const silent = feedback !== 'user';
-    const suf = String(pointIndex);
-    const wpIn = document.getElementById('sectorMapBgExistingWp' + suf);
-    const latIn = document.getElementById('sectorMapBgLat' + suf);
-    const lonIn = document.getElementById('sectorMapBgLon' + suf);
+    const point = sectorMapBackgroundFindPointByUid(uid);
+    if (!point || !point.popupEl) return false;
+    const wpIn = point.popupEl.querySelector('.sector-map-bg-wp-name');
+    const latIn = point.popupEl.querySelector('.sector-map-bg-lat-input');
+    const lonIn = point.popupEl.querySelector('.sector-map-bg-lon-input');
     if (!wpIn || !latIn || !lonIn) return false;
     const raw = (wpIn.value || '').trim();
     if (!raw) {
@@ -43095,15 +44247,51 @@ function sectorMapBackgroundApplyExistingWaypoint(pointIndex, feedback) {
     latIn.value = formatDMS(decimalToDMS(w.latitude, true), true);
     lonIn.value = formatDMS(decimalToDMS(w.longitude, false), false);
     if (w.name) wpIn.value = w.name;
-    sectorMapBackgroundWizardOnCoordInput();
+    sectorMapBackgroundOnCoordInputForPoint(uid);
     return true;
 }
 
+/** Before final validation (ADD to map): resolve any waypoint-name lookups, then sync every point's lat/lon from its inputs. */
 function sectorMapBackgroundResolveExistingWaypointFields() {
-    sectorMapBackgroundApplyExistingWaypoint(1, 'silent');
-    sectorMapBackgroundApplyExistingWaypoint(2, 'silent');
-    sectorMapBackgroundApplyExistingWaypoint(3, 'silent');
-    sectorMapBackgroundApplyExistingWaypoint(4, 'silent');
+    sectorMapBackgroundWizardPoints.forEach(p => {
+        sectorMapBackgroundApplyExistingWaypoint(p.uid, 'silent');
+        const g = sectorMapBackgroundReadPointGeoFromInputs(p);
+        p.lat = g.lat;
+        p.lon = g.lon;
+    });
+}
+
+/** Sync a point's lat/lon from its inputs, then re-validate the whole calibration and update the hint. */
+function sectorMapBackgroundOnCoordInputForPoint(uid) {
+    const point = sectorMapBackgroundFindPointByUid(uid);
+    if (point) {
+        const g = sectorMapBackgroundReadPointGeoFromInputs(point);
+        point.lat = g.lat;
+        point.lon = g.lon;
+    }
+    sectorMapBackgroundWizardRefreshAddEnabled();
+}
+
+/** Hint text reflecting how many of the wizard's 2 placement points are placed. */
+function sectorMapBackgroundUpdateHintForPointCount() {
+    const hint = document.getElementById('sectorMapBackgroundCalibHint');
+    if (!hint) return;
+    const n = sectorMapBackgroundWizardPoints.length;
+    if (n === 0) {
+        hint.textContent = 'Click on the picture to place your first calibration point (2 total — no need to be precise, you\'ll fine-tune on the map afterwards).';
+    } else if (n < SECTOR_MAP_BG_WIZARD_POINTS) {
+        hint.textContent = `Point ${n} placed — enter its latitude/longitude, then place 1 more point.`;
+    } else {
+        hint.textContent = 'Both points placed. Enter coordinates for each, then click ADD to map — you\'ll be able to add unlimited fine-tuning points directly on the map next.';
+    }
+}
+
+/** Small "N / 2 points placed" status line next to the calibration hint. */
+function sectorMapBackgroundUpdatePointCountStatus() {
+    const el = document.getElementById('sectorMapBackgroundPointCountStatus');
+    if (!el) return;
+    const n = sectorMapBackgroundWizardPoints.length;
+    el.textContent = `${n} / ${SECTOR_MAP_BG_WIZARD_POINTS} points placed`;
 }
 
 /** Map client pixel to natural image coordinates using preview pan/zoom state. */
@@ -43137,6 +44325,38 @@ function sectorMapBackgroundEventToNaturalImageXYClamped(clientX, clientY) {
     };
 }
 
+/**
+ * Same idea as {@link sectorMapBackgroundEventToNaturalImageXY}, but tolerant of a small margin
+ * (in screen pixels) outside the rendered image edge before rejecting the click. Corner picks are
+ * exactly at the image boundary, so sub-pixel rounding from the CSS pan/zoom transform could
+ * otherwise push the computed point a hair outside [0, naturalWidth]x[0, naturalHeight] and
+ * silently drop a click the user clearly intended to register (most noticeable for points 3/4,
+ * which are usually placed near a corner after the picture has been panned/zoomed). Clicks well
+ * outside the picture (e.g. in letterboxed empty space) are still ignored.
+ */
+function sectorMapBackgroundEventToNaturalImageXYTolerant(clientX, clientY) {
+    const img = document.getElementById('sectorMapBackgroundCalibImg');
+    if (!img || !img.naturalWidth) return null;
+    const ir = img.getBoundingClientRect();
+    if (ir.width <= 0 || ir.height <= 0) return null;
+    const margin = 10;
+    if (
+        clientX < ir.left - margin || clientX > ir.right + margin ||
+        clientY < ir.top - margin || clientY > ir.bottom + margin
+    ) {
+        return null;
+    }
+    const px = Math.max(ir.left, Math.min(ir.right, clientX));
+    const py = Math.max(ir.top, Math.min(ir.bottom, clientY));
+    const ix = (px - ir.left) * img.naturalWidth / ir.width;
+    const iy = (py - ir.top) * img.naturalHeight / ir.height;
+    if (!isFinite(ix) || !isFinite(iy)) return null;
+    return {
+        ix: Math.max(0, Math.min(img.naturalWidth, ix)),
+        iy: Math.max(0, Math.min(img.naturalHeight, iy))
+    };
+}
+
 function positionSectorMapBackgroundMarker(hostEl, ix, iy, markerEl) {
     const host = hostEl;
     const img = document.getElementById('sectorMapBackgroundCalibImg');
@@ -43153,6 +44373,15 @@ function positionSectorMapBackgroundMarker(hostEl, ix, iy, markerEl) {
     markerEl.style.display = 'block';
 }
 
+/** Remove every wizard calibration point's marker + card and clear the array. */
+function sectorMapBackgroundClearWizardPoints() {
+    sectorMapBackgroundWizardPoints.forEach(p => {
+        if (p.markerEl && p.markerEl.parentNode) p.markerEl.parentNode.removeChild(p.markerEl);
+        if (p.popupEl && p.popupEl.parentNode) p.popupEl.parentNode.removeChild(p.popupEl);
+    });
+    sectorMapBackgroundWizardPoints = [];
+}
+
 function resetSectorMapBackgroundWizard(opts) {
     const revoke = opts && opts.revokePendingUrl;
     if (revoke && sectorMapBackgroundWizardObjectUrl) {
@@ -43166,8 +44395,7 @@ function resetSectorMapBackgroundWizard(opts) {
     sectorMapBackgroundWizardEditIndex = null;
     sectorMapBackgroundWizardEditOriginalBlobUrl = null;
     sectorMapBackgroundWizardChosenFileName = null;
-    sectorMapBackgroundWizardStep = 'idle';
-    sectorMapBackgroundWizardLinearFlow = true;
+    sectorMapBackgroundClearWizardPoints();
     const fi = document.getElementById('sectorMapBackgroundFileInput');
     if (fi) fi.value = '';
     const panel = document.getElementById('sectorMapBackgroundCalibPanel');
@@ -43176,165 +44404,29 @@ function resetSectorMapBackgroundWizard(opts) {
     if (hint) hint.textContent = '';
     const img = document.getElementById('sectorMapBackgroundCalibImg');
     if (img) img.removeAttribute('src');
-    const m1 = document.getElementById('sectorMapBgMarker1');
-    const m2 = document.getElementById('sectorMapBgMarker2');
-    const m3 = document.getElementById('sectorMapBgMarker3');
-    const m4 = document.getElementById('sectorMapBgMarker4');
-    if (m1) m1.style.display = 'none';
-    if (m2) m2.style.display = 'none';
-    if (m3) m3.style.display = 'none';
-    if (m4) m4.style.display = 'none';
-    ['sectorMapBackgroundCoordBlock1', 'sectorMapBackgroundCoordBlock2', 'sectorMapBackgroundCoordBlock3', 'sectorMapBackgroundCoordBlock4'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
-    [
-        'sectorMapBgLat1',
-        'sectorMapBgLon1',
-        'sectorMapBgLat2',
-        'sectorMapBgLon2',
-        'sectorMapBgLat3',
-        'sectorMapBgLon3',
-        'sectorMapBgLat4',
-        'sectorMapBgLon4',
-        'sectorMapBgExistingWp1',
-        'sectorMapBgExistingWp2',
-        'sectorMapBgExistingWp3',
-        'sectorMapBgExistingWp4'
-    ].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
     const addBtn = document.getElementById('sectorMapBackgroundAddToMapBtn');
     if (addBtn) addBtn.disabled = true;
+    sectorMapBackgroundUpdatePointCountStatus();
     sectorMapBackgroundResetPreviewPanZoom();
 }
 
 function sectorMapBackgroundWizardRefreshAddEnabled() {
     const addBtn = document.getElementById('sectorMapBackgroundAddToMapBtn');
-    if (!addBtn) return;
-    const g = sectorMapBackgroundWizardParseFourGeoFromInputs();
-    const ixy = sectorMapBackgroundWizardImageQuadPts();
-    const stepReady = sectorMapBackgroundWizardLinearFlow ? sectorMapBackgroundWizardStep === 'coords4' : true;
-    if (
-        !sectorMapBackgroundWizardFourGeoAllValid(g) ||
-        !sectorMapBackgroundWizardFourGeoDistinct(g) ||
-        sectorMapBackgroundWizardMinEdgeImagePts(ixy) <= 2
-    ) {
-        addBtn.disabled = true;
-        return;
-    }
-    const okH = sectorMapBackgroundWizardHomographyOk(ixy, g);
-    addBtn.disabled = !(stepReady && okH);
-}
-
-function sectorMapBackgroundWizardOnCoordInput() {
-    const g = sectorMapBackgroundWizardParseFourGeoFromInputs();
+    const res = sectorMapBackgroundWizardValidateCalibration();
+    if (addBtn) addBtn.disabled = !res.ok;
+    sectorMapBackgroundUpdatePointCountStatus();
     const hint = document.getElementById('sectorMapBackgroundCalibHint');
-    if (sectorMapBackgroundWizardLinearFlow) {
-        if (sectorMapBackgroundWizardStep === 'coords1') {
-            if (
-                g.lat1 != null &&
-                g.lon1 != null &&
-                sectorMapBackgroundGeoPairValid(g.lat1, g.lon1)
-            ) {
-                sectorMapBackgroundWizardStep = 'pick2';
-                if (hint) {
-                    hint.textContent =
-                        'Step 2: Click the second reference point on the image, then enter its latitude and longitude.';
-                }
-            }
-        } else if (sectorMapBackgroundWizardStep === 'coords2') {
-            if (
-                g.lat1 != null &&
-                g.lon1 != null &&
-                g.lat2 != null &&
-                g.lon2 != null &&
-                sectorMapBackgroundGeoPairValid(g.lat1, g.lon1) &&
-                sectorMapBackgroundGeoPairValid(g.lat2, g.lon2)
-            ) {
-                const geoSep12 = Math.hypot(g.lat2 - g.lat1, g.lon2 - g.lon1);
-                const imgSep12 = Math.hypot(
-                    sectorMapBackgroundIx2 - sectorMapBackgroundIx1,
-                    sectorMapBackgroundIy2 - sectorMapBackgroundIy1
-                );
-                if (geoSep12 <= 1e-8) {
-                    if (hint) hint.textContent = 'Points 1 and 2 must have different geographic positions.';
-                } else if (imgSep12 <= 2) {
-                    if (hint) {
-                        hint.textContent =
-                            'Image points 1 and 2 are too close — pick two pixels farther apart on the picture.';
-                    }
-                } else {
-                    sectorMapBackgroundWizardStep = 'pick3';
-                    if (hint) {
-                        hint.textContent =
-                            'Step 3: Click the third reference point (stay in order around the perimeter, e.g. clockwise).';
-                    }
-                }
-            }
-        } else if (sectorMapBackgroundWizardStep === 'coords3') {
-            if (
-                g.lat1 != null &&
-                g.lon1 != null &&
-                g.lat2 != null &&
-                g.lon2 != null &&
-                g.lat3 != null &&
-                g.lon3 != null &&
-                sectorMapBackgroundGeoPairValid(g.lat1, g.lon1) &&
-                sectorMapBackgroundGeoPairValid(g.lat2, g.lon2) &&
-                sectorMapBackgroundGeoPairValid(g.lat3, g.lon3)
-            ) {
-                const dup =
-                    Math.hypot(g.lat3 - g.lat1, g.lon3 - g.lon1) <= 1e-7 ||
-                    Math.hypot(g.lat3 - g.lat2, g.lon3 - g.lon2) <= 1e-7;
-                const triImg = Math.abs(
-                    sectorMapBackgroundPolygonSignedAreaXY([
-                        { x: sectorMapBackgroundIx1, y: sectorMapBackgroundIy1 },
-                        { x: sectorMapBackgroundIx2, y: sectorMapBackgroundIy2 },
-                        { x: sectorMapBackgroundIx3, y: sectorMapBackgroundIy3 }
-                    ])
-                );
-                const img23 = Math.hypot(
-                    sectorMapBackgroundIx3 - sectorMapBackgroundIx2,
-                    sectorMapBackgroundIy3 - sectorMapBackgroundIy2
-                );
-                if (dup) {
-                    if (hint) hint.textContent = 'Point 3 must differ geographically from points 1 and 2.';
-                } else if (img23 <= 2) {
-                    if (hint) hint.textContent = 'Image points 2 and 3 are too close — adjust placement.';
-                } else if (triImg < 150) {
-                    if (hint) hint.textContent = 'Image points 1–3 are nearly collinear — spread point 3 sideways.';
-                } else {
-                    sectorMapBackgroundWizardStep = 'pick4';
-                    if (hint) hint.textContent = 'Step 4: Click the fourth reference point, then enter its coordinates.';
-                }
-            }
-        } else if (sectorMapBackgroundWizardStep === 'coords4') {
-            if (sectorMapBackgroundWizardFourGeoAllValid(g) && sectorMapBackgroundWizardFourGeoDistinct(g)) {
-                const ixy = sectorMapBackgroundWizardImageQuadPts();
-                if (!sectorMapBackgroundWizardHomographyOk(ixy, g)) {
-                    if (hint) {
-                        hint.textContent =
-                            'Calibration check failed — try reordering the four corners around the map or moving image picks.';
-                    }
-                } else if (hint) {
-                    hint.textContent = 'Review coordinates, then click ADD to map.';
-                }
-            }
-        }
-    } else {
-        if (
-            sectorMapBackgroundWizardFourGeoAllValid(g) &&
-            sectorMapBackgroundWizardFourGeoDistinct(g) &&
-            hint &&
-            !sectorMapBackgroundWizardHomographyOk(sectorMapBackgroundWizardImageQuadPts(), g)
-        ) {
-            hint.textContent =
-                'Calibration check failed — adjust coordinates or marker positions (four corners in consistent order).';
+    if (hint) {
+        const anyCoordsEntered = sectorMapBackgroundWizardPoints.some(p => p.lat != null || p.lon != null);
+        if (res.ok) {
+            hint.textContent = 'Looks good. Review coordinates, then click ADD to map.';
+        } else if (anyCoordsEntered && sectorMapBackgroundWizardPoints.length >= SECTOR_MAP_BG_WIZARD_POINTS) {
+            hint.textContent = res.reason;
+        } else {
+            sectorMapBackgroundUpdateHintForPointCount();
         }
     }
-    sectorMapBackgroundWizardRefreshAddEnabled();
+    return res;
 }
 
 function openSectorMapBackgroundWizard() {
@@ -43504,86 +44596,31 @@ function openSectorMapBackgroundWizardForEdit(layerIndex) {
         alert('Background not found.');
         return;
     }
+    if (layer.kind === 'satellite') {
+        closeModal('sectorMapBackgroundPickEditModal');
+        alert(
+            'Google Earth backgrounds are calibrated automatically from the area you selected and can\'t be recalibrated here. Delete it and drag a new area instead.'
+        );
+        return;
+    }
+    if (!Array.isArray(layer.points) || layer.points.length < 2) {
+        closeModal('sectorMapBackgroundPickEditModal');
+        alert('This background can\'t be edited with the current calibration tool.');
+        return;
+    }
     closeModal('sectorMapBackgroundPickEditModal');
+    try { finishSectorMapBgLiveCalibration(); } catch (e) {}
     resetSectorMapBackgroundWizard({ revokePendingUrl: true });
     sectorMapBackgroundWizardEditIndex = layerIndex;
     sectorMapBackgroundWizardEditOriginalBlobUrl = layer.blobUrl;
     sectorMapBackgroundWizardObjectUrl = layer.blobUrl;
     sectorMapBackgroundWizardChosenFileName = (layer.pictureName && String(layer.pictureName).trim()) || null;
 
-    sectorMapBackgroundIx1 = layer.ix1;
-    sectorMapBackgroundIy1 = layer.iy1;
-    sectorMapBackgroundIx2 = layer.ix2;
-    sectorMapBackgroundIy2 = layer.iy2;
-    const hasFour =
-        isFinite(layer.lat3) &&
-        isFinite(layer.lon3) &&
-        isFinite(layer.lat4) &&
-        isFinite(layer.lon4) &&
-        isFinite(layer.ix3) &&
-        isFinite(layer.iy3) &&
-        isFinite(layer.ix4) &&
-        isFinite(layer.iy4);
-    if (hasFour) {
-        sectorMapBackgroundIx3 = layer.ix3;
-        sectorMapBackgroundIy3 = layer.iy3;
-        sectorMapBackgroundIx4 = layer.ix4;
-        sectorMapBackgroundIy4 = layer.iy4;
-    } else {
-        sectorMapBackgroundIx3 = layer.ix2;
-        sectorMapBackgroundIy3 = layer.iy1;
-        sectorMapBackgroundIx4 = layer.ix1;
-        sectorMapBackgroundIy4 = layer.iy2;
-    }
-    sectorMapBackgroundWizardLinearFlow = false;
-    sectorMapBackgroundWizardStep = 'coords4';
-
-    const setDmsFields = (latId, lonId, lat, lon) => {
-        const la = document.getElementById(latId);
-        const lo = document.getElementById(lonId);
-        if (la) la.value = formatDMS(decimalToDMS(lat, true), true);
-        if (lo) lo.value = formatDMS(decimalToDMS(lon, false), false);
-    };
-    setDmsFields('sectorMapBgLat1', 'sectorMapBgLon1', layer.lat1, layer.lon1);
-    setDmsFields('sectorMapBgLat2', 'sectorMapBgLon2', layer.lat2, layer.lon2);
-    const lat3El = document.getElementById('sectorMapBgLat3');
-    const lon3El = document.getElementById('sectorMapBgLon3');
-    const lat4El = document.getElementById('sectorMapBgLat4');
-    const lon4El = document.getElementById('sectorMapBgLon4');
-    const wp3El = document.getElementById('sectorMapBgExistingWp3');
-    const wp4El = document.getElementById('sectorMapBgExistingWp4');
-    if (hasFour) {
-        setDmsFields('sectorMapBgLat3', 'sectorMapBgLon3', layer.lat3, layer.lon3);
-        setDmsFields('sectorMapBgLat4', 'sectorMapBgLon4', layer.lat4, layer.lon4);
-    } else {
-        if (lat3El) lat3El.value = '';
-        if (lon3El) lon3El.value = '';
-        if (lat4El) lat4El.value = '';
-        if (lon4El) lon4El.value = '';
-        if (wp3El) wp3El.value = '';
-        if (wp4El) wp4El.value = '';
-    }
-
-    const panel = document.getElementById('sectorMapBackgroundCalibPanel');
-    const b1 = document.getElementById('sectorMapBackgroundCoordBlock1');
-    const b2 = document.getElementById('sectorMapBackgroundCoordBlock2');
-    const b3 = document.getElementById('sectorMapBackgroundCoordBlock3');
-    const b4 = document.getElementById('sectorMapBackgroundCoordBlock4');
-    if (b1) b1.style.display = 'block';
-    if (b2) b2.style.display = 'block';
-    if (b3) b3.style.display = 'block';
-    if (b4) b4.style.display = 'block';
-    if (panel) panel.style.display = 'none';
-
-    const hint = document.getElementById('sectorMapBackgroundCalibHint');
-    if (hint) {
-        hint.textContent = hasFour
-            ? 'Adjust any marker or coordinates (four corners in consistent order). Click ADD to map to save.'
-            : 'This background used two-point calibration. Enter latitude/longitude for points 3 and 4, drag markers if needed, then ADD to map to use perspective warp.';
-    }
-
     const titleEl = document.getElementById('sectorMapBackgroundModalTitle');
     if (titleEl) titleEl.textContent = 'Edit Background';
+
+    const panel = document.getElementById('sectorMapBackgroundCalibPanel');
+    if (panel) panel.style.display = 'none';
 
     const img = document.getElementById('sectorMapBackgroundCalibImg');
     if (img) {
@@ -43592,18 +44629,33 @@ function openSectorMapBackgroundWizardForEdit(layerIndex) {
             sectorMapBackgroundResetPreviewPanZoom();
             ensureSectorMapBackgroundPanZoomListeners();
             const host = document.getElementById('sectorMapBackgroundImgHost');
-            const m1 = document.getElementById('sectorMapBgMarker1');
-            const m2 = document.getElementById('sectorMapBgMarker2');
-            const m3 = document.getElementById('sectorMapBgMarker3');
-            const m4 = document.getElementById('sectorMapBgMarker4');
-            if (m1 && host) positionSectorMapBackgroundMarker(host, sectorMapBackgroundIx1, sectorMapBackgroundIy1, m1);
-            if (m2 && host) positionSectorMapBackgroundMarker(host, sectorMapBackgroundIx2, sectorMapBackgroundIy2, m2);
-            if (m3 && host) positionSectorMapBackgroundMarker(host, sectorMapBackgroundIx3, sectorMapBackgroundIy3, m3);
-            if (m4 && host) positionSectorMapBackgroundMarker(host, sectorMapBackgroundIx4, sectorMapBackgroundIy4, m4);
-            requestAnimationFrame(function() {
-                sectorMapBackgroundRefreshCalibMarkers();
+            // Only the base 2 placement points are editable here; any extra fine-tuning points
+            // added live on the map are dropped on save, since redefining the base placement
+            // invalidates them anyway — the user re-adds fine-tuning points afterwards.
+            layer.points.slice(0, SECTOR_MAP_BG_WIZARD_POINTS).forEach(srcPt => {
+                const point = {
+                    uid: ++sectorMapBackgroundWizardPointSeq,
+                    ix: srcPt.ix, iy: srcPt.iy,
+                    lat: srcPt.lat, lon: srcPt.lon,
+                    markerEl: null, popupEl: null
+                };
+                sectorMapBackgroundWizardPoints.push(point);
+                point.markerEl = sectorMapBackgroundCreateMarkerEl(point);
+                point.popupEl = sectorMapBackgroundCreatePopupEl(point);
+                const latIn = point.popupEl.querySelector('.sector-map-bg-lat-input');
+                const lonIn = point.popupEl.querySelector('.sector-map-bg-lon-input');
+                if (latIn) latIn.value = formatDMS(decimalToDMS(srcPt.lat, true), true);
+                if (lonIn) lonIn.value = formatDMS(decimalToDMS(srcPt.lon, false), false);
+                if (host) positionSectorMapBackgroundMarker(host, srcPt.ix, srcPt.iy, point.markerEl);
             });
-            sectorMapBackgroundWizardOnCoordInput();
+            sectorMapBackgroundRenumberPopups();
+            const hint = document.getElementById('sectorMapBackgroundCalibHint');
+            if (hint) {
+                hint.textContent =
+                    'Click a marker to review/edit its coordinates, or drag a marker to fine-tune it. Any extra points added on the map will be reset — re-add them after saving. Then click ADD to map.';
+            }
+            sectorMapBackgroundUpdatePointCountStatus();
+            sectorMapBackgroundWizardRefreshAddEnabled();
         };
         img.src = layer.blobUrl;
     }
@@ -43617,24 +44669,12 @@ function applySectorMapBackgroundToMapFromWizard() {
     const isEdit = sectorMapBackgroundWizardEditIndex != null;
     const editIdx = sectorMapBackgroundWizardEditIndex;
     sectorMapBackgroundResolveExistingWaypointFields();
-    const g = sectorMapBackgroundWizardParseFourGeoFromInputs();
-    if (!sectorMapBackgroundWizardFourGeoAllValid(g) || !sectorMapBackgroundWizardFourGeoDistinct(g)) {
-        alert(
-            'Enter valid coordinates for all four points: latitude DDMMSS + N/S, longitude DDDMMSS + E/W (e.g. 232545N and 0754255E). Each geographic position must differ.'
-        );
+    const res = sectorMapBackgroundWizardValidateCalibration();
+    if (!res.ok) {
+        alert(res.reason || 'Calibration is incomplete or invalid.');
         return;
     }
-    const ixy = sectorMapBackgroundWizardImageQuadPts();
-    if (sectorMapBackgroundWizardMinEdgeImagePts(ixy) <= 2) {
-        alert('The four image markers must be farther apart (along the edges of the map).');
-        return;
-    }
-    if (!sectorMapBackgroundWizardHomographyOk(ixy, g)) {
-        alert(
-            'Could not compute perspective calibration from these points. Try reordering corners around the perimeter or adjusting marker positions.'
-        );
-        return;
-    }
+    const pointsData = sectorMapBackgroundWizardPoints.map(p => ({ ix: p.ix, iy: p.iy, lat: p.lat, lon: p.lon }));
     const pictureName = (sectorMapBackgroundWizardChosenFileName && String(sectorMapBackgroundWizardChosenFileName).trim()) ||
         (isEdit && sectorMapSessionBackgroundLayers[editIdx] && sectorMapSessionBackgroundLayers[editIdx].pictureName &&
             String(sectorMapSessionBackgroundLayers[editIdx].pictureName).trim()) ||
@@ -43642,36 +44682,25 @@ function applySectorMapBackgroundToMapFromWizard() {
     const im = new Image();
     im.onload = () => {
         const newLayer = {
+            kind: 'mesh',
             blobUrl: url,
             image: im,
-            ix1: sectorMapBackgroundIx1,
-            iy1: sectorMapBackgroundIy1,
-            lat1: g.lat1,
-            lon1: g.lon1,
-            ix2: sectorMapBackgroundIx2,
-            iy2: sectorMapBackgroundIy2,
-            lat2: g.lat2,
-            lon2: g.lon2,
-            ix3: sectorMapBackgroundIx3,
-            iy3: sectorMapBackgroundIy3,
-            lat3: g.lat3,
-            lon3: g.lon3,
-            ix4: sectorMapBackgroundIx4,
-            iy4: sectorMapBackgroundIy4,
-            lat4: g.lat4,
-            lon4: g.lon4,
+            points: pointsData,
             naturalWidth: im.naturalWidth,
             naturalHeight: im.naturalHeight,
             pictureName
         };
+        let newLayerIndex;
         if (isEdit && editIdx != null && sectorMapSessionBackgroundLayers[editIdx]) {
             const old = sectorMapSessionBackgroundLayers[editIdx];
             if (old && old.blobUrl && old.blobUrl !== url) {
                 try { URL.revokeObjectURL(old.blobUrl); } catch (e) {}
             }
             sectorMapSessionBackgroundLayers[editIdx] = newLayer;
+            newLayerIndex = editIdx;
         } else {
             sectorMapSessionBackgroundLayers.push(newLayer);
+            newLayerIndex = sectorMapSessionBackgroundLayers.length - 1;
         }
         sectorMapBackgroundWizardObjectUrl = null;
         sectorMapBackgroundWizardEditIndex = null;
@@ -43680,12 +44709,302 @@ function applySectorMapBackgroundToMapFromWizard() {
         resetSectorMapBackgroundWizard({ revokePendingUrl: false });
         closeModal('sectorMapBackgroundModal');
         syncSectorMapBgOpacityControlVisibility();
+        // Placed with just 2 points (no morphing yet) — immediately drop into live on-map
+        // calibration so the user can add unlimited fine-tuning points before finishing.
+        startSectorMapBgLiveCalibration(newLayerIndex);
         try { drawCanvas(); } catch (e) {}
     };
     im.onerror = () => {
         alert('Could not load the image for the map.');
     };
     im.src = url;
+}
+
+/* =====================================================================================
+ * Live on-map background calibration
+ * =====================================================================================
+ * After a background is added/edited with its 2 base points (no morphing), the user can keep
+ * refining the fit directly on the Edit Airspace map itself, alternating clicks:
+ *   1st left click  — picks a recognisable spot on the picture as it's currently rendered
+ *                      (mapped back to the picture's own natural pixel coordinates through
+ *                      whichever transform is currently active for it — similarity or mesh).
+ *   2nd left click  — picks the correct geographic location that spot should actually sit at.
+ * Together these form one calibration point, appended to the layer's `points` array; once 3+
+ * points exist the renderer automatically switches to the triangulated "rubber sheet" warp, so
+ * the picture visibly improves after every pair of clicks. Middle-click removes the nearest
+ * existing point (or cancels a pending 1st click). Points are unlimited — the user keeps going
+ * until pressing FINISH BACKGROUND CALIBRATION.
+ * ===================================================================================== */
+
+/** Index into {@link sectorMapSessionBackgroundLayers} currently being refined, or null when inactive. */
+let sectorMapBgLiveCalibLayerIndex = null;
+/** First-of-pair click result (a picture point awaiting its paired map-target click), or null. */
+let sectorMapBgLiveCalibPendingImagePt = null;
+let sectorMapBgFlashHintTimer = null;
+
+function sectorMapBgLiveCalibActive() {
+    return sectorMapBgLiveCalibLayerIndex != null && !!sectorMapSessionBackgroundLayers[sectorMapBgLiveCalibLayerIndex];
+}
+
+/** Enter live calibration mode for a just-added/edited background layer. */
+function startSectorMapBgLiveCalibration(layerIndex) {
+    if (layerIndex == null || !sectorMapSessionBackgroundLayers[layerIndex]) return;
+    sectorMapBgLiveCalibLayerIndex = layerIndex;
+    sectorMapBgLiveCalibPendingImagePt = null;
+    sectorMapBgLiveCalibInstallHandlers();
+    const bar = document.getElementById('sectorMapBgLiveCalibBar');
+    if (bar) bar.style.display = 'flex';
+    sectorMapBgLiveCalibUpdateHint();
+    if (canvas) canvas.style.cursor = 'crosshair';
+    try { drawCanvas(); } catch (e) {}
+}
+
+/** Exit live calibration mode (called by FINISH BACKGROUND CALIBRATION, Esc, or modal/layer cleanup). */
+function finishSectorMapBgLiveCalibration() {
+    if (sectorMapBgLiveCalibLayerIndex == null) return;
+    sectorMapBgLiveCalibLayerIndex = null;
+    sectorMapBgLiveCalibPendingImagePt = null;
+    clearTimeout(sectorMapBgFlashHintTimer);
+    const bar = document.getElementById('sectorMapBgLiveCalibBar');
+    if (bar) bar.style.display = 'none';
+    if (canvas) canvas.style.cursor = 'default';
+    try { drawCanvas(); } catch (e) {}
+}
+
+function sectorMapBgLiveCalibUpdateHint() {
+    if (!sectorMapBgLiveCalibActive()) return;
+    const layer = sectorMapSessionBackgroundLayers[sectorMapBgLiveCalibLayerIndex];
+    const n = Array.isArray(layer.points) ? layer.points.length : 0;
+    const countEl = document.getElementById('sectorMapBgLiveCalibCount');
+    if (countEl) countEl.textContent = `${n} calibration point${n === 1 ? '' : 's'}`;
+    const hintEl = document.getElementById('sectorMapBgLiveCalibHint');
+    if (hintEl) {
+        hintEl.textContent = sectorMapBgLiveCalibPendingImagePt
+            ? 'Now click where that spot should actually be on the map.'
+            : 'Click a spot on the picture, then click its correct map position. Middle-click a point to remove it.';
+    }
+}
+
+/** Briefly override the hint bar with a message (e.g. a rejected click), then restore it. */
+function sectorMapBgFlashHint(msg) {
+    const hintEl = document.getElementById('sectorMapBgLiveCalibHint');
+    if (!hintEl) return;
+    hintEl.textContent = msg;
+    clearTimeout(sectorMapBgFlashHintTimer);
+    sectorMapBgFlashHintTimer = setTimeout(sectorMapBgLiveCalibUpdateHint, 2000);
+}
+
+/**
+ * Inverse-map a live map canvas pixel back to the background picture's own natural pixel
+ * coordinates, using whichever transform (similarity or triangulated mesh) is currently active
+ * for that layer. Returns null if the click doesn't land on any part of the picture currently
+ * covered by its calibration.
+ */
+function sectorMapBgLiveCalibMapCanvasToImageXY(layerIndex, canvasX, canvasY) {
+    const bg = sectorMapSessionBackgroundLayers[layerIndex];
+    if (!bg || !Array.isArray(bg.points) || bg.points.length < 2) return null;
+    const iw = bg.naturalWidth;
+    const ih = bg.naturalHeight;
+    const pts = bg.points;
+    const clampToImage = (u, v) => ({ ix: Math.max(0, Math.min(iw, u)), iy: Math.max(0, Math.min(ih, v)) });
+    if (pts.length === 2) {
+        const d1 = sectorLatLonToCanvasPixel(pts[0].lat, pts[0].lon);
+        const d2 = sectorLatLonToCanvasPixel(pts[1].lat, pts[1].lon);
+        if (!d1 || !d2) return null;
+        const aff = sectorMapBackgroundComputeSimilarityAffine(pts[0], pts[1], d1, d2);
+        if (!aff) return null;
+        const inv = sectorMapBackgroundInvertAffine(aff);
+        if (!inv) return null;
+        const u = inv.a * canvasX + inv.c * canvasY + inv.tx;
+        const v = inv.b * canvasX + inv.d * canvasY + inv.ty;
+        const margin = 12;
+        if (u < -margin || v < -margin || u > iw + margin || v > ih + margin) return null;
+        return clampToImage(u, v);
+    }
+    const imgPts = pts.map(p => ({ x: p.ix, y: p.iy }));
+    const dstPts = pts.map(p => sectorLatLonToCanvasPixel(p.lat, p.lon));
+    if (dstPts.some(p => !p)) return null;
+    const tris = sectorMapBackgroundDelaunayTriangles(imgPts);
+    for (let t = 0; t < tris.length; t++) {
+        const [i, j, k] = tris[t];
+        const dst = [dstPts[i], dstPts[j], dstPts[k]];
+        if (!pointInTriangle(canvasX, canvasY, dst[0].x, dst[0].y, dst[1].x, dst[1].y, dst[2].x, dst[2].y)) continue;
+        const src = [imgPts[i], imgPts[j], imgPts[k]];
+        const aff = sectorMapBackgroundSolveAffine3(src, dst);
+        if (!aff) continue;
+        const inv = sectorMapBackgroundInvertAffine(aff);
+        if (!inv) continue;
+        const u = inv.a * canvasX + inv.c * canvasY + inv.tx;
+        const v = inv.b * canvasX + inv.d * canvasY + inv.ty;
+        return clampToImage(u, v);
+    }
+    // Outside every triangle (e.g. near an edge not yet covered): fall back to the same
+    // global least-squares affine the "base" picture layer is rendered with there.
+    const baseAff = sectorMapBackgroundLeastSquaresAffine(imgPts, dstPts);
+    if (!baseAff) return null;
+    const invBase = sectorMapBackgroundInvertAffine(baseAff);
+    if (!invBase) return null;
+    const ub = invBase.a * canvasX + invBase.c * canvasY + invBase.tx;
+    const vb = invBase.b * canvasX + invBase.d * canvasY + invBase.ty;
+    const margin = 12;
+    if (ub < -margin || vb < -margin || ub > iw + margin || vb > ih + margin) return null;
+    return clampToImage(ub, vb);
+}
+
+/**
+ * Forward-map a picture's natural pixel coordinates to the live map's current canvas pixel,
+ * through the same transform {@link sectorMapBgLiveCalibMapCanvasToImageXY} inverts. Used only to
+ * draw the "pending" marker for a picked-but-not-yet-paired picture point.
+ */
+function sectorMapBgImageXYToCanvasPixel(layerIndex, ix, iy) {
+    const bg = sectorMapSessionBackgroundLayers[layerIndex];
+    if (!bg || !Array.isArray(bg.points) || bg.points.length < 2) return null;
+    const pts = bg.points;
+    if (pts.length === 2) {
+        const d1 = sectorLatLonToCanvasPixel(pts[0].lat, pts[0].lon);
+        const d2 = sectorLatLonToCanvasPixel(pts[1].lat, pts[1].lon);
+        if (!d1 || !d2) return null;
+        const aff = sectorMapBackgroundComputeSimilarityAffine(pts[0], pts[1], d1, d2);
+        if (!aff) return null;
+        return { x: aff.a * ix + aff.c * iy + aff.tx, y: aff.b * ix + aff.d * iy + aff.ty };
+    }
+    const imgPts = pts.map(p => ({ x: p.ix, y: p.iy }));
+    const dstPts = pts.map(p => sectorLatLonToCanvasPixel(p.lat, p.lon));
+    if (dstPts.some(p => !p)) return null;
+    const tris = sectorMapBackgroundDelaunayTriangles(imgPts);
+    for (let t = 0; t < tris.length; t++) {
+        const [i, j, k] = tris[t];
+        const src = [imgPts[i], imgPts[j], imgPts[k]];
+        if (!pointInTriangle(ix, iy, src[0].x, src[0].y, src[1].x, src[1].y, src[2].x, src[2].y)) continue;
+        const dst = [dstPts[i], dstPts[j], dstPts[k]];
+        const aff = sectorMapBackgroundSolveAffine3(src, dst);
+        if (!aff) continue;
+        return { x: aff.a * ix + aff.c * iy + aff.tx, y: aff.b * ix + aff.d * iy + aff.ty };
+    }
+    // Outside every triangle: fall back to the same global least-squares affine the "base"
+    // picture layer renders with there (matches what the pending marker actually sits on top of).
+    const baseAff = sectorMapBackgroundLeastSquaresAffine(imgPts, dstPts);
+    if (!baseAff) return null;
+    return { x: baseAff.a * ix + baseAff.c * iy + baseAff.tx, y: baseAff.b * ix + baseAff.d * iy + baseAff.ty };
+}
+
+function sectorMapBgLiveCalibHandleLeftClick(canvasX, canvasY) {
+    const layerIndex = sectorMapBgLiveCalibLayerIndex;
+    const layer = sectorMapSessionBackgroundLayers[layerIndex];
+    if (!layer) return;
+    if (!sectorMapBgLiveCalibPendingImagePt) {
+        const imgPt = sectorMapBgLiveCalibMapCanvasToImageXY(layerIndex, canvasX, canvasY);
+        if (!imgPt) {
+            sectorMapBgFlashHint('Click on the background picture itself to start a calibration point.');
+            return;
+        }
+        sectorMapBgLiveCalibPendingImagePt = imgPt;
+    } else {
+        updateCentreWaypoint();
+        const geo = canvasPixelToSectorLatLon(canvasX, canvasY);
+        if (!geo || !sectorMapBackgroundGeoPairValid(geo.latitude, geo.longitude)) {
+            sectorMapBgFlashHint('Could not read a map position there — try again.');
+            return;
+        }
+        if (!Array.isArray(layer.points)) layer.points = [];
+        layer.points.push({
+            ix: sectorMapBgLiveCalibPendingImagePt.ix,
+            iy: sectorMapBgLiveCalibPendingImagePt.iy,
+            lat: geo.latitude,
+            lon: geo.longitude
+        });
+        sectorMapBgLiveCalibPendingImagePt = null;
+    }
+    sectorMapBgLiveCalibUpdateHint();
+    try { drawCanvas(); } catch (e) {}
+}
+
+function sectorMapBgLiveCalibHandleMiddleClick(canvasX, canvasY) {
+    const layerIndex = sectorMapBgLiveCalibLayerIndex;
+    const layer = sectorMapSessionBackgroundLayers[layerIndex];
+    if (!layer) return;
+    if (sectorMapBgLiveCalibPendingImagePt) {
+        sectorMapBgLiveCalibPendingImagePt = null;
+        sectorMapBgLiveCalibUpdateHint();
+        try { drawCanvas(); } catch (e) {}
+        return;
+    }
+    if (!Array.isArray(layer.points) || !layer.points.length) return;
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    layer.points.forEach((pt, i) => {
+        const c = sectorLatLonToCanvasPixel(pt.lat, pt.lon);
+        if (!c) return;
+        const dist = Math.hypot(c.x - canvasX, c.y - canvasY);
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = i;
+        }
+    });
+    const HIT_RADIUS_PX = 22;
+    if (bestIdx === -1 || bestDist > HIT_RADIUS_PX) return;
+    if (layer.points.length <= 2) {
+        sectorMapBgFlashHint('At least 2 calibration points are required — add a replacement before removing this one.');
+        return;
+    }
+    layer.points.splice(bestIdx, 1);
+    sectorMapBgLiveCalibUpdateHint();
+    try { drawCanvas(); } catch (e) {}
+}
+
+/** Wire up Esc-to-finish; left/middle click handling itself lives in the main canvas mousedown handler. */
+function sectorMapBgLiveCalibInstallHandlers() {
+    if (sectorMapBgLiveCalibInstallHandlers._installed) return;
+    sectorMapBgLiveCalibInstallHandlers._installed = true;
+    window.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && sectorMapBgLiveCalibActive()) finishSectorMapBgLiveCalibration();
+    });
+}
+
+/** Draw calibration point markers + the pending picture-point marker on top of everything else. */
+function sectorMapBgLiveCalibDrawOverlay() {
+    if (!ctx || !canvas || !sectorMapBgLiveCalibActive()) return;
+    const layer = sectorMapSessionBackgroundLayers[sectorMapBgLiveCalibLayerIndex];
+    if (!layer) return;
+    ctx.save();
+    if (Array.isArray(layer.points)) {
+        layer.points.forEach((pt, i) => {
+            const c = sectorLatLonToCanvasPixel(pt.lat, pt.lon);
+            if (!c) return;
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, 7, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 152, 0, 0.9)';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#7a3d00';
+            ctx.stroke();
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 11px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(String(i + 1), c.x, c.y - 12);
+        });
+    }
+    if (sectorMapBgLiveCalibPendingImagePt) {
+        const p = sectorMapBgImageXYToCanvasPixel(sectorMapBgLiveCalibLayerIndex, sectorMapBgLiveCalibPendingImagePt.ix, sectorMapBgLiveCalibPendingImagePt.iy);
+        if (p) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(76, 175, 80, 0.85)';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#1b5e20';
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(p.x - 13, p.y);
+            ctx.lineTo(p.x + 13, p.y);
+            ctx.moveTo(p.x, p.y - 13);
+            ctx.lineTo(p.x, p.y + 13);
+            ctx.strokeStyle = '#1b5e20';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+    }
+    ctx.restore();
 }
 
 /* ===================== Google Earth (satellite) map background ===================== */
@@ -51044,6 +52363,10 @@ function sectorMapPrintDrawBackgroundLayers(ctx, cw, ch, layout) {
         if (!bg || !bg.image) continue;
         const im = bg.image;
         if (!im.complete || !im.naturalWidth || !im.naturalHeight) continue;
+        if (Array.isArray(bg.points) && bg.points.length >= 2) {
+            drawSectorMapSessionBackgroundLayerMesh(ctx, bg, im, alpha, (lat, lon) => sectorMapPrintGeoToPixel(lat, lon, layout));
+            continue;
+        }
         const useHomography =
             isFinite(bg.lat3) &&
             isFinite(bg.lon3) &&
@@ -57401,6 +58724,7 @@ async function initUserSessionBar() {
     const bar = document.getElementById('userSessionBar');
     const emailEl = document.getElementById('userSessionEmail');
     const adminLink = document.getElementById('userAdminLinkBtn');
+    const manageLink = document.getElementById('userManageSubscriptionBtn');
     const logoutBtn = document.getElementById('userLogoutBtn');
     if (!bar) return;
     try {
@@ -57410,6 +58734,9 @@ async function initUserSessionBar() {
         bar.style.display = 'flex';
         if (emailEl) emailEl.textContent = data.user.email || '';
         if (adminLink) adminLink.style.display = data.user.isAdmin ? 'inline-flex' : 'none';
+        if (manageLink) {
+            manageLink.style.display = (data.isApproved && !data.user.isAdmin) ? 'inline-flex' : 'none';
+        }
         applyPlatformAccessGate(data);
     } catch (_) {}
     logoutBtn?.addEventListener('click', async function () {
@@ -57828,6 +59155,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('saveAdminSettingsBtn')?.addEventListener('click', () => saveAdminSettings());
     document.getElementById('openAdminAiPilotInstructionsBtn')?.addEventListener('click', () => openAdminAiPilotInstructionsModal());
     document.getElementById('openAdminGlobalAircraftLabelBtn')?.addEventListener('click', () => openAdminGlobalAircraftLabelModal());
+    document.getElementById('openAdminLoadSystemSettingBtn')?.addEventListener('click', () => openAdminLoadSystemSettingModal());
+    document.getElementById('closeAdminLoadSystemSettingBtn')?.addEventListener('click', () => closeModal('adminLoadSystemSettingModal'));
+    document.getElementById('cancelAdminLoadSystemSettingBtn')?.addEventListener('click', () => closeModal('adminLoadSystemSettingModal'));
+    document.getElementById('clearAdminSystemDefaultBtn')?.addEventListener('click', () => clearAdminSystemDefaultSimSettings());
     document.getElementById('editAdminSingleUserLabelConfigBtn')?.addEventListener('click', () => openAdminSingleUserLabelConfigModal());
     document.getElementById('makeDefaultLabelConfigBtn')?.addEventListener('click', () => {
         makeDefaultLabelSimulationConfig().catch(err => {
@@ -58096,6 +59427,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const simulationLabelAuthModal = document.getElementById('simulationLabelAuthModal');
     const loadSimSettingsPresetsModal = document.getElementById('loadSimSettingsPresetsModal');
     const saveSimSettingsPresetModal = document.getElementById('saveSimSettingsPresetModal');
+    const adminLoadSystemSettingModal = document.getElementById('adminLoadSystemSettingModal');
     const stcaParametersModal = document.getElementById('stcaParametersModal');
     const flightStatusColorsModal = document.getElementById('flightStatusColorsModal');
     const simulationConnectedUsersModal = document.getElementById('simulationConnectedUsersModal');
@@ -58114,7 +59446,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // No backdrop dismiss: settingsModal, createExercisePopup, editExerciseModal, createSectorPopup,
     // deleteExercisesModal, deleteSectorsModal, editAircraftDbModal, editAirlinesDbModal, addFlightModal, addMultipleFlightsModal,
     // simulationEnMgmtRulesModal (close via X / Cancel / Save only — avoids losing rule edits on a stray click)
-    const modalsWithBackdropClose = [startSessionModal, selectExerciseModal, playbackModal, exerciseFlightsPopupModal, editSectorInportModal, verticalLimitsModal, airportsModal, addRunwayModal, addApproachModal, addWaypointModal, addNavaidModal, addRouteModal, addMultipleWaypointsModal, addMultipleNavaidsModal, addMultipleRoutesModal, addMultipleAtcSectorsModal, addMultipleAirportsModal, addMultipleRunwaysModal, addMultipleApproachesModal, addMultipleAreasModal, addMultipleHoldingsModal, sectorMapBackgroundPickRenameModal, sectorMapBackgroundRenameModal, atcSectorsModal, duplicateAirspaceModal, joinSessionAssignModal, aiPpPttModal, adminUnlockModal, adminSettingsModal, adminAiPilotInstructionsModal, simulationSettingsModal, simulationEnMgmtRoutesModal, simulationEnMgmtMergeRoutesModal, simulationEnMgmtAddRouteModal, simulationEnMgmtIdentifierModal, simulationEnMgmtLevelsModal, simulationEnMgmtSaveRoutesModal, simulationEnMgmtSaveRoutesOverwriteModal, simulationEnMgmtLoadRoutesModal, simulationEnMgmtLoadRoutesDeleteConfirmModal, simulationEnMgmtDeleteRoutesModal, simulationEnMgmtDeleteRouteConfirmModal, simulationDebugLogModal, stopSimulationConfirmModal, simulationLabelEditorModal, adminSingleUserLabelConfigModal, labelSetupSaveConfirmModal, labelSetupDeleteConfirmModal, simulationLabelAuthModal, loadSimSettingsPresetsModal, saveSimSettingsPresetModal, stcaParametersModal, flightStatusColorsModal, simulationConnectedUsersModal, runTypeModal, sectorMapBackgroundPickEditModal, sectorMapBackgroundPickDeleteModal, sectorMapBackgroundConfirmDeleteOneModal, sectorMapBackgroundConfirmDeleteAllModal, sectorMapBackgroundModal, exportDataModal, importDataModal];
+    const modalsWithBackdropClose = [startSessionModal, selectExerciseModal, playbackModal, exerciseFlightsPopupModal, editSectorInportModal, verticalLimitsModal, airportsModal, addRunwayModal, addApproachModal, addWaypointModal, addNavaidModal, addRouteModal, addMultipleWaypointsModal, addMultipleNavaidsModal, addMultipleRoutesModal, addMultipleAtcSectorsModal, addMultipleAirportsModal, addMultipleRunwaysModal, addMultipleApproachesModal, addMultipleAreasModal, addMultipleHoldingsModal, sectorMapBackgroundPickRenameModal, sectorMapBackgroundRenameModal, atcSectorsModal, duplicateAirspaceModal, joinSessionAssignModal, aiPpPttModal, adminUnlockModal, adminSettingsModal, adminAiPilotInstructionsModal, simulationSettingsModal, simulationEnMgmtRoutesModal, simulationEnMgmtMergeRoutesModal, simulationEnMgmtAddRouteModal, simulationEnMgmtIdentifierModal, simulationEnMgmtLevelsModal, simulationEnMgmtSaveRoutesModal, simulationEnMgmtSaveRoutesOverwriteModal, simulationEnMgmtLoadRoutesModal, simulationEnMgmtLoadRoutesDeleteConfirmModal, simulationEnMgmtDeleteRoutesModal, simulationEnMgmtDeleteRouteConfirmModal, simulationDebugLogModal, stopSimulationConfirmModal, simulationLabelEditorModal, adminSingleUserLabelConfigModal, labelSetupSaveConfirmModal, labelSetupDeleteConfirmModal, simulationLabelAuthModal, loadSimSettingsPresetsModal, saveSimSettingsPresetModal, adminLoadSystemSettingModal, stcaParametersModal, flightStatusColorsModal, simulationConnectedUsersModal, runTypeModal, sectorMapBackgroundPickEditModal, sectorMapBackgroundPickDeleteModal, sectorMapBackgroundConfirmDeleteOneModal, sectorMapBackgroundConfirmDeleteAllModal, sectorMapBackgroundModal, exportDataModal, importDataModal];
     modalsWithBackdropClose.forEach(modal => {
         if (modal) {
             modal.addEventListener('click', function(e) {
@@ -58614,8 +59946,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         initNewCallsignCounter();
-        renderExerciseFlightsList();
-        try { syncExerciseInitialCallScriptsForAllFlights(); } catch (eSync) {}
+        renderExerciseFlightsList({ deferPreview: true });
         closeModal('addFlightModal');
     });
 
@@ -58668,13 +59999,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
 
         initNewCallsignCounter();
-        renderExerciseFlightsList();
-        try { syncExerciseInitialCallScriptsForAllFlights(); } catch (eSync) {}
+        renderExerciseFlightsList({ deferPreview: true });
         closeModal('addMultipleFlightsModal');
+        const genHint = added > 0
+            ? '\n\nUse “Generate initial calls” in AI Pilot scripts when you want initial-call scripts for these flights.'
+            : '';
         if (errors.length) {
-            alert(`Imported ${added} flight(s).\n\nErrors:\n${errors.slice(0, 12).join('\n')}${errors.length > 12 ? '\n…' : ''}`);
+            alert(`Imported ${added} flight(s).${genHint}\n\nErrors:\n${errors.slice(0, 12).join('\n')}${errors.length > 12 ? '\n…' : ''}`);
         } else {
-            alert(`Imported ${added} flight(s).`);
+            alert(`Imported ${added} flight(s).${genHint}`);
         }
     });
 
@@ -58911,83 +60244,25 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             sectorMapBackgroundWizardObjectUrl = URL.createObjectURL(f);
             sectorMapBackgroundWizardChosenFileName = f.name || null;
-            sectorMapBackgroundWizardStep = 'idle';
-            sectorMapBackgroundWizardLinearFlow = true;
+            sectorMapBackgroundWizardEditIndex = null;
+            sectorMapBackgroundWizardEditOriginalBlobUrl = null;
+            sectorMapBackgroundClearWizardPoints();
             const panel = document.getElementById('sectorMapBackgroundCalibPanel');
-            const m1 = document.getElementById('sectorMapBgMarker1');
-            const m2 = document.getElementById('sectorMapBgMarker2');
-            const m3 = document.getElementById('sectorMapBgMarker3');
-            const m4 = document.getElementById('sectorMapBgMarker4');
-            if (m1) m1.style.display = 'none';
-            if (m2) m2.style.display = 'none';
-            if (m3) m3.style.display = 'none';
-            if (m4) m4.style.display = 'none';
-            ['sectorMapBackgroundCoordBlock1', 'sectorMapBackgroundCoordBlock2', 'sectorMapBackgroundCoordBlock3', 'sectorMapBackgroundCoordBlock4'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            });
-            [
-                'sectorMapBgLat1',
-                'sectorMapBgLon1',
-                'sectorMapBgLat2',
-                'sectorMapBgLon2',
-                'sectorMapBgLat3',
-                'sectorMapBgLon3',
-                'sectorMapBgLat4',
-                'sectorMapBgLon4',
-                'sectorMapBgExistingWp1',
-                'sectorMapBgExistingWp2',
-                'sectorMapBgExistingWp3',
-                'sectorMapBgExistingWp4'
-            ].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
             const addBtn = document.getElementById('sectorMapBackgroundAddToMapBtn');
             if (addBtn) addBtn.disabled = true;
             sectorMapBackgroundResetPreviewPanZoom();
             if (sectorMapBackgroundCalibImg) {
                 sectorMapBackgroundCalibImg.onload = function() {
                     if (panel) panel.style.display = 'block';
-                    sectorMapBackgroundWizardStep = 'pick1';
                     sectorMapBackgroundResetPreviewPanZoom();
                     ensureSectorMapBackgroundPanZoomListeners();
-                    requestAnimationFrame(function() {
-                        sectorMapBackgroundRefreshCalibMarkers();
-                    });
-                    const hint = document.getElementById('sectorMapBackgroundCalibHint');
-                    if (hint) {
-                        hint.textContent =
-                            'Step 1: Click the first corner on the image (use four corners in order around the map, e.g. clockwise). Then enter latitude (DDMMSS + N/S) and longitude (DDDMMSS + E/W).';
-                    }
+                    sectorMapBackgroundUpdateHintForPointCount();
+                    sectorMapBackgroundUpdatePointCountStatus();
                 };
                 sectorMapBackgroundCalibImg.src = sectorMapBackgroundWizardObjectUrl;
             }
         });
     }
-    [
-        'sectorMapBgLat1',
-        'sectorMapBgLon1',
-        'sectorMapBgLat2',
-        'sectorMapBgLon2',
-        'sectorMapBgLat3',
-        'sectorMapBgLon3',
-        'sectorMapBgLat4',
-        'sectorMapBgLon4'
-    ].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', sectorMapBackgroundWizardOnCoordInput);
-    });
-    [1, 2, 3, 4].forEach(function(pi) {
-        document.getElementById('sectorMapBgGetCoord' + pi)?.addEventListener('click', function() {
-            sectorMapBackgroundApplyExistingWaypoint(pi, 'user');
-        });
-        document.getElementById('sectorMapBgExistingWp' + pi)?.addEventListener('keydown', function(ev) {
-            if (ev.key === 'Enter') {
-                ev.preventDefault();
-                sectorMapBackgroundApplyExistingWaypoint(pi, 'user');
-            }
-        });
-    });
     document.getElementById('sectorMapBackgroundAddToMapBtn')?.addEventListener('click', function() {
         applySectorMapBackgroundToMapFromWizard();
     });
@@ -60362,6 +61637,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
+    document.getElementById('sectorMapBgLiveCalibFinishBtn')?.addEventListener('click', function() {
+        finishSectorMapBgLiveCalibration();
+    });
+
     syncSectorRenderViewButtonState();
     document.getElementById('sectorMapRenderViewBtn')?.addEventListener('click', function() {
         sectorMapOptions.renderInView = !sectorMapOptions.renderInView;
@@ -60529,16 +61808,19 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Simulation control buttons
     // Simulation COLORS modal controls
     loadSimulationStyle();
-    syncSimulationStyleControlsFromState();
     loadSimulationMap();
     loadSimulationSettings();
+    // Must check BEFORE syncSimulationStyleControlsFromState(), which has the side effect of
+    // saving style to localStorage — checking after would always find "existing" storage.
+    const isFreshSimSettingsUser = !hasAnyLocalSimSettingsStorage();
+    syncSimulationStyleControlsFromState();
     const finishSimUiAfterStorage = () => {
         syncSimulationSettingsControlsFromState();
         syncSimulationStyleControlsFromState();
         updateSpvUi();
         updateSimulationTtsUi();
     };
-    if (!hasAnyLocalSimSettingsStorage()) {
+    if (isFreshSimSettingsUser) {
         tryApplyDefaultSimSettingsPresetFromServer().finally(() => finishSimUiAfterStorage());
     } else {
         finishSimUiAfterStorage();
@@ -60642,6 +61924,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             simulationSpeakNow('Aircraft response with text-to-speech is on', { immediate: true });
         } else {
             try { window.speechSynthesis.cancel(); } catch (e) {}
+            try { stopSimRadioStatic(0); } catch (e) {}
             simulationTtsIsSpeaking = false;
             try {
                 (window.simulationData?.aircraft || []).forEach(ac => clearSimulationAircraftTtsQueue(ac));
@@ -60755,6 +62038,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         syncSimulationSettingsControlsFromState();
         openModal('simulationSettingsModal');
     });
+    document.getElementById('simulationUpdateVoicePacksBtn')?.addEventListener('click', updateSimulationVoicePacks);
 
     document.getElementById('simulationHostAtcScopeSelect')?.addEventListener('change', function() {
         if (isSimulationSingleUserAtcSectorLocked()) return;
@@ -60843,6 +62127,39 @@ document.addEventListener('DOMContentLoaded', async function() {
         saveStcaParametersFromControls();
         closeModal('stcaParametersModal');
     });
+
+    // Realistic Frequency modal (radio static + squelch, opened from Sim Settings)
+    document.getElementById('openSimulationRealisticFrequencyBtn')?.addEventListener('click', function() {
+        loadSimulationSettings();
+        syncSimulationRealisticFrequencyControlsFromState();
+        openModal('simulationRealisticFrequencyModal');
+    });
+    const closeSimRealisticFrequency = () => {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+        stopSimRadioStatic(0);
+        closeModal('simulationRealisticFrequencyModal');
+    };
+    document.getElementById('closeSimulationRealisticFrequencyBtn')?.addEventListener('click', closeSimRealisticFrequency);
+    document.getElementById('closeSimulationRealisticFrequencyFooterBtn')?.addEventListener('click', closeSimRealisticFrequency);
+    document.getElementById('saveSimulationRealisticFrequencyBtn')?.addEventListener('click', function() {
+        applySimulationRealisticFrequencyFromControls();
+        saveSimulationSettings();
+        closeSimRealisticFrequency();
+    });
+    document.getElementById('simulationRadioStaticFrequency')?.addEventListener('input', function() {
+        const el = document.getElementById('simulationRadioStaticFrequencyValue');
+        if (el) el.textContent = String(this.value);
+    });
+    document.getElementById('simulationRadioStaticIntensity')?.addEventListener('input', function() {
+        const el = document.getElementById('simulationRadioStaticIntensityValue');
+        if (el) el.textContent = String(this.value);
+    });
+    document.getElementById('simulationSquelchIntensity')?.addEventListener('input', function() {
+        const el = document.getElementById('simulationSquelchIntensityValue');
+        if (el) el.textContent = String(this.value);
+    });
+    document.getElementById('simulationRadioPreviewBtn')?.addEventListener('click', previewSimulationRealisticFrequency);
+
     document.getElementById('openFlightStatusColorsBtn')?.addEventListener('click', function() {
         loadSimulationSettings();
         syncFlightStatusColorsModalFromState();

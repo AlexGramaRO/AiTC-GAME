@@ -144,7 +144,7 @@ FIELD: tts (spoken readback — placeholders + spoken phraseology)
 tts contains two kinds of content; combine them into ONE natural pilot reply that ends with {CALLSIGN}.
 
 A) PLACEHOLDERS — for these cleared values use the placeholder ONLY; the simulator expands each into correct phraseology from the aircraft's live state (climb/descend, turn direction, increase/reduce). Do NOT speak these values or their verbs yourself:
-- {ALVnnn} — assigned level, the same 3 digits as the ALV command (e.g. {ALV340}, {ALV030}).
+- {ALVnnn} — assigned level; use the same 3-digit ALV token as in command (see TRANSITION LEVEL below). The simulator expands this into altitude or flight level phraseology.
 - {TLHnnn} / {TRHnnn} — turn left / turn right to heading (e.g. {TLH200}).
 - {HDGnnn} — fly heading, shortest turn (e.g. {HDG270}).
 - {IASnnn} — indicated airspeed (e.g. {IAS280}).
@@ -157,7 +157,8 @@ B) SPOKEN PHRASEOLOGY — for EVERYTHING that has no placeholder, write the read
 - HOLD BEMBO → "holding at BEMBO"; EXITHOLD → "leaving the hold"
 - ILS08R → "cleared ILS runway zero eight right"
 - ROCD rate → full English number with thousands + "feet per minute" (1200 → "one thousand two hundred feet per minute"; never digit-by-digit, never drop "thousand")
-- Frequency/contact → read the frequency back naturally; repeat QNH when given.
+- Frequency/contact → read the frequency back naturally.
+- QNH with altitude clearances → read back in tts only (never in command): spell "Q N H", then each digit separately with a space, then the unit — "hectopascals" or "inches" (e.g. Q N H 1 0 1 4 hectopascals; Q N H 2 9 9 4 inches).
 Never put ICAO codes or raw command tokens (TLH, ALV, DCT, HOLD, ILS, ...) in the spoken text — placeholders for group A, proper phraseology for group B.
 Example shape: command "ETD855 DCT BEMBO ALV340" → tts "Proceeding direct BEMBO, {ALV340}, {CALLSIGN}".
 
@@ -167,11 +168,30 @@ The exercise may include Context Information (set in the AI Pilot tab when editi
 COMMAND TOKENS
 - Heading: TLHnnn (left), TRHnnn (right), HDGnnn (fly heading) — 3 digits.
 - Direct/route/hold: DCT FIX | RTE FIX1 FIX2 ... | HOLD FIX | EXITHOLD (fixes from the exercise lists).
-- Altitude: ALVnnn — 3 digits, no units. FL → those 3 digits (FL240 → ALV240); feet → feet/100 (3000 ft → ALV030).
+- Altitude: ALVnnn — 3 digits, no units in command (see TRANSITION LEVEL).
 - Speed: IASnnn, or Mach as Mnnn (Mach 0.78 → M078).
 - Rate of climb/descent: ROCDfpm, signed, digits only (climb 1500 → ROCD1500; descent 2500 → ROCD-2500). Exact controller value 100–5000, do not round. Use ALV alone for a level with no rate; use ROCD only when a rate is instructed.
 - ILS/approach: ILSnnX (e.g. ILS08R).
 - Label transfer-in: LBL_TIN-nnn (exercise initial-call scripts only; never spoken in tts).
+
+VALUE VALIDITY — correcting mis-heard digits
+Controllers only ever assign headings and speeds in multiples of 5, and flight levels in multiples of 10. Speech-to-text frequently mis-hears the last digit of these values. Before building command/tts, silently correct any value that does not respect this — never command or read back an invalid raw digit, and never mention the correction to the controller.
+- HEADING (TLH/TRH/HDG) and SPEED (IAS): if the last digit is not 0 or 5, round to the CLOSEST multiple of 5: 043 → 045 (closest to 45), 331 → 330 (closest to 330), 038 → 040, 152 → 150.
+- FLIGHT LEVEL (the 3-digit level the controller states, e.g. "flight level two nine seven"): if the last digit is not 0, do NOT round to the nearest ten — simply replace the last digit with 0, since flight levels are only ever assigned in tens: 297 → 290, 293 → 290, 245 → 240.
+- The flight-level correction above applies only to flight levels (at/above the sector's transition FL). Altitudes below the transition FL keep the flexibility already described under TRANSITION LEVEL (any integer hundred of feet, e.g. 4500 ft → ALV045, 4800 ft → ALV048) — do not force those to end in 0.
+- Never apply this correction to Mach numbers, ROCD rates, QNH digits, or frequencies — read those back exactly as heard.
+
+TRANSITION LEVEL — altitude vs flight level (command ALV and {ALV} placeholder)
+Each ATC sector has a TRANSITION FL (listed with sector data for this exercise). Compare the cleared level to that transition FL:
+- At or above transition FL: the controller uses flight level. command ALVnnn = the FL number (cleared FL240 → ALV240). Use {ALV240} in tts.
+- Below transition FL: the controller uses altitude in feet. command ALVnnn = feet ÷ 100 (any integer hundred, not only multiples of 10): 5000 ft → ALV050, 4500 ft → ALV045, 4750 ft → ALV048. Use the matching {ALVnnn} in tts. The radar label may show the same ALV code; spoken readback uses "altitude … feet" below transition and "flight level …" at/above transition — the simulator expands {ALVnnn} accordingly; do not speak the level yourself.
+- QNH is never in command. When the controller gives an altitude clearance with QNH, read QNH back in tts after the {ALV} placeholder using digit-by-digit format: Q N H 1 0 1 4 hectopascals or Q N H 2 9 9 4 inches.
+- If no transition FL is listed for the relevant sector in this exercise (missing from sector data below) and the cleared level's altitude-vs-flight-level treatment is ambiguous, do NOT guess: tts "Could you please confirm the transition level for us, {CALLSIGN}", command "".
+- WRONG-LEVEL-TYPE REFUSAL — when the transition FL IS known and the controller's clearance uses the wrong level type for that value, do NOT build an ALV command; refuse with "unable" and state the transition FL:
+  - Controller gives an ALTITUDE IN FEET that is AT OR ABOVE the transition FL (should have been a flight level): tts "Unable, the transition level is [transition FL spoken as flight level], {CALLSIGN}", command "".
+  - Controller gives a FLIGHT LEVEL that is BELOW the transition FL (should have been an altitude in feet): tts "Unable, the transition level is [transition FL spoken as flight level], {CALLSIGN}", command "".
+  - Speak the transition FL the same way as any flight level (e.g. transition FL 60 → "flight level six zero"; digits spoken individually, not "sixty").
+  - This refusal applies ONLY to the level-type mismatch itself; do not apply it to other parts of a compound instruction that are otherwise valid.
 
 COMPOUND (several instructions, same aircraft)
 - command: chain tokens after one callsign, or repeat the callsign per clause separated by semicolons.
@@ -194,6 +214,7 @@ Newer events supersede older context for the same aircraft.
 SUMMARY
 - JSON only: tts + command, same aircraft.
 - Build and validate command first, then derive tts from it.
+- Correct mis-heard digits first: heading/speed round to the closest multiple of 5; flight levels always end in 0 (replace the last digit, do not round).
 - Placeholders ({ALV/TLH/TRH/HDG/IAS/M}) for cleared values; write every other readback yourself in standard phraseology (never speak raw tokens like DCT/HOLD/ILS — e.g. DCT → "proceeding direct ...").
 - tts ends with {CALLSIGN}; never spell or infer the callsign, level verb, turn direction, or speed change yourself.
 - Follow any Exercise Context Information as an extension of these instructions.
@@ -755,6 +776,7 @@ def _read_admin_settings():
     data.setdefault('defaultGenericLabelSetupId', '')
     data.setdefault('defaultSingleUserLabelProfileId', '')
     data.setdefault('defaultHostedSessionsLabelProfileId', '')
+    data.setdefault('systemDefaultSimSettings', None)
     data['globalLabelLayout'] = _normalize_label_layout(data.get('globalLabelLayout'))
     data['globalLabelSetupId'] = (data.get('globalLabelSetupId') or '').strip() if isinstance(data.get('globalLabelSetupId'), str) else ''
     data['globalLabelSetups'] = _normalize_label_setups(data.get('globalLabelSetups'))
@@ -1053,10 +1075,19 @@ def _build_exercise_ai_pp_sector_frequencies_section(exercise_id):
             continue
         name = (s.get('name') or s.get('id') or '').strip()
         freq = _normalize_atc_sector_frequency(s.get('frequency'))
+        vl = s.get('verticalLimits') if isinstance(s.get('verticalLimits'), dict) else {}
+        tr_raw = vl.get('transitionFl')
+        tr_note = ''
+        try:
+            tr_val = int(tr_raw)
+            if tr_raw is not None and tr_raw != '':
+                tr_note = f', transition FL {tr_val}'
+        except (TypeError, ValueError):
+            pass
         if freq:
-            lines.append(f'  - {name}: {freq} MHz')
+            lines.append(f'  - {name}: {freq} MHz{tr_note}')
         else:
-            lines.append(f'  - {name}: (no frequency defined)')
+            lines.append(f'  - {name}: (no frequency defined){tr_note}')
     return '\n'.join(lines)
 
 
@@ -1256,7 +1287,10 @@ def _build_ai_pp_session_instructions(admin, exercise_id):
         "Use only callsigns from the exercise aircraft callsign list above. "
         "Match flight-number digits against that list first; airline name only if digits fail. "
         "Use TLH/TRH/HDG (never HEADING). "
-        "Feet altitude → ALVnnn (feet÷100). Plain English (no placeholder) for DCT/RTE/HOLD/ILS/QNH/frequencies. Climb/descent rate → ROCDfpm (signed fpm); rate tts in plain English with thousands (1200 → one thousand two hundred feet per minute, not one two hundred). "
+        "Headings/speeds end in 0 or 5 (round to closest); flight levels end in 0 (replace last digit, do not round) — correct mis-heard digits silently. "
+        "Feet altitude below sector transition FL → ALVnnn (feet÷100, any hundred). At/above transition → FL number. "
+        "QNH readback in tts only: Q N H + spaced digits + hectopascals or inches. "
+        "Plain English (no placeholder) for DCT/RTE/HOLD/ILS/frequencies. ROCD rate tts in English with thousands. "
         "Off-frequency aircraft (onFrequency=no in LIVE SESSION STATE) → empty tts and command. "
         "Unknown aircraft → tts Say again, command empty. [SCRIPT EVENT] Silent=yes → empty tts and command."
     )
@@ -2122,6 +2156,50 @@ def api_save_admin_global_aircraft_label():
         if 'labelSetups' in body:
             data['globalLabelSetups'] = _normalize_label_setups(body.get('labelSetups'))
         data['updatedAt'] = datetime.now(timezone.utc).isoformat()
+        _write_json(ADMIN_SETTINGS_FILE, data)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+
+
+@app.route('/api/system-default-sim-settings', methods=['GET'])
+def api_get_system_default_sim_settings():
+    """Platform-wide default Sim Settings/Map/Colors chosen by an Admin (no password required to read)."""
+    try:
+        data = _read_admin_settings()
+        entry = data.get('systemDefaultSimSettings')
+        if not isinstance(entry, dict) or not isinstance(entry.get('settings'), dict):
+            return jsonify({'ok': True, 'settings': None, 'name': ''})
+        return jsonify({
+            'ok': True,
+            'settings': entry.get('settings'),
+            'name': entry.get('name') or '',
+            'updatedAt': entry.get('updatedAt') or ''
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+
+
+@app.route('/api/admin/system-default-sim-settings', methods=['POST', 'PUT'])
+def api_save_system_default_sim_settings():
+    """Set (or clear) the platform-wide default Sim Settings/Map/Colors (Admin only)."""
+    try:
+        body = request.get_json(silent=True) or {}
+        if not _admin_password_ok(body.get('currentPassword', '')):
+            return jsonify({'ok': False, 'error': 'Invalid admin password'}), 403
+        data = _read_admin_settings()
+        if body.get('clear'):
+            data['systemDefaultSimSettings'] = None
+        else:
+            settings = body.get('settings')
+            if not isinstance(settings, dict):
+                return jsonify({'ok': False, 'error': 'settings object is required'}), 400
+            name = (body.get('name') or '').strip()
+            data['systemDefaultSimSettings'] = {
+                'name': name,
+                'settings': settings,
+                'updatedAt': datetime.now(timezone.utc).isoformat()
+            }
         _write_json(ADMIN_SETTINGS_FILE, data)
         return jsonify({'ok': True})
     except Exception as e:

@@ -923,6 +923,7 @@ PUBLIC_EXACT_PATHS = frozenset({
 BILLING_APPROVED_PATHS = frozenset({
     '/subscribe',
     '/subscribe/success',
+    '/manage-subscription',
     '/api/billing/config',
     '/api/billing/status',
     '/api/billing/create-checkout-session',
@@ -1141,6 +1142,8 @@ def api_auth_me():
     user = get_current_user()
     if not user:
         return jsonify({'ok': True, 'authenticated': False})
+    monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
+    one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
     return jsonify({
         'ok': True,
         'authenticated': True,
@@ -1148,6 +1151,9 @@ def api_auth_me():
         'canAccessPlatform': user_can_access_platform(user),
         'canAccessSimulator': user_can_access_platform(user),
         'platformAccessReason': _platform_access_reason(user),
+        'canCancelViaStripe': bool(monthly and monthly.get('stripe_subscription_id')),
+        'activeMonthlySubscription': _subscription_to_api(monthly),
+        'activeOneDayPass': _subscription_to_api(one_day),
         'user': _user_to_api(user, include_subscription=True),
     })
 
