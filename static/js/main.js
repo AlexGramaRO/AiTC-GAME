@@ -28372,28 +28372,35 @@ function parseControllerLevelFromTranscript(transcript) {
     if (!text) return null;
     const lower = text.toLowerCase();
 
-    let m = lower.match(/\bflight\s+level\s+(\d{2,3})\b/);
+    const flIdx = lower.search(/\bflight\s+level\b/);
+    if (flIdx !== -1) {
+        const afterFl = text.slice(flIdx).replace(/^\s*flight\s+level\s*/i, '');
+        const chunk = afterFl.split(/[,;]|(?=\b(?:climb|descend|maintain|etihad|singapore|speed|heading|direct)\b)/i)[0].trim();
+        const digitsOnly = chunk.replace(/[^0-9]/g, '');
+        if (digitsOnly.length >= 1 && digitsOnly.length <= 3) {
+            const fl = parseInt(digitsOnly, 10);
+            if (Number.isFinite(fl)) return { kind: 'FL', fl };
+        }
+    }
+
+    let m = lower.match(/\bfl\.?\s*(\d{2,3})\b/);
     if (m) {
         const fl = parseInt(m[1], 10);
         if (Number.isFinite(fl)) return { kind: 'FL', fl };
     }
 
-    m = lower.match(/\bfl\.?\s*(\d{2,3})\b/);
-    if (m) {
-        const fl = parseInt(m[1], 10);
-        if (Number.isFinite(fl)) return { kind: 'FL', fl };
-    }
+    if (flIdx === -1) {
+        m = lower.match(/\baltitude\s+(\d{3,5})\b/);
+        if (m) {
+            const feet = parseInt(m[1], 10);
+            if (Number.isFinite(feet)) return { kind: 'ALT_FT', feet };
+        }
 
-    m = lower.match(/\baltitude\s+(\d{3,5})\b/);
-    if (m) {
-        const feet = parseInt(m[1], 10);
-        if (Number.isFinite(feet)) return { kind: 'ALT_FT', feet };
-    }
-
-    m = lower.match(/\b(\d{3,5})\s*(?:feet|ft)\b/);
-    if (m && !/\bflight\s+level\b/.test(lower.slice(0, m.index || 0))) {
-        const feet = parseInt(m[1], 10);
-        if (Number.isFinite(feet)) return { kind: 'ALT_FT', feet };
+        m = lower.match(/\b(\d{3,5})\s*(?:feet|ft)\b/);
+        if (m) {
+            const feet = parseInt(m[1], 10);
+            if (Number.isFinite(feet)) return { kind: 'ALT_FT', feet };
+        }
     }
 
     return null;
