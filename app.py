@@ -813,6 +813,23 @@ def _get_admin_openai_model(admin_data=None):
     return _normalize_openai_model(data.get('openaiModel'))
 
 
+def _get_openai_api_key(admin_data=None):
+    """Admin settings file first, then Railway/env OPEN_AI. Empty string if neither is set."""
+    data = admin_data if isinstance(admin_data, dict) else _read_admin_settings()
+    file_key = data.get('openaiApiKey')
+    if isinstance(file_key, str) and file_key.strip():
+        return file_key.strip()
+    env_key = os.environ.get('OPEN_AI')
+    if isinstance(env_key, str) and env_key.strip():
+        return env_key.strip()
+    return ''
+
+
+_OPENAI_KEY_MISSING_MSG = (
+    'OpenAI API key is not configured. Set the OPEN_AI environment variable or add a key in ADMIN settings.'
+)
+
+
 def _admin_password_ok(password):
     pw = password if isinstance(password, str) else ''
     if not pw:
@@ -1874,9 +1891,9 @@ def api_ai_pp_session_start():
     try:
         body = request.get_json(silent=True) or {}
         admin = _read_admin_settings()
-        api_key = (admin.get('openaiApiKey') or '').strip()
+        api_key = _get_openai_api_key(admin)
         if not api_key:
-            return jsonify({'ok': False, 'error': 'OpenAI API Key is not configured in ADMIN settings.'}), 400
+            return jsonify({'ok': False, 'error': _OPENAI_KEY_MISSING_MSG}), 400
 
         exercise_id = body.get('exerciseId')
         on_frequency_codes = body.get('onFrequencyCallsigns')
@@ -1922,9 +1939,9 @@ def api_ai_pp_respond():
             return jsonify({'ok': False, 'error': 'No transcribed command to send.'}), 400
 
         admin = _read_admin_settings()
-        api_key = (admin.get('openaiApiKey') or '').strip()
+        api_key = _get_openai_api_key(admin)
         if not api_key:
-            return jsonify({'ok': False, 'error': 'OpenAI API Key is not configured in ADMIN settings.'}), 400
+            return jsonify({'ok': False, 'error': _OPENAI_KEY_MISSING_MSG}), 400
 
         with _ai_pp_openai_lock:
             sess = _ai_pp_openai_sessions.get(session_id)
@@ -2002,9 +2019,9 @@ def api_ai_pilot_transform_command():
             return jsonify({'ok': False, 'error': 'Command input text is required.'}), 400
 
         admin = _read_admin_settings()
-        api_key = (admin.get('openaiApiKey') or '').strip()
+        api_key = _get_openai_api_key(admin)
         if not api_key:
-            return jsonify({'ok': False, 'error': 'OpenAI API Key is not configured in ADMIN settings.'}), 400
+            return jsonify({'ok': False, 'error': _OPENAI_KEY_MISSING_MSG}), 400
 
         instructions = _build_transform_command_instructions(admin)
         user_input = _build_transform_command_user_input(callsign, input_text)
@@ -2037,9 +2054,12 @@ def api_admin_unlock():
         if not _admin_password_ok(body.get('password', '')):
             return jsonify({'ok': False, 'error': 'Invalid admin password'}), 403
         data = _read_admin_settings()
+        api_key = _get_openai_api_key(data)
+        file_key = (data.get('openaiApiKey') or '').strip() if isinstance(data.get('openaiApiKey'), str) else ''
         return jsonify({
             'ok': True,
-            'openaiApiKey': data.get('openaiApiKey') or '',
+            'openaiApiKey': api_key,
+            'openaiApiKeyFromEnv': bool(api_key and not file_key),
             'openaiModel': _get_admin_openai_model(data),
             'aiPilotGeneralInstructions': data.get('aiPilotGeneralInstructions') or DEFAULT_AI_PILOT_GENERAL_INSTRUCTIONS,
             'defaultAiPilotGeneralInstructions': DEFAULT_AI_PILOT_GENERAL_INSTRUCTIONS,

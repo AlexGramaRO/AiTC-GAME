@@ -1265,21 +1265,37 @@ async function unlockAdminSettings() {
         adminRecordSimulations = data.recordSimulations !== false;
         applyAdminGlobalLabelFromServer(data);
         closeModal('adminUnlockModal');
-        openAdminSettingsModal(data.openaiApiKey || '', adminAiPilotGeneralInstructions, adminOpenAiModel, adminRecordSimulations);
+        openAdminSettingsModal(
+            data.openaiApiKey || '',
+            adminAiPilotGeneralInstructions,
+            adminOpenAiModel,
+            adminRecordSimulations,
+            data.openaiApiKeyFromEnv === true
+        );
     } catch (err) {
         setAdminUnlockError(err?.message || 'Admin unlock failed.');
     }
 }
 
-function openAdminSettingsModal(openaiApiKey = '', aiPilotGeneralInstructions = DEFAULT_AI_PILOT_GENERAL_INSTRUCTIONS, openaiModel = DEFAULT_ADMIN_OPENAI_MODEL, recordSimulations = adminRecordSimulations) {
+function openAdminSettingsModal(openaiApiKey = '', aiPilotGeneralInstructions = DEFAULT_AI_PILOT_GENERAL_INSTRUCTIONS, openaiModel = DEFAULT_ADMIN_OPENAI_MODEL, recordSimulations = adminRecordSimulations, openaiApiKeyFromEnv = false) {
     const cur = document.getElementById('adminCurrentPassword');
     const next = document.getElementById('adminNewPassword');
     const confirm = document.getElementById('adminConfirmPassword');
     const key = document.getElementById('adminOpenAiApiKey');
+    const keyHint = document.getElementById('adminOpenAiApiKeyHint');
     if (cur) cur.value = adminUnlockedPassword || '';
     if (next) next.value = '';
     if (confirm) confirm.value = '';
     if (key) key.value = openaiApiKey || '';
+    if (keyHint) {
+        if (openaiApiKeyFromEnv && openaiApiKey) {
+            keyHint.textContent = 'Loaded from the OPEN_AI environment variable. Leave blank to keep using it, or enter a key to override in admin settings.';
+        } else if (openaiApiKey) {
+            keyHint.textContent = 'Stored in admin settings on this server. The OPEN_AI environment variable is used only when this field is empty.';
+        } else {
+            keyHint.textContent = 'No key configured. Set OPEN_AI on the server or enter a key here.';
+        }
+    }
     adminAiPilotGeneralInstructions = aiPilotGeneralInstructions || DEFAULT_AI_PILOT_GENERAL_INSTRUCTIONS;
     adminOpenAiModel = normalizeAdminOpenAiModel(openaiModel);
     setAdminOpenAiModelSelect(adminOpenAiModel);
