@@ -8,18 +8,21 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display: block;
     color: #f5f7fa;
 }
 
 .container {
     width: 100%;
-    max-width: 1200px;
-    padding: 2rem;
-    padding-top: 67.5vh;
-    text-align: center;
+    max-width: none;
+    padding: 2rem 2rem 2rem 2.5rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    text-align: left;
+    box-sizing: border-box;
 }
 
 .subtitle {
@@ -30,17 +33,18 @@ body {
 
 .button-row {
     display: flex;
+    flex-direction: column;
     justify-content: center;
-    align-items: center;
-    gap: 1.25rem;
-    margin: 4rem 0;
-    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin: 0;
+    padding-left: 0.5rem;
 }
 
-/* Landing: equal height for side-by-side buttons (tallest sets row height) */
+/* Landing: vertical button stack on the left */
 @media (min-width: 769px) {
     .container .button-row {
-        align-items: stretch;
+        align-items: flex-start;
         flex-wrap: nowrap;
     }
 }
@@ -265,8 +269,9 @@ footer .reg-mark {
 }
 
 footer {
-    margin-top: 3rem;
-    opacity: 0.7;
+    margin-top: 2rem;
+    padding-left: 0.5rem;
+    opacity: 0.85;
     font-size: 0.9rem;
 }
 
@@ -8810,12 +8815,13 @@ td.sim-holding-list-cs .sim-holding-list-avlb-stack-item {
 
     .button-row {
         flex-direction: column;
-        gap: 2rem;
-        align-items: center;
+        gap: 0.85rem;
+        align-items: flex-start;
+        padding-left: 0.5rem;
     }
 
     .container .button-row {
-        align-items: center;
+        align-items: flex-start;
     }
 
     .btn-round {
@@ -10218,7 +10224,7 @@ body.auth-page {
 
 .platform-access-banner {
     max-width: 720px;
-    margin: 0 auto 1.25rem;
+    margin: 0 0 1.25rem 0;
     padding: 0.85rem 1rem;
     border-radius: 10px;
     text-align: center;
