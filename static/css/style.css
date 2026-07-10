@@ -239,6 +239,32 @@ body {
     border-color: rgba(251, 146, 60, 0.32);
 }
 
+.container .button-row .btn-landing-options .btn-icon {
+    color: #93c5fd;
+    background: linear-gradient(145deg, rgba(96, 165, 250, 0.22) 0%, rgba(37, 99, 235, 0.08) 100%);
+    border-color: rgba(96, 165, 250, 0.32);
+}
+
+.landing-player-rf-fieldset {
+    border: 1px solid rgba(148, 180, 220, 0.18);
+    border-radius: 10px;
+    padding: 0.75rem 1rem 0.25rem;
+    margin: 0.5rem 0 0;
+}
+
+.landing-player-rf-fieldset legend {
+    padding: 0 0.35rem;
+    margin-bottom: 0.25rem;
+}
+
+.landing-player-options-intro {
+    margin-top: 0;
+}
+
+.simulation-subscriber-options-wrap .edit-exercise-topbar-dropdown-trigger {
+    min-width: 6.5rem;
+}
+
 /* Landing page expandable menus (Airspace, Exercises) */
 .landing-menu-wrap {
     position: relative;

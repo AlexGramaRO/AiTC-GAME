@@ -179,6 +179,10 @@ let selectedExerciseCategoryId = null;
 let exerciseCategoriesDraft = [];
 let exerciseCategoriesDirty = false;
 let selectedSubscriberCategoryId = null;
+let subscriberSimulationUiActive = false;
+let landingPlayerPttSelectingKey = false;
+let landingPlayerPendingPttKey = null;
+let landingPlayerOptionsFromSimulation = false;
 
 function isPlatformAdminUser() {
     return !!currentUserIsAdmin;
@@ -3056,6 +3060,7 @@ async function startSimulation(exercise) {
     // Open simulation modal
     openModal('simulationModal');
     syncSimulationPlaybackButtonsVisibility();
+    try { finalizeSubscriberSimulationStart(); } catch (e) {}
 
     // Initialize simulation canvas after modal opens
     setTimeout(() => {
@@ -16009,6 +16014,15 @@ function syncSimulationHostAtcScopeSelect() {
     const sel = document.getElementById('simulationHostAtcScopeSelect');
     const label = document.getElementById('simulationHostAtcScopeLabel');
     if (!sel) return;
+    if (subscriberSimulationUiActive) {
+        sel.style.display = 'none';
+        sel.setAttribute('aria-hidden', 'true');
+        if (label) {
+            label.style.display = 'none';
+            label.setAttribute('aria-hidden', 'true');
+        }
+        return;
+    }
     if (simulationJoinedSessionId) {
         sel.style.display = 'none';
         sel.setAttribute('aria-hidden', 'true');
@@ -16962,6 +16976,8 @@ function stopSimulation() {
     closeModal('simulationEnMgmtDeleteRouteConfirmModal');
     closeModal('stopSimulationConfirmModal');
     closeModal('restartSimulationConfirmModal');
+    closeModal('landingPlayerOptionsModal');
+    try { restoreAdminSimulationUi(); } catch (e) {}
     window.simulationData = null;
     simulationAspectRatio = null;
     try { stopSimulationClock(true); } catch (e) {}
@@ -27388,6 +27404,17 @@ let simulationTtsGapUntilMs = 0;
 let aiPpDeferStackUntilMs = 0;
 let simulationGlobalTtsPumpTimerId = null;
 const AI_PP_PTT_STORAGE_KEY = 'aitc_ai_pp_ptt_key_v1';
+const DEFAULT_AI_PP_PTT_KEY = { key: ' ', code: 'Space', label: 'SPACE' };
+const SUBSCRIBER_OPTIONS_STORAGE_KEY = 'aitc_subscriber_options_v1';
+const SUBSCRIBER_RF_DEFAULTS = {
+    radioStaticEnabled: true,
+    radioStaticNoiseType: 'white',
+    radioStaticFrequencyHz: 1000,
+    radioStaticIntensity: 30,
+    squelchEnabled: true,
+    squelchType: 'classic',
+    squelchIntensity: 50
+};
 let aiPpEnabled = false;
 let aiPpPttKey = null; // { key, code, label }
 let aiPpPendingPttKey = null;
@@ -27511,6 +27538,295 @@ function loadAiPpPttKey() {
     }
 }
 
+function getEffectiveAiPpPttKey(useDefaultSpace = false) {
+    const saved = loadAiPpPttKey();
+    if (saved) return saved;
+    return useDefaultSpace ? { ...DEFAULT_AI_PP_PTT_KEY } : null;
+}
+
+function loadSubscriberOptions() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(SUBSCRIBER_OPTIONS_STORAGE_KEY) || 'null');
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function isSubscriberOptionsConfigured() {
+    const opts = loadSubscriberOptions();
+    return !!(opts && opts.configured);
+}
+
+function saveSubscriberOptions(data) {
+    const payload = {
+        configured: true,
+        pttKey: data?.pttKey || getEffectiveAiPpPttKey(true),
+        ttsVoiceURI: (data?.ttsVoiceURI ?? '').toString(),
+        radioStaticEnabled: !!data?.radioStaticEnabled,
+        radioStaticNoiseType: (data?.radioStaticNoiseType || SUBSCRIBER_RF_DEFAULTS.radioStaticNoiseType).toString(),
+        radioStaticFrequencyHz: Number(data?.radioStaticFrequencyHz) || SUBSCRIBER_RF_DEFAULTS.radioStaticFrequencyHz,
+        radioStaticIntensity: Number(data?.radioStaticIntensity) ?? SUBSCRIBER_RF_DEFAULTS.radioStaticIntensity,
+        squelchEnabled: !!data?.squelchEnabled,
+        squelchType: (data?.squelchType || SUBSCRIBER_RF_DEFAULTS.squelchType).toString(),
+        squelchIntensity: Number(data?.squelchIntensity) ?? SUBSCRIBER_RF_DEFAULTS.squelchIntensity
+    };
+    try {
+        localStorage.setItem(SUBSCRIBER_OPTIONS_STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {}
+    if (payload.pttKey) saveAiPpPttKey(payload.pttKey);
+    if (simulationSettings) {
+        simulationSettings.ttsVoiceURI = payload.ttsVoiceURI;
+        Object.assign(simulationSettings, {
+            radioStaticEnabled: payload.radioStaticEnabled,
+            radioStaticNoiseType: payload.radioStaticNoiseType,
+            radioStaticFrequencyHz: payload.radioStaticFrequencyHz,
+            radioStaticIntensity: payload.radioStaticIntensity,
+            squelchEnabled: payload.squelchEnabled,
+            squelchType: payload.squelchType,
+            squelchIntensity: payload.squelchIntensity
+        });
+        saveSimulationSettings();
+    }
+    return payload;
+}
+
+function applySubscriberRadioDefaultsToSettings() {
+    const opts = loadSubscriberOptions();
+    if (opts && opts.configured) {
+        if (simulationSettings) {
+            simulationSettings.ttsVoiceURI = (opts.ttsVoiceURI ?? '').toString();
+            Object.assign(simulationSettings, {
+                radioStaticEnabled: !!opts.radioStaticEnabled,
+                radioStaticNoiseType: opts.radioStaticNoiseType || SUBSCRIBER_RF_DEFAULTS.radioStaticNoiseType,
+                radioStaticFrequencyHz: Number(opts.radioStaticFrequencyHz) || SUBSCRIBER_RF_DEFAULTS.radioStaticFrequencyHz,
+                radioStaticIntensity: Number(opts.radioStaticIntensity) ?? SUBSCRIBER_RF_DEFAULTS.radioStaticIntensity,
+                squelchEnabled: !!opts.squelchEnabled,
+                squelchType: opts.squelchType || SUBSCRIBER_RF_DEFAULTS.squelchType,
+                squelchIntensity: Number(opts.squelchIntensity) ?? SUBSCRIBER_RF_DEFAULTS.squelchIntensity
+            });
+            saveSimulationSettings();
+        }
+        return;
+    }
+    if (simulationSettings) {
+        Object.assign(simulationSettings, SUBSCRIBER_RF_DEFAULTS);
+        saveSimulationSettings();
+    }
+}
+
+function syncLandingPlayerRfControlsFromState() {
+    const opts = loadSubscriberOptions();
+    const rf = (opts && opts.configured) ? opts : { ...SUBSCRIBER_RF_DEFAULTS, ttsVoiceURI: '' };
+    const se = document.getElementById('landingPlayerRadioStaticEnabled');
+    if (se) se.checked = rf.radioStaticEnabled !== false;
+    const nt = document.getElementById('landingPlayerRadioStaticNoiseType');
+    if (nt) nt.value = rf.radioStaticNoiseType || 'white';
+    const freq = document.getElementById('landingPlayerRadioStaticFrequency');
+    const freqVal = document.getElementById('landingPlayerRadioStaticFrequencyValue');
+    const freqNum = Number(rf.radioStaticFrequencyHz) || 1000;
+    if (freq) freq.value = String(freqNum);
+    if (freqVal) freqVal.textContent = String(freqNum);
+    const si = document.getElementById('landingPlayerRadioStaticIntensity');
+    const siVal = document.getElementById('landingPlayerRadioStaticIntensityValue');
+    const siNum = Number(rf.radioStaticIntensity);
+    if (si) si.value = String(Number.isFinite(siNum) ? siNum : 30);
+    if (siVal) siVal.textContent = String(Number.isFinite(siNum) ? siNum : 30);
+    const sq = document.getElementById('landingPlayerSquelchEnabled');
+    if (sq) sq.checked = rf.squelchEnabled !== false;
+    const st = document.getElementById('landingPlayerSquelchType');
+    if (st) st.value = rf.squelchType || 'classic';
+    const sqi = document.getElementById('landingPlayerSquelchIntensity');
+    const sqiVal = document.getElementById('landingPlayerSquelchIntensityValue');
+    const sqiNum = Number(rf.squelchIntensity);
+    if (sqi) sqi.value = String(Number.isFinite(sqiNum) ? sqiNum : 50);
+    if (sqiVal) sqiVal.textContent = String(Number.isFinite(sqiNum) ? sqiNum : 50);
+    const voiceSel = document.getElementById('landingPlayerTtsVoiceSelect');
+    if (voiceSel) voiceSel.value = (rf.ttsVoiceURI ?? '').toString();
+}
+
+function applyLandingPlayerOptionsFromControls() {
+    const pttKey = landingPlayerPendingPttKey || getEffectiveAiPpPttKey(true);
+    const voiceSel = document.getElementById('landingPlayerTtsVoiceSelect');
+    return saveSubscriberOptions({
+        pttKey,
+        ttsVoiceURI: (voiceSel?.value ?? '').toString(),
+        radioStaticEnabled: !!document.getElementById('landingPlayerRadioStaticEnabled')?.checked,
+        radioStaticNoiseType: (document.getElementById('landingPlayerRadioStaticNoiseType')?.value || 'white').toString(),
+        radioStaticFrequencyHz: parseInt(document.getElementById('landingPlayerRadioStaticFrequency')?.value, 10),
+        radioStaticIntensity: parseInt(document.getElementById('landingPlayerRadioStaticIntensity')?.value, 10),
+        squelchEnabled: !!document.getElementById('landingPlayerSquelchEnabled')?.checked,
+        squelchType: (document.getElementById('landingPlayerSquelchType')?.value || 'classic').toString(),
+        squelchIntensity: parseInt(document.getElementById('landingPlayerSquelchIntensity')?.value, 10)
+    });
+}
+
+function updateLandingPlayerPttDisplay() {
+    const display = document.getElementById('landingPlayerPttSelectedKeyDisplay');
+    const keyInfo = landingPlayerPendingPttKey || getEffectiveAiPpPttKey(true);
+    if (display) display.textContent = keyInfo ? `Selected: ${keyInfo.label}` : 'No key selected';
+}
+
+function populateLandingPlayerVoiceSelect(statusOverride) {
+    const sel = document.getElementById('landingPlayerTtsVoiceSelect');
+    if (!sel) return [];
+    let voices = [];
+    try { voices = (window.speechSynthesis?.getVoices() || []).slice(); } catch (e) { voices = []; }
+    voices.sort((a, b) => {
+        const al = (a.lang || '').toLowerCase();
+        const bl = (b.lang || '').toLowerCase();
+        if (al !== bl) return al.localeCompare(bl);
+        return (a.name || '').localeCompare(b.name || '');
+    });
+    const opts = loadSubscriberOptions();
+    const wanted = (opts?.ttsVoiceURI ?? simulationSettings?.ttsVoiceURI ?? sel.value ?? '').toString();
+    sel.innerHTML = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = '';
+    defOpt.textContent = 'System default';
+    sel.appendChild(defOpt);
+    voices.forEach((v) => {
+        const opt = document.createElement('option');
+        opt.value = v.voiceURI;
+        opt.textContent = `${v.name} (${v.lang})${v.default ? ' — Default' : ''}`;
+        sel.appendChild(opt);
+    });
+    sel.value = (wanted && voices.some((v) => v.voiceURI === wanted)) ? wanted : '';
+    const status = document.getElementById('landingPlayerVoicePacksStatus');
+    if (status && statusOverride != null) {
+        status.innerHTML = statusOverride;
+    } else if (status) {
+        status.innerHTML = voices.length
+            ? `${voices.length} voice pack${voices.length === 1 ? '' : 's'} found. Select an <strong>English</strong> voice pack for aircraft readbacks. If none appear, install one in your system settings, then click Update Voice Packs.`
+            : 'No voice packs found yet. Install an <strong>English</strong> voice in your system settings, then click Update Voice Packs.';
+    }
+    return voices;
+}
+
+function openLandingPlayerOptionsModal(opts = {}) {
+    landingPlayerOptionsFromSimulation = !!opts.fromSimulation;
+    const savedPtt = loadAiPpPttKey();
+    landingPlayerPendingPttKey = savedPtt ? { ...savedPtt } : { ...DEFAULT_AI_PP_PTT_KEY };
+    landingPlayerPttSelectingKey = false;
+    updateLandingPlayerPttDisplay();
+    syncLandingPlayerRfControlsFromState();
+    ensureSimulationTtsVoicesChangedListener();
+    try { window.speechSynthesis.getVoices(); } catch (e) {}
+    populateLandingPlayerVoiceSelect();
+    const intro = document.getElementById('landingPlayerOptionsIntro');
+    if (intro) {
+        intro.textContent = landingPlayerOptionsFromSimulation
+            ? 'Set your Push-to-Talk key and voice pack before flying. Default PTT is SPACE.'
+            : 'Configure push-to-talk, voice, and radio effects before you fly.';
+    }
+    openModal('landingPlayerOptionsModal');
+    const modal = document.getElementById('landingPlayerOptionsModal');
+    if (modal) modal.style.zIndex = landingPlayerOptionsFromSimulation ? '1300' : '';
+}
+
+function closeLandingPlayerOptionsModal() {
+    landingPlayerPttSelectingKey = false;
+    landingPlayerOptionsFromSimulation = false;
+    closeModal('landingPlayerOptionsModal');
+}
+
+function saveLandingPlayerOptionsModal() {
+    const saved = applyLandingPlayerOptionsFromControls();
+    landingPlayerPendingPttKey = saved.pttKey ? { ...saved.pttKey } : null;
+    aiPpPttKey = landingPlayerPendingPttKey || getEffectiveAiPpPttKey(true);
+    closeLandingPlayerOptionsModal();
+    if (subscriberSimulationUiActive && aiPpEnabled) {
+        setAiPpStatus(`PTT: ${aiPpPttKey?.label || 'SPACE'}`);
+    } else if (subscriberSimulationUiActive && !aiPpEnabled) {
+        enableAiPp().catch(() => {});
+    }
+}
+
+function applySubscriberSimulationUi() {
+    subscriberSimulationUiActive = true;
+    const hideIds = [
+        'simulationTtsToggleBtn',
+        'simulationAiPpToggleBtn',
+        'simulationColorsBtn',
+        'simulationMapBtn',
+        'simulationSettingsBtn',
+        'simulationHostAtcScopeLabel'
+    ];
+    hideIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden', 'true');
+    });
+    const optionsWrap = document.getElementById('simulationSubscriberOptionsWrap');
+    if (optionsWrap) {
+        optionsWrap.style.display = '';
+        optionsWrap.removeAttribute('aria-hidden');
+    }
+}
+
+function restoreAdminSimulationUi() {
+    if (!subscriberSimulationUiActive) return;
+    subscriberSimulationUiActive = false;
+    const showIds = [
+        'simulationTtsToggleBtn',
+        'simulationAiPpToggleBtn',
+        'simulationColorsBtn',
+        'simulationMapBtn',
+        'simulationSettingsBtn',
+        'simulationHostAtcScopeLabel'
+    ];
+    showIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = '';
+        el.removeAttribute('aria-hidden');
+    });
+    const optionsWrap = document.getElementById('simulationSubscriberOptionsWrap');
+    if (optionsWrap) {
+        optionsWrap.style.display = 'none';
+        optionsWrap.setAttribute('aria-hidden', 'true');
+    }
+    try { disableAiPp(); } catch (e) {}
+    try { updateSimulationTtsUi(); } catch (e) {}
+}
+
+function finalizeSubscriberSimulationStart() {
+    if (isPlatformAdminUser() || !simulationSingleUserAtcSectorLocked) return;
+    applySubscriberRadioDefaultsToSettings();
+    applySubscriberSimulationUi();
+    if (simulationSettings) {
+        simulationSettings.ttsEnabled = true;
+        saveSimulationSettings();
+    }
+    updateSimulationTtsUi();
+    aiPpPttKey = getEffectiveAiPpPttKey(true);
+    setTimeout(async () => {
+        try {
+            await enableAiPp();
+        } catch (e) {}
+        if (!isSubscriberOptionsConfigured()) {
+            openLandingPlayerOptionsModal({ fromSimulation: true });
+        }
+    }, 200);
+}
+
+function handleLandingPlayerPttKeyDown(e) {
+    if (!landingPlayerPttSelectingKey) return;
+    if (!document.getElementById('landingPlayerOptionsModal')?.classList.contains('active')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    landingPlayerPttSelectingKey = false;
+    landingPlayerPendingPttKey = {
+        key: (e.key || '').toString(),
+        code: (e.code || '').toString(),
+        label: formatAiPpKeyLabel(e)
+    };
+    updateLandingPlayerPttDisplay();
+    const hint = document.getElementById('landingPlayerPttHint');
+    if (hint) hint.textContent = 'Key selected. Press Save to apply.';
+}
+
 function saveAiPpPttKey(keyInfo) {
     aiPpPttKey = keyInfo && typeof keyInfo === 'object' ? {
         key: (keyInfo.key || '').toString(),
@@ -27594,6 +27910,14 @@ function updateAiPpUi() {
     const value = document.getElementById('simulationAiPpValue');
     const vccs = document.getElementById('simulationAiPpVccs');
     if (!btn || !value) return;
+
+    if (subscriberSimulationUiActive) {
+        btn.style.display = 'none';
+        btn.setAttribute('aria-hidden', 'true');
+        if (vccs) vccs.style.display = aiPpEnabled ? '' : 'none';
+        return;
+    }
+    btn.removeAttribute('aria-hidden');
 
     const available = isAiPpAvailableInCurrentRun();
     btn.style.display = available ? '' : 'none';
@@ -27689,6 +28013,7 @@ async function enableAiPp() {
         alert('AI_PP is only available in Single User.');
         return;
     }
+    aiPpPttKey = aiPpPttKey || (subscriberSimulationUiActive ? getEffectiveAiPpPttKey(true) : loadAiPpPttKey());
     if (!aiPpPttKey) {
         openAiPpPttModal();
         return;
@@ -29632,6 +29957,13 @@ function updateSimulationTtsUi() {
     }
     btn.disabled = false;
     btn.removeAttribute('aria-hidden');
+
+    if (subscriberSimulationUiActive) {
+        btn.style.display = 'none';
+        btn.setAttribute('aria-hidden', 'true');
+        updateAiPpUi();
+        return;
+    }
 
     const inDl = (simulationOperationModeId === 'DL') && !simulationIsMonitorOnly;
     btn.style.display = inDl ? '' : 'none';
@@ -59400,6 +59732,11 @@ function applyLandingRoleUi(authData) {
     if (categoriesSettingsRow) {
         categoriesSettingsRow.style.display = isAdmin ? 'block' : 'none';
     }
+
+    const landingPlayerOptionsBtn = document.getElementById('landingPlayerOptionsBtn');
+    if (landingPlayerOptionsBtn) {
+        landingPlayerOptionsBtn.style.display = isAdmin ? 'none' : '';
+    }
 }
 
 function applyPlatformAccessGate(authData) {
@@ -59427,6 +59764,7 @@ function applyPlatformAccessGate(authData) {
 
     const platformControlIds = [
         'startSimulationBtn',
+        'landingPlayerOptionsBtn',
         'settingsBtn',
         'playbackBtn',
         'vccsLinkBtn',
@@ -62599,6 +62937,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.addEventListener('webkitfullscreenchange', reparentOpenSimulationFloatingOverlays);
 
     document.getElementById('simulationTtsToggleBtn')?.addEventListener('click', function() {
+        if (subscriberSimulationUiActive) return;
         if (isSimulationHostedMultiplayerSession()) return;
         if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
         if (!isSimulationTtsSupported()) return;
@@ -62620,6 +62959,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     aiPpPttKey = loadAiPpPttKey();
     document.getElementById('simulationAiPpToggleBtn')?.addEventListener('click', function() {
+        if (subscriberSimulationUiActive) return;
         const blocker = getAiPpAvailabilityBlocker();
         if (blocker) {
             alert(blocker);
@@ -62664,6 +63004,61 @@ document.addEventListener('DOMContentLoaded', async function() {
         syncSimulationStyleControlsFromState();
         openModal('simulationColorsModal');
     });
+    document.getElementById('simulationSubscriberMapBtn')?.addEventListener('click', function() {
+        loadSimulationMap();
+        syncSimulationMapControlsFromState();
+        openModal('simulationMapModal');
+    });
+    document.getElementById('simulationSubscriberColorsBtn')?.addEventListener('click', function() {
+        syncSimulationStyleControlsFromState();
+        openModal('simulationColorsModal');
+    });
+    document.getElementById('simulationSubscriberSettingsBtn')?.addEventListener('click', function() {
+        syncSimulationSettingsControlsFromState();
+        openModal('simulationSettingsModal');
+    });
+    document.getElementById('landingPlayerOptionsBtn')?.addEventListener('click', function() {
+        openLandingPlayerOptionsModal();
+    });
+    document.getElementById('closeLandingPlayerOptionsBtn')?.addEventListener('click', closeLandingPlayerOptionsModal);
+    document.getElementById('cancelLandingPlayerOptionsBtn')?.addEventListener('click', closeLandingPlayerOptionsModal);
+    document.getElementById('saveLandingPlayerOptionsBtn')?.addEventListener('click', saveLandingPlayerOptionsModal);
+    document.getElementById('landingPlayerPttSelectKeyBtn')?.addEventListener('click', function() {
+        landingPlayerPttSelectingKey = true;
+        const hint = document.getElementById('landingPlayerPttHint');
+        if (hint) hint.textContent = 'Listening for key press…';
+    });
+    document.getElementById('landingPlayerPttSpaceKeyBtn')?.addEventListener('click', function() {
+        landingPlayerPttSelectingKey = false;
+        landingPlayerPendingPttKey = { ...DEFAULT_AI_PP_PTT_KEY };
+        updateLandingPlayerPttDisplay();
+    });
+    document.getElementById('landingPlayerPttCtrlKeyBtn')?.addEventListener('click', function() {
+        landingPlayerPttSelectingKey = false;
+        landingPlayerPendingPttKey = { key: 'Control', code: '', label: 'CTRL' };
+        updateLandingPlayerPttDisplay();
+    });
+    document.getElementById('landingPlayerPttCmdKeyBtn')?.addEventListener('click', function() {
+        landingPlayerPttSelectingKey = false;
+        landingPlayerPendingPttKey = { key: 'Meta', code: '', label: 'CMD' };
+        updateLandingPlayerPttDisplay();
+    });
+    document.getElementById('landingPlayerUpdateVoicePacksBtn')?.addEventListener('click', function() {
+        if (!isSimulationTtsSupported()) {
+            populateLandingPlayerVoiceSelect('Text-to-speech is not supported in this browser.');
+            return;
+        }
+        ensureSimulationTtsVoicesChangedListener();
+        try { window.speechSynthesis.getVoices(); } catch (e) {}
+        setTimeout(() => populateLandingPlayerVoiceSelect(), 120);
+    });
+    ['landingPlayerRadioStaticFrequency', 'landingPlayerRadioStaticIntensity', 'landingPlayerSquelchIntensity'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('input', function() {
+            const valEl = document.getElementById(id + 'Value');
+            if (valEl) valEl.textContent = this.value;
+        });
+    });
+    document.addEventListener('keydown', handleLandingPlayerPttKeyDown, true);
     document.getElementById('simulationUsersBtn')?.addEventListener('click', openSimulationConnectedUsersModal);
     document.getElementById('refreshSimulationConnectedUsersBtn')?.addEventListener('click', () => {
         refreshSimulationConnectedUsersModal();

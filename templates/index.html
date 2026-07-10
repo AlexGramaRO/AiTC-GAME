@@ -38,6 +38,15 @@
                     </span>
                 </button>
 
+                <button class="btn btn-landing btn-landing-options" id="landingPlayerOptionsBtn" type="button" style="display:none;" aria-label="Simulation options">
+                    <span class="btn-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+                    </span>
+                    <span class="btn-label">
+                        <span class="btn-text">Options</span>
+                    </span>
+                </button>
+
                 <div class="landing-menu-wrap" id="landingAirspaceMenuWrap">
                     <button type="button" class="btn btn-landing btn-landing-airspace landing-menu-trigger" aria-haspopup="true" aria-expanded="false">
                         <span class="btn-icon" aria-hidden="true">
@@ -962,6 +971,88 @@
                     <button type="button" class="btn btn-success" id="joinSessionAssignConfirmBtn" disabled>Join</button>
                     <button type="button" class="btn btn-secondary" id="joinSessionAssignCancelBtn">Cancel</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscriber / player options (home page) -->
+    <div id="landingPlayerOptionsModal" class="modal">
+        <div class="modal-content modal-medium">
+            <div class="modal-header">
+                <h2>Simulation Options</h2>
+                <button type="button" class="modal-close" id="closeLandingPlayerOptionsBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="hint-text landing-player-options-intro" id="landingPlayerOptionsIntro">Configure push-to-talk, voice, and radio effects before you fly.</p>
+                <div class="form-group">
+                    <label class="form-label">Push-to-Talk key</label>
+                    <div class="ai-pp-ptt-select-row">
+                        <button type="button" class="btn btn-secondary ai-pp-ptt-btn" id="landingPlayerPttSelectKeyBtn">Select key</button>
+                        <button type="button" class="btn btn-secondary ai-pp-ptt-btn" id="landingPlayerPttSpaceKeyBtn">SPACE</button>
+                        <button type="button" class="btn btn-secondary ai-pp-ptt-btn" id="landingPlayerPttCtrlKeyBtn">CTRL</button>
+                        <button type="button" class="btn btn-secondary ai-pp-ptt-btn" id="landingPlayerPttCmdKeyBtn">CMD</button>
+                    </div>
+                    <div id="landingPlayerPttSelectedKeyDisplay" class="ai-pp-selected-key">Selected: SPACE</div>
+                    <div id="landingPlayerPttHint" class="hint-text ai-pp-ptt-hint">Default is SPACE. Hold this key while speaking to the AI pilot.</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="landingPlayerTtsVoiceSelect">Voice Pack</label>
+                    <div class="sim-probing-row">
+                        <select id="landingPlayerTtsVoiceSelect" class="form-select">
+                            <option value="">System default</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary sim-settings-subpanel-btn" id="landingPlayerUpdateVoicePacksBtn">Update Voice Packs</button>
+                    </div>
+                    <div class="hint-text" id="landingPlayerVoicePacksStatus">Select an <strong>English</strong> voice pack for aircraft readbacks. If none appear, install one in your system settings, then click Update Voice Packs.</div>
+                </div>
+                <fieldset class="landing-player-rf-fieldset">
+                    <legend class="form-label">Realistic Frequency</legend>
+                    <div class="form-group">
+                        <label class="form-checkbox-row">
+                            <input type="checkbox" id="landingPlayerRadioStaticEnabled" class="form-checkbox" checked />
+                            <span>Background frequency static</span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="landingPlayerRadioStaticNoiseType">Noise type</label>
+                        <select id="landingPlayerRadioStaticNoiseType" class="form-select">
+                            <option value="white">White noise</option>
+                            <option value="pink">Pink noise</option>
+                            <option value="brown">Brown noise (low rumble)</option>
+                            <option value="hiss">Carrier hiss (high static)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="landingPlayerRadioStaticFrequency">Noise frequency (Hz): <span id="landingPlayerRadioStaticFrequencyValue">1000</span></label>
+                        <input type="range" id="landingPlayerRadioStaticFrequency" min="200" max="4000" step="50" value="1000" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="landingPlayerRadioStaticIntensity">Static intensity: <span id="landingPlayerRadioStaticIntensityValue">30</span>%</label>
+                        <input type="range" id="landingPlayerRadioStaticIntensity" min="0" max="100" step="1" value="30" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-checkbox-row">
+                            <input type="checkbox" id="landingPlayerSquelchEnabled" class="form-checkbox" checked />
+                            <span>Squelch at start/end of transmission</span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="landingPlayerSquelchType">Squelch type</label>
+                        <select id="landingPlayerSquelchType" class="form-select">
+                            <option value="classic">Classic VHF (static break)</option>
+                            <option value="relay">Analog relay (click + static)</option>
+                            <option value="soft">Soft / Digital (brief hiss)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="landingPlayerSquelchIntensity">Squelch intensity: <span id="landingPlayerSquelchIntensityValue">50</span>%</label>
+                        <input type="range" id="landingPlayerSquelchIntensity" min="0" max="100" step="1" value="50" />
+                    </div>
+                </fieldset>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="saveLandingPlayerOptionsBtn">Save</button>
+                <button type="button" class="btn btn-secondary" id="cancelLandingPlayerOptionsBtn">Cancel</button>
             </div>
         </div>
     </div>
@@ -2918,6 +3009,14 @@
                             <div class="sim-controls-main">
                                 <button class="btn btn-secondary" id="simulationUsersBtn" type="button" style="display: none;" aria-hidden="true">USERS</button>
                                 <button class="btn btn-secondary" id="simulationEnMgmtBtn" type="button">EN-MGMT</button>
+                                <div class="edit-exercise-topbar-dropdown simulation-subscriber-options-wrap" id="simulationSubscriberOptionsWrap" style="display:none;" aria-label="Simulation options menu">
+                                    <button type="button" class="btn btn-secondary edit-exercise-topbar-dropdown-trigger" id="simulationSubscriberOptionsTrigger">Options</button>
+                                    <div class="edit-exercise-topbar-dropdown-menu" role="menu">
+                                        <button type="button" class="btn btn-secondary edit-exercise-topbar-dropdown-item" id="simulationSubscriberMapBtn" role="menuitem">MAP</button>
+                                        <button type="button" class="btn btn-secondary edit-exercise-topbar-dropdown-item" id="simulationSubscriberColorsBtn" role="menuitem">COLORS</button>
+                                        <button type="button" class="btn btn-secondary edit-exercise-topbar-dropdown-item" id="simulationSubscriberSettingsBtn" role="menuitem">Sim Settings</button>
+                                    </div>
+                                </div>
                                 <button class="btn btn-secondary" id="simulationColorsBtn">COLORS</button>
                                 <button class="btn btn-secondary" id="simulationMapBtn">MAP</button>
                                 <button class="btn btn-secondary" id="simulationSettingsBtn" type="button">SIM Settings</button>
