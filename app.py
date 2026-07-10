@@ -182,16 +182,11 @@ Controllers only ever assign headings and speeds in multiples of 5, and flight l
 - Never apply this correction to Mach numbers, ROCD rates, QNH digits, or frequencies — read those back exactly as heard.
 
 TRANSITION LEVEL — altitude vs flight level (command ALV and {ALV} placeholder)
-Each ATC sector has a TRANSITION FL (listed with sector data for this exercise). Compare the cleared level to that transition FL:
+Each ATC sector has a TRANSITION FL (listed with sector data for this exercise). Encode cleared levels in command/tts as follows:
 - At or above transition FL: the controller uses flight level. command ALVnnn = the FL number (cleared FL240 → ALV240). Use {ALV240} in tts.
 - Below transition FL: the controller uses altitude in feet. command ALVnnn = feet ÷ 100 (any integer hundred, not only multiples of 10): 5000 ft → ALV050, 4500 ft → ALV045, 4750 ft → ALV048. Use the matching {ALVnnn} in tts. The radar label may show the same ALV code; spoken readback uses "altitude … feet" below transition and "flight level …" at/above transition — the simulator expands {ALVnnn} accordingly; do not speak the level yourself.
 - QNH is never in command. When the controller gives an altitude clearance with QNH, read QNH back in tts after the {ALV} placeholder using digit-by-digit format: Q N H 1 0 1 4 hectopascals or Q N H 2 9 9 4 inches.
-- If no transition FL is listed for the relevant sector in this exercise (missing from sector data below) and the cleared level's altitude-vs-flight-level treatment is ambiguous, do NOT guess: tts "Could you please confirm the transition level for us, {CALLSIGN}", command "".
-- WRONG-LEVEL-TYPE REFUSAL — when the transition FL IS known and the controller's clearance uses the wrong level type for that value, do NOT build an ALV command; refuse with "unable" and state the transition FL:
-  - Controller gives an ALTITUDE IN FEET that is AT OR ABOVE the transition FL (should have been a flight level): tts "Unable, the transition level is [transition FL spoken as flight level], {CALLSIGN}", command "".
-  - Controller gives a FLIGHT LEVEL that is BELOW the transition FL (should have been an altitude in feet): tts "Unable, the transition level is [transition FL spoken as flight level], {CALLSIGN}", command "".
-  - Speak the transition FL the same way as any flight level (e.g. transition FL 60 → "flight level six zero"; digits spoken individually, not "sixty").
-  - This refusal applies ONLY to the level-type mismatch itself; do not apply it to other parts of a compound instruction that are otherwise valid.
+- The simulator validates transition-level phraseology locally after your command is returned; always build the ALV token for the cleared level when otherwise complying. Do not refuse clearances yourself for transition-level mismatch.
 
 COMPOUND (several instructions, same aircraft)
 - command: chain tokens after one callsign, or repeat the callsign per clause separated by semicolons.
@@ -1347,7 +1342,7 @@ def _build_ai_pp_session_instructions(admin, exercise_id):
         "Match flight-number digits against that list first; airline name only if digits fail. "
         "Use TLH/TRH/HDG (never HEADING). "
         "Headings/speeds end in 0 or 5 (round to closest); flight levels end in 0 (replace last digit, do not round) — correct mis-heard digits silently. "
-        "Feet altitude below sector transition FL → ALVnnn (feet÷100, any hundred). At/above transition → FL number. "
+        "Feet altitude below sector transition FL → ALVnnn (feet÷100, any hundred). At/above transition → FL number. Transition-level phraseology is validated by the simulator after your ALV command. "
         "QNH readback in tts only: Q N H + spaced digits + hectopascals or inches. "
         "Plain English (no placeholder) for DCT/RTE/HOLD/ILS/frequencies. ROCD rate tts in English with thousands. "
         "Off-frequency aircraft (onFrequency=no in LIVE SESSION STATE) → empty tts and command. "

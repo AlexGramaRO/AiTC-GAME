@@ -1094,16 +1094,11 @@ COMMAND TOKENS
 - Label transfer-in: LBL_TIN-nnn (exercise initial-call scripts only; never spoken in tts).
 
 TRANSITION LEVEL — altitude vs flight level (command ALV and {ALV} placeholder)
-Each ATC sector has a TRANSITION FL (listed with sector data for this exercise). Compare the cleared level to that transition FL:
+Each ATC sector has a TRANSITION FL (listed with sector data for this exercise). Encode cleared levels in command/tts as follows:
 - At or above transition FL: the controller uses flight level. command ALVnnn = the FL number (cleared FL240 → ALV240). Use {ALV240} in tts.
 - Below transition FL: the controller uses altitude in feet. command ALVnnn = feet ÷ 100 (any integer hundred, not only multiples of 10): 5000 ft → ALV050, 4500 ft → ALV045, 4750 ft → ALV048. Use the matching {ALVnnn} in tts. The radar label may show the same ALV code; spoken readback uses "altitude … feet" below transition and "flight level …" at/above transition — the simulator expands {ALVnnn} accordingly; do not speak the level yourself.
 - QNH is never in command. When the controller gives an altitude clearance with QNH, read QNH back in tts after the {ALV} placeholder using digit-by-digit format: Q N H 1 0 1 4 hectopascals or Q N H 2 9 9 4 inches.
-- If no transition FL is listed for the relevant sector in this exercise (missing from sector data below) and the cleared level's altitude-vs-flight-level treatment is ambiguous, do NOT guess: tts "Could you please confirm the transition level for us, {CALLSIGN}", command "".
-- WRONG-LEVEL-TYPE REFUSAL — when the transition FL IS known and the controller's clearance uses the wrong level type for that value, do NOT build an ALV command; refuse with "unable" and state the transition FL:
-  - Controller gives an ALTITUDE IN FEET that is AT OR ABOVE the transition FL (should have been a flight level): tts "Unable, the transition level is [transition FL spoken as flight level], {CALLSIGN}", command "".
-  - Controller gives a FLIGHT LEVEL that is BELOW the transition FL (should have been an altitude in feet): tts "Unable, the transition level is [transition FL spoken as flight level], {CALLSIGN}", command "".
-  - Speak the transition FL the same way as any flight level (e.g. transition FL 60 → "flight level six zero"; digits spoken individually, not "sixty").
-  - This refusal applies ONLY to the level-type mismatch itself; do not apply it to other parts of a compound instruction that are otherwise valid.
+- The simulator validates transition-level phraseology locally after your command is returned; always build the ALV token for the cleared level when otherwise complying. Do not refuse clearances yourself for transition-level mismatch.
 
 COMPOUND (several instructions, same aircraft)
 - command: chain tokens after one callsign, or repeat the callsign per clause separated by semicolons.
@@ -27378,26 +27373,9 @@ function stopAiPpRecording(discard = false) {
         setAiPpTxRx(false, false);
     };
 
-    // requestData() is async; wait for the final chunk before stop() or trailing audio is lost.
-    let finished = false;
-    const finish = () => {
-        if (finished) return;
-        finished = true;
-        clearTimeout(fallbackTimer);
-        recorder.removeEventListener('dataavailable', onFlushChunk);
-        finalizeStop();
-    };
-    const onFlushChunk = (ev) => {
-        if (ev.data && ev.data.size > 0) aiPpAudioChunks.push(ev.data);
-        finish();
-    };
-    recorder.addEventListener('dataavailable', onFlushChunk);
-    const fallbackTimer = setTimeout(finish, 150);
-    try {
-        recorder.requestData();
-    } catch (e) {
-        finish();
-    }
+    // requestData() flushes the encoder asynchronously; stop() immediately after drops the tail.
+    try { recorder.requestData(); } catch (e) {}
+    setTimeout(finalizeStop, 120);
 }
 
 function scheduleAiPpPttStopAfterTail() {
@@ -27864,7 +27842,23 @@ async function processSimulationAiPilotScript(script) {
         return;
     }
 
-    const commandToApply = transformed || aiCommand;
+    let commandToApply = transformed || aiCommand;
+    let displayTts = aiTts;
+    let displayRaw = aiRaw;
+
+    if (commandToApply && !transformed) {
+        const enforced = enforceAiPilotTransitionLevelOnResponse(
+            (script.commandForAi || script.aiInformation || '').trim(),
+            { tts: aiTts, command: commandToApply, raw: aiRaw }
+        );
+        if (!enforced.command) {
+            commandToApply = '';
+            displayTts = enforced.tts;
+            displayRaw = enforced.raw;
+            pushSimulationDebugLog('LOG', null, 'AI_PP transition-level check blocked ALV command');
+        }
+    }
+
     let commandResult = null;
     if (commandToApply) {
         commandResult = applyAiPilotCommandTextToSimulator(commandToApply);
@@ -27877,14 +27871,14 @@ async function processSimulationAiPilotScript(script) {
 
     let ttsToSpeak = '';
     if (!silent) {
-        ttsToSpeak = useAiTts ? aiTts : presetTts;
+        ttsToSpeak = useAiTts ? displayTts : presetTts;
     }
     const spokenTts = resolveAiPpTtsPlaceholders(ttsToSpeak, commandToApply);
     if (spokenTts && simulationSettings?.ttsEnabled && isSimulationTtsSupported()) {
         speakAiPpReadback(spokenTts);
     }
     if (!silent) {
-        setAiPpReplyDisplay(spokenTts || aiTts, commandToApply, commandResult, aiRaw);
+        setAiPpReplyDisplay(spokenTts || displayTts, commandToApply, commandResult, displayRaw);
     }
 }
 
@@ -28093,16 +28087,20 @@ async function transcribeAiPpAudio(blob) {
         }
         pushSimulationDebugLog('LOG', null, `AI_PP transcript: ${text}`);
         setAiPpTranscriptDisplay(text);
-        const ai = await requestAiPpOpenAiResponse(text);
-        const tts = (ai?.tts || '').toString().trim();
-        const command = (ai?.command || '').toString().trim();
+        const aiRaw = await requestAiPpOpenAiResponse(text);
+        const enforced = enforceAiPilotTransitionLevelOnResponse(text, aiRaw);
+        if (!enforced.command && (aiRaw?.command || '').trim()) {
+            pushSimulationDebugLog('LOG', null, 'AI_PP transition-level check blocked ALV command');
+        }
+        const tts = (enforced?.tts || '').toString().trim();
+        const command = (enforced?.command || '').toString().trim();
         let commandResult = null;
         if (command) {
             commandResult = applyAiPilotCommandTextToSimulator(command);
             pushSimulationDebugLog('CMD', null, `AI_PP command: ${command} (applied ${commandResult.applied}/${commandResult.actions.length})`);
         }
-        const spokenTts = resolveAiPpTtsPlaceholders(tts, command);
-        setAiPpReplyDisplay(spokenTts, command, commandResult, ai?.raw || '');
+        const spokenTts = tts.includes('{') ? resolveAiPpTtsPlaceholders(tts, command) : tts;
+        setAiPpReplyDisplay(spokenTts, command, commandResult, enforced?.raw || '');
         if (spokenTts) {
             setAiPpStatus(`Readback: ${spokenTts}`);
             speakAiPpReadback(spokenTts);
@@ -28361,6 +28359,97 @@ function getAiPpActiveTransitionFl() {
         }
     } catch (e) {}
     return 60;
+}
+
+function extractAiPilotAlvValuesFromCommand(commandText) {
+    return parseAiPilotCommandTextToActions(commandText)
+        .filter(a => a && a.action === 'altitude' && a.value != null && String(a.value).trim() !== '')
+        .map(a => String(a.value).trim());
+}
+
+function parseControllerLevelFromTranscript(transcript) {
+    const text = (transcript || '').toString().trim();
+    if (!text) return null;
+    const lower = text.toLowerCase();
+
+    let m = lower.match(/\bflight\s+level\s+(\d{2,3})\b/);
+    if (m) {
+        const fl = parseInt(m[1], 10);
+        if (Number.isFinite(fl)) return { kind: 'FL', fl };
+    }
+
+    m = lower.match(/\bfl\.?\s*(\d{2,3})\b/);
+    if (m) {
+        const fl = parseInt(m[1], 10);
+        if (Number.isFinite(fl)) return { kind: 'FL', fl };
+    }
+
+    m = lower.match(/\baltitude\s+(\d{3,5})\b/);
+    if (m) {
+        const feet = parseInt(m[1], 10);
+        if (Number.isFinite(feet)) return { kind: 'ALT_FT', feet };
+    }
+
+    m = lower.match(/\b(\d{3,5})\s*(?:feet|ft)\b/);
+    if (m && !/\bflight\s+level\b/.test(lower.slice(0, m.index || 0))) {
+        const feet = parseInt(m[1], 10);
+        if (Number.isFinite(feet)) return { kind: 'ALT_FT', feet };
+    }
+
+    return null;
+}
+
+function buildAiPilotTransitionLevelUnableTts(transitionFl) {
+    const tr = Number(transitionFl);
+    if (!Number.isFinite(tr)) return 'Unable, the transition level is unavailable, {CALLSIGN}';
+    const digits = String(Math.max(0, Math.min(500, Math.round(tr)))).padStart(3, '0').split('').join(' ');
+    return `Unable, the transition level is flight level ${digits}, {CALLSIGN}`;
+}
+
+/** Local transition-level phraseology check after AI returns an ALV command. */
+function validateAiPilotTransitionLevelClearance(transcript, commandText) {
+    const transitionFl = getAiPpActiveTransitionFl();
+    if (!Number.isFinite(transitionFl)) return { ok: true };
+
+    const alvValues = extractAiPilotAlvValuesFromCommand(commandText);
+    if (!alvValues.length) return { ok: true };
+
+    const controllerLevel = parseControllerLevelFromTranscript(transcript);
+    if (!controllerLevel) return { ok: true };
+
+    if (controllerLevel.kind === 'FL') {
+        const fl = Number(controllerLevel.fl);
+        if (Number.isFinite(fl) && fl < transitionFl) {
+            return { ok: false, transitionFl };
+        }
+    } else if (controllerLevel.kind === 'ALT_FT') {
+        const feet = Number(controllerLevel.feet);
+        const transitionFeet = transitionFl * 100;
+        if (Number.isFinite(feet) && feet >= transitionFeet) {
+            return { ok: false, transitionFl };
+        }
+    }
+
+    return { ok: true };
+}
+
+function enforceAiPilotTransitionLevelOnResponse(transcript, aiResult) {
+    const result = aiResult && typeof aiResult === 'object' ? { ...aiResult } : { tts: '', command: '', raw: '' };
+    const command = (result.command || '').toString().trim();
+    if (!command) return result;
+
+    const check = validateAiPilotTransitionLevelClearance(transcript, command);
+    if (check.ok) return result;
+
+    const callsign = command.split(/[\s;]+/).filter(Boolean)[0] || '';
+    let tts = buildAiPilotTransitionLevelUnableTts(check.transitionFl);
+    if (callsign) tts = resolveAiPpTtsPlaceholders(tts, callsign);
+    const blocked = { tts, command: '' };
+    return {
+        ...result,
+        ...blocked,
+        raw: JSON.stringify(blocked)
+    };
 }
 
 /**
