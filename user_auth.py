@@ -281,7 +281,8 @@ def _fetch_signup_verification(verification_id):
         if _USE_POSTGRES:
             cur = conn.cursor()
             cur.execute(
-                '''SELECT id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at
+                '''SELECT id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at,
+                          terms_version, refund_policy_version, legal_accepted_at
                    FROM signup_verifications WHERE id = %s''',
                 (verification_id,),
             )
@@ -289,7 +290,8 @@ def _fetch_signup_verification(verification_id):
             cur.close()
         else:
             row = conn.execute(
-                '''SELECT id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at
+                '''SELECT id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at,
+                          terms_version, refund_policy_version, legal_accepted_at
                    FROM signup_verifications WHERE id = ?''',
                 (verification_id,),
             ).fetchone()
@@ -305,28 +307,40 @@ def _fetch_signup_verification(verification_id):
     return data
 
 
-def _create_signup_verification(email, password_hash, display_name, code):
+def _create_signup_verification(email, password_hash, display_name, code, terms_version, refund_policy_version):
+    from legal_content import CURRENT_REFUND_POLICY_VERSION, CURRENT_TERMS_VERSION
+
     verification_id = _new_user_id()
     now = _now_utc()
     expires_at = now + timedelta(minutes=SIGNUP_CODE_TTL_MINUTES)
     code_hash = _hash_signup_code(verification_id, code)
+    terms_version = terms_version or CURRENT_TERMS_VERSION
+    refund_policy_version = refund_policy_version or CURRENT_REFUND_POLICY_VERSION
     _delete_signup_verifications_for_email(email)
     with _db_conn() as conn:
         if _USE_POSTGRES:
             cur = conn.cursor()
             cur.execute(
                 '''INSERT INTO signup_verifications (
-                    id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, 0, %s)''',
-                (verification_id, email, password_hash, display_name or None, code_hash, expires_at, now),
+                    id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at,
+                    terms_version, refund_policy_version, legal_accepted_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, 0, %s, %s, %s, %s)''',
+                (
+                    verification_id, email, password_hash, display_name or None, code_hash, expires_at, now,
+                    terms_version, refund_policy_version, now,
+                ),
             )
             cur.close()
         else:
             conn.execute(
                 '''INSERT INTO signup_verifications (
-                    id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)''',
-                (verification_id, email, password_hash, display_name or None, code_hash, expires_at.isoformat(), now.isoformat()),
+                    id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at,
+                    terms_version, refund_policy_version, legal_accepted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)''',
+                (
+                    verification_id, email, password_hash, display_name or None, code_hash, expires_at.isoformat(), now.isoformat(),
+                    terms_version, refund_policy_version, now.isoformat(),
+                ),
             )
     return verification_id, expires_at
 
@@ -368,6 +382,31 @@ def _validate_signup_payload(body):
     if _fetch_user_by_email(email):
         return None, None, None, ('An account with this email already exists', 409)
     return email, password, display_name, None
+
+
+def _coerce_accept_flag(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ('1', 'true', 'yes', 'on')
+    return bool(value)
+
+
+def _validate_signup_legal_acceptance(body):
+    from legal_content import CURRENT_REFUND_POLICY_VERSION, CURRENT_TERMS_VERSION
+
+    if not _coerce_accept_flag(body.get('acceptedTerms')):
+        return False, 'You must accept the Terms and Conditions to create an account.'
+    if not _coerce_accept_flag(body.get('acceptedRefundPolicy')):
+        return False, 'You must accept the Refund Policy to create an account.'
+
+    terms_version = (body.get('termsVersion') or '').strip()
+    refund_version = (body.get('refundPolicyVersion') or '').strip()
+    if terms_version != CURRENT_TERMS_VERSION:
+        return False, 'Please review and accept the current Terms and Conditions.'
+    if refund_version != CURRENT_REFUND_POLICY_VERSION:
+        return False, 'Please review and accept the current Refund Policy.'
+    return True, None
 
 
 def init_db():
@@ -567,6 +606,13 @@ def _migrate_schema():
                      AND stripe_checkout_session_id IS NULL
                      AND created_by IS NOT NULL'''
             )
+            cur.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ')
+            cur.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT')
+            cur.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS refund_policy_accepted_at TIMESTAMPTZ')
+            cur.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS refund_policy_version TEXT')
+            cur.execute('ALTER TABLE signup_verifications ADD COLUMN IF NOT EXISTS terms_version TEXT')
+            cur.execute('ALTER TABLE signup_verifications ADD COLUMN IF NOT EXISTS refund_policy_version TEXT')
+            cur.execute('ALTER TABLE signup_verifications ADD COLUMN IF NOT EXISTS legal_accepted_at TIMESTAMPTZ')
             cur.close()
             return
 
@@ -605,6 +651,20 @@ def _migrate_schema():
                  AND (stripe_checkout_session_id IS NULL OR stripe_checkout_session_id = '')
                  AND created_by IS NOT NULL'''
         )
+        if not _sqlite_has_column(conn, 'users', 'terms_accepted_at'):
+            conn.execute('ALTER TABLE users ADD COLUMN terms_accepted_at TEXT')
+        if not _sqlite_has_column(conn, 'users', 'terms_version'):
+            conn.execute('ALTER TABLE users ADD COLUMN terms_version TEXT')
+        if not _sqlite_has_column(conn, 'users', 'refund_policy_accepted_at'):
+            conn.execute('ALTER TABLE users ADD COLUMN refund_policy_accepted_at TEXT')
+        if not _sqlite_has_column(conn, 'users', 'refund_policy_version'):
+            conn.execute('ALTER TABLE users ADD COLUMN refund_policy_version TEXT')
+        if not _sqlite_has_column(conn, 'signup_verifications', 'terms_version'):
+            conn.execute('ALTER TABLE signup_verifications ADD COLUMN terms_version TEXT')
+        if not _sqlite_has_column(conn, 'signup_verifications', 'refund_policy_version'):
+            conn.execute('ALTER TABLE signup_verifications ADD COLUMN refund_policy_version TEXT')
+        if not _sqlite_has_column(conn, 'signup_verifications', 'legal_accepted_at'):
+            conn.execute('ALTER TABLE signup_verifications ADD COLUMN legal_accepted_at TEXT')
 
 
 def _admin_env_credentials():
@@ -1312,6 +1372,8 @@ def admin_required(view):
 PUBLIC_EXACT_PATHS = frozenset({
     '/login',
     '/signup',
+    '/terms',
+    '/refund-policy',
     '/health',
     '/api/auth/login',
     '/api/auth/signup',
@@ -1319,6 +1381,7 @@ PUBLIC_EXACT_PATHS = frozenset({
     '/api/auth/signup/verify',
     '/api/auth/logout',
     '/api/auth/me',
+    '/api/legal/signup',
     '/api/billing/stripe/webhook',
 })
 
@@ -1452,12 +1515,44 @@ def signup_page():
         if user_can_access_platform(user):
             return redirect(url_for('index'))
         return redirect(url_for('stripe_billing.subscribe_page'))
+    from legal_content import get_legal_payload
+    next_url = (request.args.get('next') or '').strip()
+    if next_url.startswith('//'):
+        next_url = ''
     return render_template(
         'login.html',
         mode='signup',
-        reason=request.args.get('reason') or '',
-        next_url=request.args.get('next') or '',
+        next_url=next_url,
+        legal=get_legal_payload(),
     )
+
+
+@auth_bp.route('/terms')
+def terms_page():
+    from legal_content import CURRENT_TERMS_VERSION, get_terms_sections
+    return render_template(
+        'legal_page.html',
+        title='Terms and Conditions',
+        version=CURRENT_TERMS_VERSION,
+        sections=get_terms_sections(),
+    )
+
+
+@auth_bp.route('/refund-policy')
+def refund_policy_page():
+    from legal_content import CURRENT_REFUND_POLICY_VERSION, get_refund_policy_sections
+    return render_template(
+        'legal_page.html',
+        title='Refund Policy',
+        version=CURRENT_REFUND_POLICY_VERSION,
+        sections=get_refund_policy_sections(),
+    )
+
+
+@auth_bp.route('/api/legal/signup', methods=['GET'])
+def api_legal_signup_documents():
+    from legal_content import get_legal_payload
+    return jsonify({'ok': True, **get_legal_payload()})
 
 
 @auth_bp.route('/api/auth/signup/start', methods=['POST'])
@@ -1468,6 +1563,10 @@ def api_auth_signup_start():
     if error:
         message, status = error
         return jsonify({'ok': False, 'error': message}), status
+
+    legal_ok, legal_error = _validate_signup_legal_acceptance(body)
+    if not legal_ok:
+        return jsonify({'ok': False, 'error': legal_error}), 400
 
     email_config = _signup_email_config()
     if not is_email_configured(email_config):
@@ -1480,7 +1579,14 @@ def api_auth_signup_start():
     password_hash = generate_password_hash(password)
     verification_id = None
     try:
-        verification_id, expires_at = _create_signup_verification(email, password_hash, display_name, code)
+        verification_id, expires_at = _create_signup_verification(
+            email,
+            password_hash,
+            display_name,
+            code,
+            body.get('termsVersion'),
+            body.get('refundPolicyVersion'),
+        )
         send_signup_verification_email(email_config, email, code)
     except Exception:
         if verification_id:
@@ -1529,6 +1635,18 @@ def api_auth_signup_verify():
         _increment_signup_verification_attempts(verification_id)
         return jsonify({'ok': False, 'error': 'Incorrect verification code. Try again.'}), 400
 
+    from legal_content import CURRENT_REFUND_POLICY_VERSION, CURRENT_TERMS_VERSION
+    if (
+        (pending.get('terms_version') or '').strip() != CURRENT_TERMS_VERSION
+        or (pending.get('refund_policy_version') or '').strip() != CURRENT_REFUND_POLICY_VERSION
+        or not pending.get('legal_accepted_at')
+    ):
+        _delete_signup_verification(verification_id)
+        return jsonify({
+            'ok': False,
+            'error': 'Legal acceptance expired or is invalid. Please sign up again and accept the current policies.',
+        }), 400
+
     email = (pending.get('email') or '').strip().lower()
     if _fetch_user_by_email(email):
         _delete_signup_verification(verification_id)
@@ -1536,14 +1654,18 @@ def api_auth_signup_verify():
 
     user_id = _new_user_id()
     now = _now_utc()
+    terms_version = (pending.get('terms_version') or CURRENT_TERMS_VERSION).strip()
+    refund_policy_version = (pending.get('refund_policy_version') or CURRENT_REFUND_POLICY_VERSION).strip()
+    legal_accepted_at = _parse_dt(pending.get('legal_accepted_at')) or now
     with _db_conn() as conn:
         if _USE_POSTGRES:
             cur = conn.cursor()
             cur.execute(
                 '''INSERT INTO users (
                     id, email, password_hash, display_name, status, is_admin,
-                    created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, 'pending', FALSE, %s, %s)''',
+                    created_at, updated_at, terms_accepted_at, terms_version,
+                    refund_policy_accepted_at, refund_policy_version
+                ) VALUES (%s, %s, %s, %s, 'pending', FALSE, %s, %s, %s, %s, %s, %s)''',
                 (
                     user_id,
                     email,
@@ -1551,16 +1673,22 @@ def api_auth_signup_verify():
                     pending.get('display_name') or None,
                     now,
                     now,
+                    legal_accepted_at,
+                    terms_version,
+                    legal_accepted_at,
+                    refund_policy_version,
                 ),
             )
             cur.close()
         else:
             now_s = now.isoformat()
+            legal_s = legal_accepted_at.isoformat()
             conn.execute(
                 '''INSERT INTO users (
                     id, email, password_hash, display_name, status, is_admin,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, 'pending', 0, ?, ?)''',
+                    created_at, updated_at, terms_accepted_at, terms_version,
+                    refund_policy_accepted_at, refund_policy_version
+                ) VALUES (?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)''',
                 (
                     user_id,
                     email,
@@ -1568,6 +1696,10 @@ def api_auth_signup_verify():
                     pending.get('display_name') or None,
                     now_s,
                     now_s,
+                    legal_s,
+                    terms_version,
+                    legal_s,
+                    refund_policy_version,
                 ),
             )
 

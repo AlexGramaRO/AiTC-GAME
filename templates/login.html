@@ -51,16 +51,81 @@
 
                 <div id="authMessage" class="auth-message" style="display:none;"></div>
 
+                {% if mode == 'signup' %}
+                <div class="auth-legal-acceptance">
+                    <label class="auth-legal-checkbox">
+                        <input type="checkbox" id="authAcceptTerms">
+                        <span>I have read and accept the <button type="button" class="auth-legal-link" id="openTermsModalBtn">Terms and Conditions</button>.</span>
+                    </label>
+                    <label class="auth-legal-checkbox">
+                        <input type="checkbox" id="authAcceptRefundPolicy">
+                        <span>I have read and accept the <button type="button" class="auth-legal-link" id="openRefundPolicyModalBtn">Refund Policy</button> (all payments are final and non-refundable).</span>
+                    </label>
+                </div>
+                {% endif %}
+
                 <button type="submit" class="btn btn-primary auth-submit" id="authSubmitBtn">
                     {% if mode == 'signup' %}Create account{% else %}Sign in{% endif %}
                 </button>
             </form>
 
             <p class="auth-footnote">
+                {% if mode == 'signup' %}
+                New accounts require email verification, acceptance of our Terms and Refund Policy, then administrator approval before simulator access is granted.
+                {% else %}
                 New accounts require email verification, then administrator approval before simulator access is granted.
+                {% endif %}
             </p>
         </div>
     </div>
+
+    {% if mode == 'signup' and legal %}
+    <div id="termsLegalModal" class="auth-verify-modal legal-modal" style="display:none;" aria-hidden="true">
+        <div class="auth-verify-card legal-modal-card" role="dialog" aria-modal="true" aria-labelledby="termsLegalTitle">
+            <h2 id="termsLegalTitle">{{ legal.termsTitle }}</h2>
+            <p class="hint-text">Version {{ legal.termsVersion }}</p>
+            <div class="legal-document-body legal-modal-body">
+                {% for section in legal.termsSections %}
+                <section class="legal-section">
+                    <h3>{{ section.title }}</h3>
+                    {% for paragraph in section.paragraphs %}
+                    <p>{{ paragraph }}</p>
+                    {% endfor %}
+                </section>
+                {% endfor %}
+            </div>
+            <div class="auth-verify-actions">
+                <button type="button" class="btn btn-primary" id="acceptTermsFromModalBtn">I accept the Terms and Conditions</button>
+                <button type="button" class="btn btn-secondary legal-modal-close-btn" data-legal-modal="termsLegalModal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="refundPolicyModal" class="auth-verify-modal legal-modal" style="display:none;" aria-hidden="true">
+        <div class="auth-verify-card legal-modal-card" role="dialog" aria-modal="true" aria-labelledby="refundPolicyTitle">
+            <h2 id="refundPolicyTitle">{{ legal.refundPolicyTitle }}</h2>
+            <p class="hint-text">Version {{ legal.refundPolicyVersion }}</p>
+            <div class="legal-document-body legal-modal-body">
+                {% for section in legal.refundPolicySections %}
+                <section class="legal-section">
+                    <h3>{{ section.title }}</h3>
+                    {% for paragraph in section.paragraphs %}
+                    <p>{{ paragraph }}</p>
+                    {% endfor %}
+                </section>
+                {% endfor %}
+            </div>
+            <div class="auth-verify-actions">
+                <button type="button" class="btn btn-primary" id="acceptRefundFromModalBtn">I accept the Refund Policy</button>
+                <button type="button" class="btn btn-secondary legal-modal-close-btn" data-legal-modal="refundPolicyModal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.AITC_LEGAL = {{ legal | tojson }};
+    </script>
+    {% endif %}
 
     <div id="signupVerifyModal" class="auth-verify-modal" style="display:none;" aria-hidden="true">
         <div class="auth-verify-card" role="dialog" aria-modal="true" aria-labelledby="signupVerifyTitle">

@@ -10846,6 +10846,90 @@ body.auth-page {
     margin-bottom: 0;
 }
 
+.auth-legal-acceptance {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0.25rem 0 1rem;
+}
+
+.auth-legal-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    line-height: 1.45;
+    font-size: 0.92rem;
+}
+
+.auth-legal-checkbox input {
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+}
+
+.auth-legal-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #8ec5ff;
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+}
+
+.auth-legal-link:hover {
+    color: #b8dcff;
+}
+
+.legal-shell {
+    max-width: 760px;
+}
+
+.legal-card {
+    max-height: none;
+}
+
+.legal-document-body {
+    max-height: none;
+    overflow: visible;
+}
+
+.legal-section + .legal-section {
+    margin-top: 1.25rem;
+}
+
+.legal-section h2,
+.legal-section h3 {
+    font-size: 1rem;
+    margin: 0 0 0.55rem;
+}
+
+.legal-section p {
+    margin: 0 0 0.65rem;
+    line-height: 1.55;
+    opacity: 0.92;
+}
+
+.legal-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 1.5rem;
+}
+
+.legal-modal-card {
+    width: min(720px, 100%);
+    max-height: min(88vh, 900px);
+    display: flex;
+    flex-direction: column;
+}
+
+.legal-modal-body {
+    overflow: auto;
+    max-height: min(58vh, 620px);
+    padding-right: 0.35rem;
+    margin: 0.75rem 0 1rem;
+}
+
 .admin-users-shell {
     width: min(1100px, 100%);
     margin: 0 auto;

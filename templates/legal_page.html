@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} — webATC</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-page legal-page">
+    <div class="auth-shell legal-shell">
+        <div class="auth-card legal-card">
+            <div class="auth-brand">
+                <h1>{{ title }}</h1>
+                <p class="auth-tagline">Version {{ version }} · webATC<sup class="reg-mark">&reg;</sup></p>
+            </div>
+            <div class="legal-document-body">
+                {% for section in sections %}
+                <section class="legal-section">
+                    <h2>{{ section.title }}</h2>
+                    {% for paragraph in section.paragraphs %}
+                    <p>{{ paragraph }}</p>
+                    {% endfor %}
+                </section>
+                {% endfor %}
+            </div>
+            <div class="legal-page-actions">
+                <a href="{{ url_for('user_auth.signup_page') }}" class="btn btn-secondary auth-submit">Back to sign up</a>
+                <a href="{{ url_for('user_auth.login_page') }}" class="btn btn-secondary auth-submit">Sign in</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

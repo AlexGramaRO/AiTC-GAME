@@ -18,6 +18,15 @@
     const verifyMessageEl = document.getElementById('signupVerifyMessage');
     const verifySubmitBtn = document.getElementById('signupVerifySubmitBtn');
     const verifyChangeEmailBtn = document.getElementById('signupVerifyChangeEmailBtn');
+    const acceptTermsCheckbox = document.getElementById('authAcceptTerms');
+    const acceptRefundCheckbox = document.getElementById('authAcceptRefundPolicy');
+    const openTermsModalBtn = document.getElementById('openTermsModalBtn');
+    const openRefundPolicyModalBtn = document.getElementById('openRefundPolicyModalBtn');
+    const termsLegalModal = document.getElementById('termsLegalModal');
+    const refundPolicyModal = document.getElementById('refundPolicyModal');
+    const acceptTermsFromModalBtn = document.getElementById('acceptTermsFromModalBtn');
+    const acceptRefundFromModalBtn = document.getElementById('acceptRefundFromModalBtn');
+    const legalConfig = window.AITC_LEGAL || null;
 
     let verifyTimerId = null;
     let verifyExpiresAtMs = 0;
@@ -116,6 +125,51 @@
         emailInput?.focus();
     });
 
+    function openLegalModal(modalEl) {
+        if (!modalEl) return;
+        modalEl.style.display = 'flex';
+        modalEl.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeLegalModal(modalEl) {
+        if (!modalEl) return;
+        modalEl.style.display = 'none';
+        modalEl.setAttribute('aria-hidden', 'true');
+    }
+
+    openTermsModalBtn?.addEventListener('click', function () {
+        openLegalModal(termsLegalModal);
+    });
+
+    openRefundPolicyModalBtn?.addEventListener('click', function () {
+        openLegalModal(refundPolicyModal);
+    });
+
+    document.querySelectorAll('.legal-modal-close-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const modalId = btn.getAttribute('data-legal-modal');
+            closeLegalModal(document.getElementById(modalId));
+        });
+    });
+
+    acceptTermsFromModalBtn?.addEventListener('click', function () {
+        if (acceptTermsCheckbox) acceptTermsCheckbox.checked = true;
+        closeLegalModal(termsLegalModal);
+    });
+
+    acceptRefundFromModalBtn?.addEventListener('click', function () {
+        if (acceptRefundCheckbox) acceptRefundCheckbox.checked = true;
+        closeLegalModal(refundPolicyModal);
+    });
+
+    [termsLegalModal, refundPolicyModal].forEach(function (modalEl) {
+        modalEl?.addEventListener('click', function (event) {
+            if (event.target === modalEl) {
+                closeLegalModal(modalEl);
+            }
+        });
+    });
+
     verifySubmitBtn?.addEventListener('click', async function () {
         const code = (verifyCodeInput?.value || '').trim();
         if (!/^\d{6}$/.test(code)) {
@@ -186,6 +240,14 @@
                 setMessage('Passwords do not match.', 'error');
                 return;
             }
+            if (!acceptTermsCheckbox?.checked || !acceptRefundCheckbox?.checked) {
+                setMessage('You must accept the Terms and Conditions and Refund Policy to create an account.', 'error');
+                return;
+            }
+            if (!legalConfig?.termsVersion || !legalConfig?.refundPolicyVersion) {
+                setMessage('Legal documents could not be loaded. Refresh the page and try again.', 'error');
+                return;
+            }
 
             submitBtn.disabled = true;
             try {
@@ -193,6 +255,10 @@
                     email,
                     password,
                     displayName: (displayNameInput?.value || '').trim(),
+                    acceptedTerms: true,
+                    acceptedRefundPolicy: true,
+                    termsVersion: legalConfig.termsVersion,
+                    refundPolicyVersion: legalConfig.refundPolicyVersion,
                 });
                 if (!resp.ok || !data.ok) {
                     setMessage(data.error || 'Could not start sign-up verification.', 'error');
