@@ -177,6 +177,26 @@
     renderMonthly();
     renderOneDay();
 
+    if (window.initPromoCodeRedemption) {
+        window.initPromoCodeRedemption({
+            onSuccess: async function () {
+                try {
+                    const resp = await fetch('/api/billing/status');
+                    const data = await resp.json().catch(function () { return {}; });
+                    if (resp.ok && data.ok) {
+                        cfg.monthly = data.activeMonthlySubscription || null;
+                        cfg.oneDay = data.activeOneDayPass || null;
+                        cfg.canCancelSubscription = !!data.canCancelSubscription;
+                        cfg.canCancelViaStripe = !!data.canCancelViaStripe;
+                        cfg.subscriptionPendingCancellation = !!data.subscriptionPendingCancellation;
+                        renderMonthly();
+                        renderOneDay();
+                    }
+                } catch (_) {}
+            },
+        });
+    }
+
     logoutBtn?.addEventListener('click', async function () {
         await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/login';

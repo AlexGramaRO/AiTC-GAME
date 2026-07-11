@@ -538,3 +538,38 @@ def api_stripe_webhook():
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
     return jsonify({'ok': True})
+
+
+@billing_bp.route('/api/billing/redeem-promo', methods=['POST'])
+def api_redeem_promo_code():
+    """Apply a promotion code for time-limited platform access."""
+    user = get_current_user()
+    if not user:
+        return jsonify({'ok': False, 'error': 'Authentication required'}), 401
+    if not user_is_approved(user):
+        return jsonify({'ok': False, 'error': 'Account must be approved before redeeming a promotion'}), 403
+    if user.get('is_admin'):
+        return jsonify({'ok': False, 'error': 'Admin accounts do not require promotion codes'}), 400
+
+    body = request.get_json(silent=True) or {}
+    code = (body.get('code') or '').strip()
+    if not code:
+        return jsonify({'ok': False, 'error': 'Promotion code is required'}), 400
+
+    try:
+        from promotions_store import PromotionError, redeem_promotion_code
+        result = redeem_promotion_code(user['id'], code)
+    except PromotionError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    duration_days = int((result.get('promotion') or {}).get('durationDays') or 0)
+    active = _fetch_active_subscription(user['id'])
+    return jsonify({
+        'ok': True,
+        'message': f'Promotion applied. {duration_days} day(s) of access added to your account.',
+        'promotion': result.get('promotion'),
+        'activeSubscription': _subscription_to_api(active),
+        'canAccessPlatform': user_can_access_platform(user),
+    })

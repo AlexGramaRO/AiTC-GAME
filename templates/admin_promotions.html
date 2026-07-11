@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promotions — webATC Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-page admin-users-page">
+    <div class="admin-users-shell">
+        <header class="admin-users-header">
+            <div>
+                <h1>Promotions</h1>
+                <p class="hint-text">Generate promotion codes for limited-time platform access. Each code is 10 characters (A–Z, 0–9).</p>
+            </div>
+            <div class="admin-users-header-actions">
+                <a href="{{ url_for('user_auth.admin_users_page') }}" class="btn btn-secondary">Users</a>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to simulator</a>
+                <button type="button" class="btn btn-secondary" id="adminPromotionsLogoutBtn">Sign out</button>
+            </div>
+        </header>
+
+        <section class="admin-promotions-create">
+            <h2>Generate promotion code</h2>
+            <div class="admin-promotions-form-grid">
+                <div class="form-group">
+                    <label for="promoDurationDays">Days of access</label>
+                    <input type="number" id="promoDurationDays" class="form-input" min="1" max="365" value="7">
+                </div>
+                <div class="form-group">
+                    <label for="promoMaxUses">Maximum uses</label>
+                    <input type="number" id="promoMaxUses" class="form-input" min="1" max="100000" value="10">
+                    <p class="hint-text">How many different users can redeem this code (once each).</p>
+                </div>
+                <div class="form-group admin-promotions-generate-cell">
+                    <button type="button" class="btn btn-primary" id="generatePromoCodeBtn">Generate code</button>
+                </div>
+            </div>
+            <div id="adminPromotionsMessage" class="auth-message" style="display:none;"></div>
+        </section>
+
+        <div class="admin-users-toolbar">
+            <button type="button" class="btn btn-secondary" id="adminPromotionsRefreshBtn">Refresh list</button>
+        </div>
+
+        <div class="admin-users-table-wrap">
+            <table class="admin-users-table admin-promotions-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Days</th>
+                        <th>Uses</th>
+                        <th>Remaining</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody id="adminPromotionsTableBody">
+                    <tr><td colspan="5" class="hint-text">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/admin_promotions.js') }}"></script>
+</body>
+</html>

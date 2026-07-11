@@ -67,3 +67,24 @@ CREATE TABLE IF NOT EXISTS signup_verifications (
 
 CREATE INDEX IF NOT EXISTS idx_signup_verifications_email ON signup_verifications (email);
 CREATE INDEX IF NOT EXISTS idx_signup_verifications_expires_at ON signup_verifications (expires_at);
+
+CREATE TABLE IF NOT EXISTS promotion_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code TEXT NOT NULL UNIQUE,
+    duration_days INTEGER NOT NULL CHECK (duration_days > 0),
+    max_uses INTEGER NOT NULL CHECK (max_uses > 0),
+    use_count INTEGER NOT NULL DEFAULT 0 CHECK (use_count >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS promotion_redemptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    promotion_id UUID NOT NULL REFERENCES promotion_codes(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    redeemed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (promotion_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_promotion_codes_code ON promotion_codes (code);
+CREATE INDEX IF NOT EXISTS idx_promotion_redemptions_user_id ON promotion_redemptions (user_id);

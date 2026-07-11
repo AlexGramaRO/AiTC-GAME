@@ -16,6 +16,16 @@
 
             <div id="manageSubscriptionMessage" class="auth-message" style="display:none;"></div>
 
+            <div class="subscribe-plan-box promo-code-box">
+                <h2>Promotion code</h2>
+                <p class="hint-text">Enter a promotion code to add limited-time access. Codes cannot be used with an active monthly subscription.</p>
+                <div class="promo-code-row">
+                    <input type="text" id="promoCodeInput" class="form-input promo-code-input" maxlength="10" autocomplete="off" placeholder="XXXXXXXXXX" spellcheck="false">
+                    <button type="button" class="btn btn-secondary auth-submit" id="redeemPromoCodeBtn">Apply code</button>
+                </div>
+                <div id="promoCodeMessage" class="auth-message" style="display:none;"></div>
+            </div>
+
             <div class="subscribe-plan-box" id="monthlyPlanBox">
                 <h2>Monthly subscription</h2>
                 <p class="subscribe-plan-detail" id="monthlyPlanDetail">No active monthly subscription.</p>
@@ -45,6 +55,7 @@
             oneDay: {{ summary.activeOneDayPass | tojson if summary.activeOneDayPass else 'null' }},
         };
     </script>
+    <script src="{{ url_for('static', filename='js/promo_redeem.js') }}"></script>
     <script src="{{ url_for('static', filename='js/manage_subscription.js') }}"></script>
 </body>
 </html>

@@ -918,6 +918,89 @@ def create_one_day_pass(
     return _fetch_subscription_by_id(sub_id)
 
 
+class PromoAccessError(Exception):
+    """Raised when a promotion cannot be applied to the user's current access."""
+
+
+def grant_promo_access(user_id, duration_days, promo_code_label, created_by=None):
+    """Extend an active day pass or create a new time-limited pass from a promotion."""
+    monthly = _fetch_active_subscription_by_type(user_id, PASS_TYPE_MONTHLY)
+    if monthly:
+        raise PromoAccessError('You already have a subscription.')
+
+    duration_days = int(duration_days)
+    if duration_days < 1:
+        raise PromoAccessError('Invalid promotion.')
+
+    now = _now_utc()
+    extra = timedelta(days=duration_days)
+    one_day = _fetch_active_subscription_by_type(user_id, PASS_TYPE_ONE_DAY)
+    notes = f'Promotion code {promo_code_label} (+{duration_days} day(s))'
+
+    if one_day:
+        current_expires = _parse_dt(one_day.get('expires_at')) or now
+        base = max(current_expires, now)
+        new_expires = base + extra
+        new_end_date = new_expires.date()
+        sub_id = one_day['id']
+        with _db_conn() as conn:
+            if _USE_POSTGRES:
+                cur = conn.cursor()
+                cur.execute(
+                    '''UPDATE subscriptions SET
+                        expires_at = %s, end_date = %s, updated_at = %s,
+                        notes = CASE
+                            WHEN notes IS NULL OR notes = '' THEN %s
+                            ELSE notes || ' | ' || %s
+                        END
+                       WHERE id = %s AND status = 'active' ''',
+                    (new_expires, new_end_date, now, notes, notes, sub_id),
+                )
+                cur.close()
+            else:
+                existing_notes = (one_day.get('notes') or '').strip()
+                merged_notes = notes if not existing_notes else f'{existing_notes} | {notes}'
+                conn.execute(
+                    '''UPDATE subscriptions SET
+                        expires_at = ?, end_date = ?, updated_at = ?, notes = ?
+                       WHERE id = ? AND status = 'active' ''',
+                    (new_expires.isoformat(), new_end_date.isoformat(), now.isoformat(), merged_notes, sub_id),
+                )
+        return _subscription_to_api(_fetch_subscription_by_id(sub_id))
+
+    expires = now + extra
+    start_date = now.date()
+    end_date = expires.date()
+    sub_id = _new_user_id()
+    plan_name = 'promo-access'
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO subscriptions (
+                    id, user_id, plan_name, start_date, end_date, status, notes,
+                    created_at, updated_at, created_by, pass_type, expires_at
+                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, %s, %s, %s)''',
+                (
+                    sub_id, user_id, plan_name, start_date, end_date, notes,
+                    now, now, created_by, PASS_TYPE_ONE_DAY, expires,
+                ),
+            )
+            cur.close()
+        else:
+            conn.execute(
+                '''INSERT INTO subscriptions (
+                    id, user_id, plan_name, start_date, end_date, status, notes,
+                    created_at, updated_at, created_by, pass_type, expires_at
+                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)''',
+                (
+                    sub_id, user_id, plan_name, start_date.isoformat(), end_date.isoformat(), notes,
+                    now.isoformat(), now.isoformat(), created_by, PASS_TYPE_ONE_DAY, expires.isoformat(),
+                ),
+            )
+    return _subscription_to_api(_fetch_subscription_by_id(sub_id))
+
+
 def _fetch_subscription_by_id(subscription_id):
     with _db_conn() as conn:
         if _USE_POSTGRES:
@@ -1164,6 +1247,7 @@ BILLING_APPROVED_PATHS = frozenset({
     '/api/billing/status',
     '/api/billing/create-checkout-session',
     '/api/billing/customer-portal',
+    '/api/billing/redeem-promo',
 })
 
 PUBLIC_PREFIXES = (
@@ -1254,6 +1338,8 @@ def init_user_auth(app, data_dir):
 
     init_db()
     bootstrap_admin_user()
+    from promotions_store import init_promotions_store
+    init_promotions_store()
     app.register_blueprint(auth_bp)
 
 
@@ -1862,3 +1948,43 @@ def api_admin_revoke_active_subscriptions(user_id):
         'cancelledCount': cancelled,
         'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
     })
+
+
+@auth_bp.route('/admin/promotions')
+@admin_required
+def admin_promotions_page():
+    return render_template('admin_promotions.html')
+
+
+@auth_bp.route('/api/admin/promotions', methods=['GET'])
+@admin_required
+def api_admin_list_promotions():
+    from promotions_store import list_promotion_codes
+    return jsonify({'ok': True, 'promotions': list_promotion_codes()})
+
+
+@auth_bp.route('/api/admin/promotions', methods=['POST'])
+@admin_required
+def api_admin_create_promotion():
+    from promotions_store import create_promotion_code
+
+    body = request.get_json(silent=True) or {}
+    try:
+        duration_days = int(body.get('durationDays') or body.get('duration_days') or 0)
+        max_uses = int(body.get('maxUses') or body.get('max_uses') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'durationDays and maxUses must be numbers'}), 400
+
+    actor = get_current_user()
+    try:
+        promotion = create_promotion_code(
+            duration_days,
+            max_uses,
+            created_by=actor['id'] if actor else None,
+        )
+    except ValueError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    return jsonify({'ok': True, 'promotion': promotion})

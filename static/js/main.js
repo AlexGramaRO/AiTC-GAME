@@ -59899,6 +59899,7 @@ async function initUserSessionBar() {
     const bar = document.getElementById('userSessionBar');
     const emailEl = document.getElementById('userSessionEmail');
     const adminLink = document.getElementById('userAdminLinkBtn');
+    const adminPromotionsLink = document.getElementById('userAdminPromotionsBtn');
     const manageLink = document.getElementById('userManageSubscriptionBtn');
     const categoriesSettingsRow = document.getElementById('exerciseCategoriesSettingsRow');
     const logoutBtn = document.getElementById('userLogoutBtn');
@@ -59916,6 +59917,7 @@ async function initUserSessionBar() {
         bar.style.display = 'flex';
         if (emailEl) emailEl.textContent = data.user.email || '';
         if (adminLink) adminLink.style.display = data.user.isAdmin ? 'inline-flex' : 'none';
+        if (adminPromotionsLink) adminPromotionsLink.style.display = data.user.isAdmin ? 'inline-flex' : 'none';
         if (categoriesSettingsRow) categoriesSettingsRow.style.display = data.user.isAdmin ? 'block' : 'none';
         applyLandingRoleUi(data);
         if (manageLink) {

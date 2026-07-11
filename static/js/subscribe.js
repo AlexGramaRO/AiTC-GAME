@@ -155,6 +155,13 @@
     });
 
     refreshStatus();
+    if (window.initPromoCodeRedemption) {
+        window.initPromoCodeRedemption({
+            onSuccess: async function () {
+                await refreshStatus();
+            },
+        });
+    }
     if (window.AITC_SUBSCRIBE && window.AITC_SUBSCRIBE.success) {
         let attempts = 0;
         const poll = window.setInterval(async function () {
