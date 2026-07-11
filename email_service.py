@@ -315,3 +315,43 @@ def send_subscription_cancellation_email(config, to_email, plan_name, end_date, 
         manage_url,
     )
     send_email(config, to_email, subject, text_body, html_body)
+
+
+def send_account_approved_email(config, to_email, login_url=None, subscribe_url=None):
+    subject = 'Your webATC account has been approved'
+    text_body = (
+        'Your webATC account has been approved by an administrator.\n\n'
+        'You can now sign in and activate platform access with a subscription, One Day Pass, or promotion code.\n'
+    )
+    if login_url:
+        text_body += f'\nSign in: {login_url}\n'
+    if subscribe_url:
+        text_body += f'Choose a plan: {subscribe_url}\n'
+    html_body = _billing_email_html(
+        'Account approved',
+        [
+            'Your <strong>webATC</strong> account has been approved by an administrator.',
+            'You can now sign in and activate platform access with a subscription, One Day Pass, or promotion code.',
+        ],
+        login_url or subscribe_url,
+    )
+    send_email(config, to_email, subject, text_body, html_body)
+
+
+def send_account_rejected_email(config, to_email, login_url=None):
+    subject = 'Your webATC account was not approved'
+    text_body = (
+        'Your webATC account registration was reviewed and was not approved at this time.\n\n'
+        'You will not be able to access the platform with this account unless an administrator changes the decision.\n'
+    )
+    if login_url:
+        text_body += f'\nSign-in page: {login_url}\n'
+    html_body = _billing_email_html(
+        'Account not approved',
+        [
+            'Your <strong>webATC</strong> account registration was reviewed and was not approved at this time.',
+            'You will not be able to access the platform with this account unless an administrator changes the decision.',
+        ],
+        login_url,
+    )
+    send_email(config, to_email, subject, text_body, html_body)

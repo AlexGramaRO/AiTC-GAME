@@ -1947,7 +1947,10 @@ def api_admin_approve_user(user_id):
     if not target:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
     _set_user_status(user_id, 'approved', actor['id'])
-    return jsonify({'ok': True, 'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True)})
+    updated = _fetch_user_by_id(user_id)
+    from account_notifications import notify_account_approved
+    notify_account_approved(updated)
+    return jsonify({'ok': True, 'user': _user_to_api(updated, include_subscription=True)})
 
 
 @auth_bp.route('/api/admin/user-accounts/<user_id>/reject', methods=['POST'])
@@ -1960,7 +1963,10 @@ def api_admin_reject_user(user_id):
     if target.get('is_admin'):
         return jsonify({'ok': False, 'error': 'Cannot reject an admin account'}), 400
     _set_user_status(user_id, 'rejected', actor['id'])
-    return jsonify({'ok': True, 'user': _user_to_api(_fetch_user_by_id(user_id))})
+    updated = _fetch_user_by_id(user_id)
+    from account_notifications import notify_account_rejected
+    notify_account_rejected(updated)
+    return jsonify({'ok': True, 'user': _user_to_api(updated)})
 
 
 @auth_bp.route('/api/admin/user-accounts/<user_id>/disable', methods=['POST'])
