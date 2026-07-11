@@ -2273,9 +2273,9 @@ def api_test_admin_email_settings():
         send_email(
             config,
             to_email,
-            'AiTC email test',
-            'This is a test email from your AiTC platform configuration.',
-            '<p>This is a <strong>test email</strong> from your AiTC platform configuration.</p>',
+            'webATC email test',
+            'This is a test email from your webATC platform configuration.',
+            '<p>This is a <strong>test email</strong> from your webATC platform configuration.</p>',
         )
         return jsonify({'ok': True, 'message': f'Test email sent to {to_email}.'})
     except Exception as e:

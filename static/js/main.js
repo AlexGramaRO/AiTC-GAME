@@ -641,7 +641,8 @@ async function startSingleUserExerciseDirectly(exercise) {
 }
 
 /** Export bundle identifier for JSON files produced by Export Data (for future import). */
-const AITC_DATA_EXPORT_FORMAT = 'AiTC-data-export';
+const AITC_DATA_EXPORT_FORMAT = 'webATC-data-export';
+const AITC_DATA_EXPORT_LEGACY_FORMAT = 'AiTC-data-export';
 const AITC_DATA_EXPORT_VERSION = 1;
 
 function downloadJsonFile(filename, obj) {
@@ -761,7 +762,7 @@ async function runExportDataDownload() {
     };
 
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    downloadJsonFile(`aitc-data-export-${stamp}.json`, payload);
+    downloadJsonFile(`webatc-data-export-${stamp}.json`, payload);
     closeModal('exportDataModal');
 }
 
@@ -1821,7 +1822,7 @@ function readAdminEmailConfigFromForm() {
         smtpUser: (document.getElementById('adminEmailSmtpUser')?.value || '').trim(),
         smtpPassword: (document.getElementById('adminEmailSmtpPassword')?.value || '').trim(),
         fromEmail: (document.getElementById('adminEmailFromEmail')?.value || '').trim(),
-        fromName: (document.getElementById('adminEmailFromName')?.value || 'AiTC').trim() || 'AiTC',
+        fromName: (document.getElementById('adminEmailFromName')?.value || 'webATC').trim() || 'webATC',
     };
 }
 
@@ -1842,7 +1843,7 @@ function applyAdminEmailConfigToForm(config) {
     const fromEmail = document.getElementById('adminEmailFromEmail');
     if (fromEmail) fromEmail.value = cfg.fromEmail || '';
     const fromName = document.getElementById('adminEmailFromName');
-    if (fromName) fromName.value = cfg.fromName || 'AiTC';
+    if (fromName) fromName.value = cfg.fromName || 'webATC';
 }
 
 function openAdminEmailSettingsModal() {
@@ -25872,7 +25873,7 @@ function startSimulationRecording(exercise, sector) {
     if (!isAdminRecordSimulationsEnabled()) return;
     const startedAt = new Date().toISOString();
     simulationRecording = {
-        format: 'AiTC-simulation-recording',
+        format: 'webATC-simulation-recording',
         version: 1,
         metadata: {
             exerciseId: exercise?.id != null ? String(exercise.id) : '',
@@ -53303,7 +53304,7 @@ const SECTOR_MAP_PRINT_ANNOT_MOVE_GRIP_CSS_PX = 22;
  */
 const SECTOR_MAP_PRINT_PDF_RASTER_MULT = 3;
 
-/** AiTC logo for print/PDF watermark (Flask static). */
+/** webATC logo for print/PDF watermark (Flask static). */
 const SECTOR_MAP_PRINT_LOGO_URL = '/static/images/Logo AiTC.png';
 /** @type {'idle'|'loading'|'ready'|'error'} */
 let sectorMapPrintLogoPreloadState = 'idle';
@@ -57633,7 +57634,7 @@ function sectorMapPrintSanitizePdfFileBaseName(raw) {
 }
 
 function sectorMapPrintFinalPdfFilename(baseName) {
-    const b = sectorMapPrintSanitizePdfFileBaseName(baseName) || 'AiTC-print-map';
+    const b = sectorMapPrintSanitizePdfFileBaseName(baseName) || 'webATC-print-map';
     const withExt = /\.pdf$/i.test(b) ? b : `${b}.pdf`;
     return withExt;
 }

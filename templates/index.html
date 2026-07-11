@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AiTC v1.0</title>
+    <title>webATC v1.0</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- Explicit landing background URL (works behind proxies / avoids CSS relative-url resolution issues) -->
     <style>
@@ -578,7 +578,7 @@
                     <span id="importDataFileLabel" class="import-data-file-label hint-text"></span>
                 </div>
                 <p id="importDataEmptyHint" class="hint-text import-data-empty-hint">
-                    Choose an <code>aitc-data-export-*.json</code> file (or any JSON with <code>sectors</code> and/or <code>exercises</code> arrays). Then select what to import.
+                    Choose a <code>webatc-data-export-*.json</code> file (or any JSON with <code>sectors</code> and/or <code>exercises</code> arrays). Then select what to import.
                 </p>
                 <div id="importDataOptionsPanel" class="import-data-options-panel" style="display: none;">
                     <fieldset class="import-data-name-mode-fieldset">
@@ -1056,7 +1056,7 @@
                 <figure class="subscriber-user-manual-figure">
                     <img
                         src="{{ url_for('static', filename='images/DEMO_AiTC_Label.png') }}"
-                        alt="AiTC aircraft label reference: callsign, runway, exit waypoint, aircraft type, destination, speeds, levels, heading, direct-to, rate of climb, exit level, and mouse actions for each field."
+                        alt="webATC aircraft label reference: callsign, runway, exit waypoint, aircraft type, destination, speeds, levels, heading, direct-to, rate of climb, exit level, and mouse actions for each field."
                         class="subscriber-user-manual-image"
                     />
                 </figure>

@@ -75,7 +75,7 @@ def stripe_configured():
 
 
 def _monthly_plan_name():
-    return (os.environ.get('STRIPE_PLAN_NAME') or 'AiTC Monthly').strip() or 'AiTC Monthly'
+    return (os.environ.get('STRIPE_PLAN_NAME') or 'webATC Monthly').strip() or 'webATC Monthly'
 
 
 def _one_day_plan_name():
