@@ -32,6 +32,7 @@ _ONE_DAY_PASS_HOURS = 24
 PASS_TYPE_MONTHLY = 'monthly'
 PASS_TYPE_ONE_DAY = 'one_day'
 PASS_TYPE_PROMO = 'promo'
+ADMIN_SIM_STRIPE_PREFIX = 'admin_sim_'
 SIGNUP_CODE_TTL_MINUTES = 5
 SIGNUP_MAX_VERIFY_ATTEMPTS = 8
 
@@ -98,6 +99,18 @@ def _parse_dt(value):
     return parsed.astimezone(timezone.utc)
 
 
+def admin_simulated_stripe_subscription_id(subscription_id):
+    return f'{ADMIN_SIM_STRIPE_PREFIX}{subscription_id}'
+
+
+def is_admin_simulated_stripe_subscription_id(stripe_subscription_id):
+    return (stripe_subscription_id or '').strip().startswith(ADMIN_SIM_STRIPE_PREFIX)
+
+
+def is_admin_simulated_stripe_subscription(sub):
+    return is_admin_simulated_stripe_subscription_id((sub or {}).get('stripe_subscription_id'))
+
+
 def _normalized_pass_type(sub):
     if not sub:
         return PASS_TYPE_MONTHLY
@@ -106,6 +119,12 @@ def _normalized_pass_type(sub):
     if pass_type == PASS_TYPE_PROMO or plan_name in ('promo-access', 'promo_access'):
         return PASS_TYPE_PROMO
     return pass_type
+
+
+def is_user_cancellable_monthly_subscription(sub):
+    if not sub or _normalized_pass_type(sub) != PASS_TYPE_MONTHLY:
+        return False
+    return bool((sub.get('stripe_subscription_id') or '').strip())
 
 
 def _subscription_display_plan_name(sub):
@@ -536,6 +555,14 @@ def _migrate_schema():
                    WHERE pass_type = 'one_day'
                      AND LOWER(COALESCE(plan_name, '')) IN ('promo-access', 'promo_access')'''
             )
+            cur.execute(
+                '''UPDATE subscriptions SET stripe_subscription_id = 'admin_sim_' || id::text
+                   WHERE status = 'active'
+                     AND pass_type = 'monthly'
+                     AND stripe_subscription_id IS NULL
+                     AND stripe_checkout_session_id IS NULL
+                     AND created_by IS NOT NULL'''
+            )
             cur.close()
             return
 
@@ -565,6 +592,14 @@ def _migrate_schema():
             '''UPDATE subscriptions SET pass_type = 'promo'
                WHERE pass_type = 'one_day'
                  AND LOWER(COALESCE(plan_name, '')) IN ('promo-access', 'promo_access')'''
+        )
+        conn.execute(
+            '''UPDATE subscriptions SET stripe_subscription_id = 'admin_sim_' || id
+               WHERE status = 'active'
+                 AND pass_type = 'monthly'
+                 AND (stripe_subscription_id IS NULL OR stripe_subscription_id = '')
+                 AND (stripe_checkout_session_id IS NULL OR stripe_checkout_session_id = '')
+                 AND created_by IS NOT NULL'''
         )
 
 
@@ -955,7 +990,7 @@ class PromoAccessError(Exception):
 
 
 def grant_promo_access(user_id, duration_days, promo_code_label, created_by=None):
-    """Extend an active day pass or create a new time-limited pass from a promotion."""
+    """Extend active promo access or create a new promo pass from a promotion."""
     monthly = _fetch_active_subscription_by_type(user_id, PASS_TYPE_MONTHLY)
     if monthly:
         raise PromoAccessError('You already have a subscription.')
@@ -1203,7 +1238,7 @@ def _cancel_subscription_record(sub):
     if not _revoke_subscription(subscription_id):
         return False
     stripe_sub_id = sub.get('stripe_subscription_id')
-    if stripe_sub_id:
+    if stripe_sub_id and not is_admin_simulated_stripe_subscription_id(stripe_sub_id):
         try:
             from stripe_billing import cancel_stripe_subscription
             cancel_stripe_subscription(stripe_sub_id)
@@ -1593,7 +1628,10 @@ def api_auth_me():
     monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
     one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
     promo = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_PROMO)
-    has_stripe_monthly = bool(monthly and monthly.get('stripe_subscription_id'))
+    has_stripe_monthly = is_user_cancellable_monthly_subscription(monthly)
+    has_real_stripe_monthly = bool(
+        has_stripe_monthly and monthly and not is_admin_simulated_stripe_subscription(monthly)
+    )
     pending_cancel = bool(monthly and monthly.get('cancel_at_period_end'))
     return jsonify({
         'ok': True,
@@ -1602,7 +1640,7 @@ def api_auth_me():
         'canAccessPlatform': user_can_access_platform(user),
         'canAccessSimulator': user_can_access_platform(user),
         'platformAccessReason': _platform_access_reason(user),
-        'canCancelViaStripe': has_stripe_monthly,
+        'canCancelViaStripe': has_real_stripe_monthly,
         'canCancelSubscription': bool(has_stripe_monthly and not pending_cancel),
         'subscriptionPendingCancellation': pending_cancel,
         'activeMonthlySubscription': _subscription_to_api(monthly),
@@ -1788,6 +1826,7 @@ def api_admin_create_subscription(user_id):
     end = subscription_end_date(start)
     sub_id = _new_user_id()
     now = _now_utc()
+    sim_stripe_id = admin_simulated_stripe_subscription_id(sub_id)
 
     with _db_conn() as conn:
         if _USE_POSTGRES:
@@ -1795,9 +1834,9 @@ def api_admin_create_subscription(user_id):
             cur.execute(
                 '''INSERT INTO subscriptions (
                     id, user_id, plan_name, start_date, end_date, status, notes,
-                    created_at, updated_at, created_by, pass_type
-                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, %s, %s)''',
-                (sub_id, user_id, plan_name, start, end, notes, now, now, actor['id'], PASS_TYPE_MONTHLY),
+                    created_at, updated_at, created_by, pass_type, stripe_subscription_id
+                ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, %s, %s, %s)''',
+                (sub_id, user_id, plan_name, start, end, notes, now, now, actor['id'], PASS_TYPE_MONTHLY, sim_stripe_id),
             )
             cur.close()
         else:
@@ -1805,9 +1844,9 @@ def api_admin_create_subscription(user_id):
             conn.execute(
                 '''INSERT INTO subscriptions (
                     id, user_id, plan_name, start_date, end_date, status, notes,
-                    created_at, updated_at, created_by, pass_type
-                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)''',
-                (sub_id, user_id, plan_name, start.isoformat(), end.isoformat(), notes, now_s, now_s, actor['id'], PASS_TYPE_MONTHLY),
+                    created_at, updated_at, created_by, pass_type, stripe_subscription_id
+                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)''',
+                (sub_id, user_id, plan_name, start.isoformat(), end.isoformat(), notes, now_s, now_s, actor['id'], PASS_TYPE_MONTHLY, sim_stripe_id),
             )
 
     sub_row = None

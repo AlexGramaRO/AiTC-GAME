@@ -26,6 +26,9 @@ from user_auth import (
     fetch_subscription_by_stripe_id,
     fetch_user_by_stripe_customer_id,
     get_current_user,
+    is_admin_simulated_stripe_subscription,
+    is_admin_simulated_stripe_subscription_id,
+    is_user_cancellable_monthly_subscription,
     set_subscription_cancel_at_period_end,
     set_user_stripe_customer_id,
     subscription_end_date,
@@ -120,6 +123,9 @@ def _stripe_period_dates(stripe_subscription):
 
 
 def cancel_stripe_subscription(stripe_subscription_id):
+    if is_admin_simulated_stripe_subscription_id(stripe_subscription_id):
+        cancel_subscription_by_stripe_id(stripe_subscription_id)
+        return True
     stripe = _stripe_client()
     if not stripe or not stripe_subscription_id:
         return False
@@ -130,6 +136,8 @@ def cancel_stripe_subscription(stripe_subscription_id):
 
 def schedule_stripe_subscription_cancellation(stripe_subscription_id):
     """Stop auto-renewal at the end of the current paid billing period."""
+    if is_admin_simulated_stripe_subscription_id(stripe_subscription_id):
+        return set_subscription_cancel_at_period_end(stripe_subscription_id, True)
     stripe = _stripe_client()
     if not stripe or not stripe_subscription_id:
         return False
@@ -241,13 +249,16 @@ def _billing_account_summary(user):
     one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
     promo = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_PROMO)
     monthly_api = _subscription_to_api(monthly)
-    has_stripe_monthly = bool(monthly and monthly.get('stripe_subscription_id'))
+    has_stripe_monthly = is_user_cancellable_monthly_subscription(monthly)
+    has_real_stripe_monthly = bool(
+        has_stripe_monthly and monthly and not is_admin_simulated_stripe_subscription(monthly)
+    )
     pending_cancel = bool(monthly and monthly.get('cancel_at_period_end'))
     return {
         'activeMonthlySubscription': monthly_api,
         'activeOneDayPass': _subscription_to_api(one_day),
         'activePromoAccess': _subscription_to_api(promo),
-        'canCancelViaStripe': has_stripe_monthly,
+        'canCancelViaStripe': has_real_stripe_monthly,
         'canCancelSubscription': bool(has_stripe_monthly and not pending_cancel),
         'subscriptionPendingCancellation': pending_cancel,
         'hasStripeCustomer': bool((user.get('stripe_customer_id') or '').strip()),
@@ -465,7 +476,7 @@ def api_cancel_subscription():
     monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
     stripe_sub_id = (monthly or {}).get('stripe_subscription_id') or ''
     if not monthly or not stripe_sub_id:
-        return jsonify({'ok': False, 'error': 'No active Stripe monthly subscription to cancel'}), 400
+        return jsonify({'ok': False, 'error': 'No active monthly subscription to cancel'}), 400
 
     if monthly.get('cancel_at_period_end'):
         monthly_api = _subscription_to_api(monthly)
@@ -473,6 +484,16 @@ def api_cancel_subscription():
             'ok': True,
             'alreadyScheduled': True,
             'message': 'Your subscription is already scheduled to cancel at the end of the current billing period.',
+            'activeMonthlySubscription': monthly_api,
+        })
+
+    if is_admin_simulated_stripe_subscription(monthly):
+        schedule_stripe_subscription_cancellation(stripe_sub_id)
+        updated = fetch_subscription_by_stripe_id(stripe_sub_id)
+        monthly_api = _subscription_to_api(updated or monthly)
+        return jsonify({
+            'ok': True,
+            'message': 'Your subscription will cancel at the end of the current billing period. You keep full access until then.',
             'activeMonthlySubscription': monthly_api,
         })
 
