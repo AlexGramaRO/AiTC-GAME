@@ -45,6 +45,13 @@ def init_promotions_store():
     _INITIALIZED = True
 
 
+def _pg_cursor(conn):
+    if database_is_postgres():
+        from psycopg2.extras import RealDictCursor
+        return conn.cursor(cursor_factory=RealDictCursor)
+    return conn.cursor()
+
+
 def _init_promotion_tables():
     if database_is_postgres():
         ddl = [
@@ -134,7 +141,7 @@ def _promotion_to_api(row):
 
 def list_promotion_codes():
     with get_db_connection() as conn:
-        cur = conn.cursor()
+        cur = _pg_cursor(conn)
         cur.execute(
             '''
             SELECT id, code, duration_days, max_uses, use_count, created_at, created_by
@@ -171,7 +178,7 @@ def create_promotion_code(duration_days, max_uses, created_by=None):
                             id, code, duration_days, max_uses, use_count, created_at, created_by
                         ) VALUES (%s, %s, %s, %s, 0, NOW(), %s)
                         ''',
-                        (promo_id, code, duration_days, max_uses, created_by),
+                        (promo_id, code, duration_days, max_uses, str(created_by) if created_by else None),
                     )
                 else:
                     cur.execute(
@@ -194,7 +201,7 @@ def create_promotion_code(duration_days, max_uses, created_by=None):
 
 def fetch_promotion_by_id(promotion_id):
     with get_db_connection() as conn:
-        cur = conn.cursor()
+        cur = _pg_cursor(conn)
         if database_is_postgres():
             cur.execute(
                 '''
@@ -221,7 +228,7 @@ def fetch_promotion_by_code(code):
     if not code:
         return None
     with get_db_connection() as conn:
-        cur = conn.cursor()
+        cur = _pg_cursor(conn)
         if database_is_postgres():
             cur.execute(
                 '''
@@ -263,7 +270,7 @@ def redeem_promotion_code(user_id, raw_code):
         raise PromotionError('This promotion code has reached its usage limit.')
 
     with get_db_connection() as conn:
-        cur = conn.cursor()
+        cur = _pg_cursor(conn)
         if database_is_postgres():
             cur.execute(
                 'SELECT id FROM promotion_redemptions WHERE promotion_id = %s AND user_id = %s',
@@ -289,7 +296,7 @@ def redeem_promotion_code(user_id, raw_code):
     redemption_id = _new_user_id()
     now = _now_iso()
     with get_db_connection() as conn:
-        cur = conn.cursor()
+        cur = _pg_cursor(conn)
         if database_is_postgres():
             cur.execute(
                 'SELECT use_count, max_uses FROM promotion_codes WHERE id = %s FOR UPDATE',
@@ -301,7 +308,12 @@ def redeem_promotion_code(user_id, raw_code):
                 (promo_id,),
             )
         row = _row_to_dict(cur.fetchone())
-        if not row or int(row.get('use_count') or 0) >= int(row.get('max_uses') or 0):
+        if not row:
+            cur.close()
+            raise PromotionError('Promotion code not found.')
+        use_count = int(row.get('use_count') or 0)
+        max_uses = int(row.get('max_uses') or 0)
+        if use_count >= max_uses:
             cur.close()
             raise PromotionError('This promotion code has reached its usage limit.')
         if database_is_postgres():

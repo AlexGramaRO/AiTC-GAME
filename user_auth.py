@@ -1279,7 +1279,7 @@ def auth_before_request():
             return redirect(url_for('stripe_billing.subscribe_page'))
         return None
 
-    if path.startswith('/admin') or path.startswith('/api/admin/user-accounts'):
+    if path.startswith('/admin') or path.startswith('/api/admin/'):
         if user.get('is_admin'):
             return None
         if path.startswith('/api/'):
@@ -1986,5 +1986,7 @@ def api_admin_create_promotion():
         return jsonify({'ok': False, 'error': str(exc)}), 400
     except RuntimeError as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 500
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc) or 'Could not generate promotion code.'}), 500
 
     return jsonify({'ok': True, 'promotion': promotion})
