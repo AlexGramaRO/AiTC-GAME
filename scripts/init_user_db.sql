@@ -53,3 +53,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_checkout_session_id
     ON subscriptions (stripe_checkout_session_id)
     WHERE stripe_checkout_session_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS signup_verifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    display_name TEXT,
+    code_hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_signup_verifications_email ON signup_verifications (email);
+CREATE INDEX IF NOT EXISTS idx_signup_verifications_expires_at ON signup_verifications (expires_at);

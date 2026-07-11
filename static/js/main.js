@@ -1627,6 +1627,7 @@ SUMMARY
 - tts is never empty except [SCRIPT EVENT] Silent=yes.`;
 
 let adminUnlockedPassword = '';
+let adminEmailConfig = null;
 let serverDefaultAiPilotGeneralInstructions = '';
 let adminAiPilotGeneralInstructions = DEFAULT_AI_PILOT_GENERAL_INSTRUCTIONS;
 
@@ -1755,6 +1756,7 @@ async function unlockAdminSettings() {
             : getDefaultAiPilotGeneralInstructions();
         adminOpenAiModel = normalizeAdminOpenAiModel(data.openaiModel);
         adminRecordSimulations = data.recordSimulations !== false;
+        adminEmailConfig = data.emailConfig || null;
         applyAdminGlobalLabelFromServer(data);
         closeModal('adminUnlockModal');
         openAdminSettingsModal(
@@ -1800,6 +1802,114 @@ function openAdminSettingsModal(openaiApiKey = '', aiPilotGeneralInstructions = 
 function closeAdminSettingsModal() {
     setAdminSettingsMessage('');
     closeModal('adminSettingsModal');
+}
+
+function setAdminEmailSettingsMessage(text, isError) {
+    const el = document.getElementById('adminEmailSettingsMessage');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.display = text ? 'block' : 'none';
+    el.className = 'admin-message-text' + (isError ? ' admin-message-error' : '');
+}
+
+function readAdminEmailConfigFromForm() {
+    return {
+        enabled: !!document.getElementById('adminEmailEnabled')?.checked,
+        smtpHost: (document.getElementById('adminEmailSmtpHost')?.value || '').trim(),
+        smtpPort: parseInt(document.getElementById('adminEmailSmtpPort')?.value, 10) || 587,
+        smtpSecurity: (document.getElementById('adminEmailSmtpSecurity')?.value || 'starttls').trim(),
+        smtpUser: (document.getElementById('adminEmailSmtpUser')?.value || '').trim(),
+        smtpPassword: (document.getElementById('adminEmailSmtpPassword')?.value || '').trim(),
+        fromEmail: (document.getElementById('adminEmailFromEmail')?.value || '').trim(),
+        fromName: (document.getElementById('adminEmailFromName')?.value || 'AiTC').trim() || 'AiTC',
+    };
+}
+
+function applyAdminEmailConfigToForm(config) {
+    const cfg = config || {};
+    const enabled = document.getElementById('adminEmailEnabled');
+    if (enabled) enabled.checked = !!cfg.enabled;
+    const host = document.getElementById('adminEmailSmtpHost');
+    if (host) host.value = cfg.smtpHost || '';
+    const port = document.getElementById('adminEmailSmtpPort');
+    if (port) port.value = String(cfg.smtpPort || 587);
+    const security = document.getElementById('adminEmailSmtpSecurity');
+    if (security) security.value = cfg.smtpSecurity || 'starttls';
+    const user = document.getElementById('adminEmailSmtpUser');
+    if (user) user.value = cfg.smtpUser || '';
+    const password = document.getElementById('adminEmailSmtpPassword');
+    if (password) password.value = '';
+    const fromEmail = document.getElementById('adminEmailFromEmail');
+    if (fromEmail) fromEmail.value = cfg.fromEmail || '';
+    const fromName = document.getElementById('adminEmailFromName');
+    if (fromName) fromName.value = cfg.fromName || 'AiTC';
+}
+
+function openAdminEmailSettingsModal() {
+    if (!adminUnlockedPassword) {
+        setAdminSettingsMessage('Unlock Admin settings first.', true);
+        return;
+    }
+    applyAdminEmailConfigToForm(adminEmailConfig || {});
+    setAdminEmailSettingsMessage('');
+    openModal('adminEmailSettingsModal');
+}
+
+function closeAdminEmailSettingsModal() {
+    setAdminEmailSettingsMessage('');
+    closeModal('adminEmailSettingsModal');
+}
+
+async function saveAdminEmailSettings() {
+    if (!adminUnlockedPassword) {
+        setAdminEmailSettingsMessage('Unlock Admin settings first.', true);
+        return;
+    }
+    try {
+        const resp = await fetch('/api/admin/email-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                currentPassword: adminUnlockedPassword,
+                emailConfig: readAdminEmailConfigFromForm(),
+            }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not save email settings.');
+        adminEmailConfig = data.emailConfig || readAdminEmailConfigFromForm();
+        applyAdminEmailConfigToForm(adminEmailConfig);
+        setAdminEmailSettingsMessage('Email settings saved.', false);
+    } catch (err) {
+        setAdminEmailSettingsMessage(err?.message || 'Could not save email settings.', true);
+    }
+}
+
+async function sendAdminEmailTest() {
+    if (!adminUnlockedPassword) {
+        setAdminEmailSettingsMessage('Unlock Admin settings first.', true);
+        return;
+    }
+    const testEmail = (document.getElementById('adminEmailTestRecipient')?.value || '').trim();
+    if (!testEmail) {
+        setAdminEmailSettingsMessage('Enter a test recipient email address.', true);
+        return;
+    }
+    try {
+        const resp = await fetch('/api/admin/email-settings/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                currentPassword: adminUnlockedPassword,
+                testEmail,
+                emailConfig: readAdminEmailConfigFromForm(),
+            }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || data.ok === false) throw new Error(data.error || 'Test email failed.');
+        setAdminEmailSettingsMessage(data.message || 'Test email sent.', false);
+    } catch (err) {
+        setAdminEmailSettingsMessage(err?.message || 'Test email failed.', true);
+    }
 }
 
 function getAdminAiPilotGeneralInstructions() {
@@ -60287,6 +60397,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('openAdminAiPilotInstructionsBtn')?.addEventListener('click', () => openAdminAiPilotInstructionsModal());
     document.getElementById('openAdminGlobalAircraftLabelBtn')?.addEventListener('click', () => openAdminGlobalAircraftLabelModal());
     document.getElementById('openAdminLoadSystemSettingBtn')?.addEventListener('click', () => openAdminLoadSystemSettingModal());
+    document.getElementById('openAdminConfigureEmailBtn')?.addEventListener('click', () => openAdminEmailSettingsModal());
+    document.getElementById('closeAdminEmailSettingsBtn')?.addEventListener('click', () => closeAdminEmailSettingsModal());
+    document.getElementById('cancelAdminEmailSettingsBtn')?.addEventListener('click', () => closeAdminEmailSettingsModal());
+    document.getElementById('saveAdminEmailSettingsBtn')?.addEventListener('click', () => saveAdminEmailSettings());
+    document.getElementById('sendAdminEmailTestBtn')?.addEventListener('click', () => sendAdminEmailTest());
     document.getElementById('closeAdminLoadSystemSettingBtn')?.addEventListener('click', () => closeModal('adminLoadSystemSettingModal'));
     document.getElementById('cancelAdminLoadSystemSettingBtn')?.addEventListener('click', () => closeModal('adminLoadSystemSettingModal'));
     document.getElementById('clearAdminSystemDefaultBtn')?.addEventListener('click', () => clearAdminSystemDefaultSimSettings());
@@ -60572,12 +60687,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     const sectorMapBackgroundConfirmDeleteAllModal = document.getElementById('sectorMapBackgroundConfirmDeleteAllModal');
     const exerciseFlightsPopupModal = document.getElementById('exerciseFlightsPopupModal');
     const editSectorInportModal = document.getElementById('editSectorInportModal');
+    const aiPpPttModal = document.getElementById('aiPpPttModal');
+    const adminUnlockModal = document.getElementById('adminUnlockModal');
+    const adminSettingsModal = document.getElementById('adminSettingsModal');
+    const adminEmailSettingsModal = document.getElementById('adminEmailSettingsModal');
+    const adminAiPilotInstructionsModal = document.getElementById('adminAiPilotInstructionsModal');
     // Click outside to close (exclude simulationModal so running simulation does not close on backdrop click)
     // editSectorModal excluded: close only via X (with unsaved prompt when dirty)
     // No backdrop dismiss: settingsModal, createExercisePopup, editExerciseModal, createSectorPopup,
     // deleteExercisesModal, deleteSectorsModal, editAircraftDbModal, editAirlinesDbModal, addFlightModal, addMultipleFlightsModal,
     // simulationEnMgmtRulesModal (close via X / Cancel / Save only — avoids losing rule edits on a stray click)
-    const modalsWithBackdropClose = [startSessionModal, selectExerciseModal, playbackModal, exerciseFlightsPopupModal, editSectorInportModal, verticalLimitsModal, airportsModal, addRunwayModal, addApproachModal, addWaypointModal, addNavaidModal, addRouteModal, addMultipleWaypointsModal, addMultipleNavaidsModal, addMultipleRoutesModal, addMultipleAtcSectorsModal, addMultipleAirportsModal, addMultipleRunwaysModal, addMultipleApproachesModal, addMultipleAreasModal, addMultipleHoldingsModal, sectorMapBackgroundPickRenameModal, sectorMapBackgroundRenameModal, atcSectorsModal, duplicateAirspaceModal, joinSessionAssignModal, aiPpPttModal, adminUnlockModal, adminSettingsModal, adminAiPilotInstructionsModal, simulationSettingsModal, simulationEnMgmtRoutesModal, simulationEnMgmtMergeRoutesModal, simulationEnMgmtAddRouteModal, simulationEnMgmtIdentifierModal, simulationEnMgmtLevelsModal, simulationEnMgmtSaveRoutesModal, simulationEnMgmtSaveRoutesOverwriteModal, simulationEnMgmtLoadRoutesModal, simulationEnMgmtLoadRoutesDeleteConfirmModal, simulationEnMgmtDeleteRoutesModal, simulationEnMgmtDeleteRouteConfirmModal, simulationDebugLogModal, stopSimulationConfirmModal, simulationLabelEditorModal, adminSingleUserLabelConfigModal, labelSetupSaveConfirmModal, labelSetupDeleteConfirmModal, simulationLabelAuthModal, loadSimSettingsPresetsModal, saveSimSettingsPresetModal, adminLoadSystemSettingModal, stcaParametersModal, flightStatusColorsModal, simulationConnectedUsersModal, runTypeModal, sectorMapBackgroundPickEditModal, sectorMapBackgroundPickDeleteModal, sectorMapBackgroundConfirmDeleteOneModal, sectorMapBackgroundConfirmDeleteAllModal, sectorMapBackgroundModal, exportDataModal, importDataModal];
+    const modalsWithBackdropClose = [startSessionModal, selectExerciseModal, playbackModal, exerciseFlightsPopupModal, editSectorInportModal, verticalLimitsModal, airportsModal, addRunwayModal, addApproachModal, addWaypointModal, addNavaidModal, addRouteModal, addMultipleWaypointsModal, addMultipleNavaidsModal, addMultipleRoutesModal, addMultipleAtcSectorsModal, addMultipleAirportsModal, addMultipleRunwaysModal, addMultipleApproachesModal, addMultipleAreasModal, addMultipleHoldingsModal, sectorMapBackgroundPickRenameModal, sectorMapBackgroundRenameModal, atcSectorsModal, duplicateAirspaceModal, joinSessionAssignModal, aiPpPttModal, adminUnlockModal, adminSettingsModal, adminEmailSettingsModal, adminAiPilotInstructionsModal, simulationSettingsModal, simulationEnMgmtRoutesModal, simulationEnMgmtMergeRoutesModal, simulationEnMgmtAddRouteModal, simulationEnMgmtIdentifierModal, simulationEnMgmtLevelsModal, simulationEnMgmtSaveRoutesModal, simulationEnMgmtSaveRoutesOverwriteModal, simulationEnMgmtLoadRoutesModal, simulationEnMgmtLoadRoutesDeleteConfirmModal, simulationEnMgmtDeleteRoutesModal, simulationEnMgmtDeleteRouteConfirmModal, simulationDebugLogModal, stopSimulationConfirmModal, simulationLabelEditorModal, adminSingleUserLabelConfigModal, labelSetupSaveConfirmModal, labelSetupDeleteConfirmModal, simulationLabelAuthModal, loadSimSettingsPresetsModal, saveSimSettingsPresetModal, adminLoadSystemSettingModal, stcaParametersModal, flightStatusColorsModal, simulationConnectedUsersModal, runTypeModal, sectorMapBackgroundPickEditModal, sectorMapBackgroundPickDeleteModal, sectorMapBackgroundConfirmDeleteOneModal, sectorMapBackgroundConfirmDeleteAllModal, sectorMapBackgroundModal, exportDataModal, importDataModal];
     modalsWithBackdropClose.forEach(modal => {
         if (modal) {
             modal.addEventListener('click', function(e) {

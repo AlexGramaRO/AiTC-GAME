@@ -393,6 +393,12 @@
                     <p class="hint-text">Default aircraft label layout for all positions (profiles coming later).</p>
                 </div>
                 <div class="form-group">
+                    <button type="button" class="btn btn-secondary admin-ai-pilot-instructions-btn" id="openAdminConfigureEmailBtn">
+                        Configure email
+                    </button>
+                    <p class="hint-text">SMTP settings used for sign-up verification codes and other platform email.</p>
+                </div>
+                <div class="form-group">
                     <button type="button" class="btn btn-secondary admin-ai-pilot-instructions-btn" id="openAdminLoadSystemSettingBtn">
                         Load System Setting
                     </button>
@@ -429,6 +435,70 @@
                 <button type="button" class="btn btn-tertiary" id="resetAdminAiPilotInstructionsBtn">Reset Default</button>
                 <button type="button" class="btn btn-primary" id="saveAdminAiPilotInstructionsBtn">Save</button>
                 <button type="button" class="btn btn-secondary" id="cancelAdminAiPilotInstructionsBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin email / SMTP settings -->
+    <div id="adminEmailSettingsModal" class="modal">
+        <div class="modal-content modal-medium">
+            <div class="modal-header">
+                <h2>Configure Email</h2>
+                <button type="button" class="modal-close" id="closeAdminEmailSettingsBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="hint-text">These settings are used to send sign-up verification codes and other platform email. For production, use a dedicated sending address on your own domain with SPF, DKIM, and DMARC configured at your DNS provider.</p>
+                <div class="form-group">
+                    <label class="form-checkbox-row">
+                        <input type="checkbox" id="adminEmailEnabled" class="form-checkbox" />
+                        <span>Enable outbound email</span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="adminEmailSmtpHost">SMTP host</label>
+                    <input type="text" id="adminEmailSmtpHost" class="form-input" placeholder="smtp.example.com">
+                </div>
+                <div class="form-group">
+                    <label for="adminEmailSmtpPort">SMTP port</label>
+                    <input type="number" id="adminEmailSmtpPort" class="form-input" min="1" max="65535" value="587">
+                    <p class="hint-text">587 with STARTTLS is typical. Use 465 for SSL.</p>
+                </div>
+                <div class="form-group">
+                    <label for="adminEmailSmtpSecurity">Security</label>
+                    <select id="adminEmailSmtpSecurity" class="form-select">
+                        <option value="starttls">STARTTLS (recommended, port 587)</option>
+                        <option value="ssl">SSL/TLS (port 465)</option>
+                        <option value="none">None (not recommended)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="adminEmailSmtpUser">SMTP username</label>
+                    <input type="text" id="adminEmailSmtpUser" class="form-input" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="adminEmailSmtpPassword">SMTP password</label>
+                    <input type="password" id="adminEmailSmtpPassword" class="form-input" autocomplete="new-password" placeholder="Leave blank to keep current password">
+                </div>
+                <div class="form-group">
+                    <label for="adminEmailFromEmail">From email address</label>
+                    <input type="email" id="adminEmailFromEmail" class="form-input" placeholder="noreply@yourdomain.com">
+                </div>
+                <div class="form-group">
+                    <label for="adminEmailFromName">From display name</label>
+                    <input type="text" id="adminEmailFromName" class="form-input" placeholder="AiTC">
+                </div>
+                <div class="form-group">
+                    <label for="adminEmailTestRecipient">Send test email to</label>
+                    <div class="sim-probing-row">
+                        <input type="email" id="adminEmailTestRecipient" class="form-input" placeholder="you@yourdomain.com">
+                        <button type="button" class="btn btn-secondary" id="sendAdminEmailTestBtn">Send test</button>
+                    </div>
+                </div>
+                <div id="adminEmailSettingsMessage" class="admin-message-text" style="display:none;"></div>
+            </div>
+            <div class="modal-footer admin-modal-footer">
+                <button type="button" class="btn btn-primary" id="saveAdminEmailSettingsBtn">Save</button>
+                <button type="button" class="btn btn-secondary" id="cancelAdminEmailSettingsBtn">Close</button>
             </div>
         </div>
     </div>

@@ -24,6 +24,24 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from user_auth import auth_before_request, init_user_auth, admin_required
 from stripe_billing import init_stripe_billing
+from email_service import (
+    email_config_for_admin_ui,
+    merge_email_config,
+    normalize_email_config_for_storage,
+    is_email_configured,
+    send_email,
+)
+from content_store import (
+    get_all_exercise_categories,
+    get_all_exercises,
+    get_all_sectors,
+    get_exercise as get_exercise_from_store,
+    get_sector as get_sector_from_store,
+    init_content_store,
+    replace_all_exercise_categories,
+    replace_all_exercises,
+    replace_all_sectors,
+)
 
 app = Flask(__name__)
 
@@ -103,6 +121,7 @@ EN_MGMT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'EN-MGMT'
 ADMIN_SETTINGS_FILE = os.path.join(DATA_DIR, 'admin_settings.json')
 
 init_user_auth(app, DATA_DIR)
+init_content_store(DATA_DIR)
 init_stripe_billing(app)
 
 
@@ -815,6 +834,7 @@ def _read_admin_settings():
     data.setdefault('defaultSingleUserLabelProfileId', '')
     data.setdefault('defaultHostedSessionsLabelProfileId', '')
     data.setdefault('systemDefaultSimSettings', None)
+    data.setdefault('emailConfig', {})
     data['globalLabelLayout'] = _normalize_label_layout(data.get('globalLabelLayout'))
     data['globalLabelSetupId'] = (data.get('globalLabelSetupId') or '').strip() if isinstance(data.get('globalLabelSetupId'), str) else ''
     data['globalLabelSetups'] = _normalize_label_setups(data.get('globalLabelSetups'))
@@ -879,27 +899,15 @@ def _admin_password_ok(password):
 def _find_exercise(exercise_id):
     if exercise_id is None:
         return None
-    exercise_id = str(exercise_id)
-    exercises = _read_json(EXERCISES_FILE, [])
-    if not isinstance(exercises, list):
-        return None
-    for exercise in exercises:
-        if isinstance(exercise, dict) and str(exercise.get('id')) == exercise_id:
-            return exercise
-    return None
+    exercise = get_exercise_from_store(str(exercise_id))
+    return exercise if isinstance(exercise, dict) else None
 
 
 def _find_sector(sector_id):
     if sector_id is None:
         return None
-    sector_id = str(sector_id)
-    sectors = _read_json(SECTORS_FILE, [])
-    if not isinstance(sectors, list):
-        return None
-    for sector in sectors:
-        if isinstance(sector, dict) and str(sector.get('id')) == sector_id:
-            return sector
-    return None
+    sector = get_sector_from_store(str(sector_id))
+    return sector if isinstance(sector, dict) else None
 
 
 def _get_exercise_ai_pilot_context(exercise_id):
@@ -1602,8 +1610,7 @@ def health():
 @app.route('/api/sectors', methods=['GET'])
 def api_get_sectors():
     """Return sectors shared across all clients."""
-    data = _read_json(SECTORS_FILE, [])
-    sectors = data if isinstance(data, list) else []
+    sectors = get_all_sectors()
     if request.args.get('summary') in ('1', 'true', 'yes'):
         return jsonify({'sectors': [_sector_summary(s) for s in sectors if isinstance(s, dict)]})
     return jsonify({'sectors': sectors})
@@ -1612,12 +1619,9 @@ def api_get_sectors():
 @app.route('/api/sectors/<sector_id>', methods=['GET'])
 def api_get_sector(sector_id):
     """Return one full airspace when the user explicitly loads it."""
-    data = _read_json(SECTORS_FILE, [])
-    sectors = data if isinstance(data, list) else []
-    sid = str(sector_id)
-    for sector in sectors:
-        if isinstance(sector, dict) and str(sector.get('id')) == sid:
-            return jsonify({'sector': sector})
+    sector = get_sector_from_store(str(sector_id))
+    if isinstance(sector, dict):
+        return jsonify({'sector': sector})
     return jsonify({'error': 'Airspace not found'}), 404
 
 
@@ -1630,9 +1634,9 @@ def api_save_sectors():
         if not isinstance(sectors, list):
             sectors = []
         if body.get('mergeSummaries'):
-            existing = _read_json(SECTORS_FILE, [])
+            existing = get_all_sectors()
             sectors = _merge_sector_summaries(existing, sectors)
-        _write_json(SECTORS_FILE, sectors)
+        replace_all_sectors(sectors)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
@@ -1641,8 +1645,7 @@ def api_save_sectors():
 @app.route('/api/exercises', methods=['GET'])
 def api_get_exercises():
     """Return exercises shared across all clients."""
-    data = _read_json(EXERCISES_FILE, [])
-    return jsonify({'exercises': data if isinstance(data, list) else []})
+    return jsonify({'exercises': get_all_exercises()})
 
 
 @app.route('/api/exercises', methods=['POST', 'PUT'])
@@ -1653,14 +1656,14 @@ def api_save_exercises():
         exercises = body.get('exercises', [])
         if not isinstance(exercises, list):
             exercises = []
-        _write_json(EXERCISES_FILE, exercises)
+        replace_all_exercises(exercises)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
 
 
 def _valid_exercise_ids():
-    exercises = _read_json(EXERCISES_FILE, [])
+    exercises = get_all_exercises()
     if not isinstance(exercises, list):
         return set()
     ids = set()
@@ -1715,7 +1718,7 @@ def _normalize_exercise_categories(categories):
 @app.route('/api/exercise-categories', methods=['GET'])
 def api_get_exercise_categories():
     """Return exercise categories (groupings of existing exercises)."""
-    categories = _normalize_exercise_categories(_read_json(EXERCISE_CATEGORIES_FILE, []))
+    categories = _normalize_exercise_categories(get_all_exercise_categories())
     return jsonify({'ok': True, 'categories': categories})
 
 
@@ -1726,7 +1729,7 @@ def api_save_exercise_categories():
     try:
         body = request.get_json(force=True, silent=True) or {}
         categories = _normalize_exercise_categories(body.get('categories', []))
-        _write_json(EXERCISE_CATEGORIES_FILE, categories)
+        replace_all_exercise_categories(categories)
         return jsonify({'ok': True, 'categories': categories})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
@@ -2192,7 +2195,73 @@ def api_admin_unlock():
             'defaultGenericLabelSetupId': data.get('defaultGenericLabelSetupId') or '',
             'defaultSingleUserLabelProfileId': data.get('defaultSingleUserLabelProfileId') or '',
             'defaultHostedSessionsLabelProfileId': data.get('defaultHostedSessionsLabelProfileId') or '',
+            'emailConfig': email_config_for_admin_ui(data.get('emailConfig'), DATA_DIR),
         })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+
+
+@app.route('/api/admin/email-settings', methods=['POST', 'PUT'])
+def api_save_admin_email_settings():
+    """Save SMTP / sender settings for verification and platform email."""
+    try:
+        body = request.get_json(silent=True) or {}
+        if not _admin_password_ok(body.get('currentPassword', '')):
+            return jsonify({'ok': False, 'error': 'Invalid admin password'}), 403
+        data = _read_admin_settings()
+        incoming = body.get('emailConfig')
+        if not isinstance(incoming, dict):
+            return jsonify({'ok': False, 'error': 'emailConfig object is required'}), 400
+
+        existing = data.get('emailConfig') if isinstance(data.get('emailConfig'), dict) else {}
+        stored = normalize_email_config_for_storage(incoming)
+        if not (incoming.get('smtpPassword') or '').strip() and existing.get('smtpPassword'):
+            stored['smtpPassword'] = existing.get('smtpPassword')
+
+        data['emailConfig'] = stored
+        data['updatedAt'] = datetime.now(timezone.utc).isoformat()
+        _write_json(ADMIN_SETTINGS_FILE, data)
+        return jsonify({
+            'ok': True,
+            'emailConfig': email_config_for_admin_ui(data.get('emailConfig'), DATA_DIR),
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+
+
+@app.route('/api/admin/email-settings/test', methods=['POST'])
+def api_test_admin_email_settings():
+    """Send a test email using the saved or submitted SMTP settings."""
+    try:
+        body = request.get_json(silent=True) or {}
+        if not _admin_password_ok(body.get('currentPassword', '')):
+            return jsonify({'ok': False, 'error': 'Invalid admin password'}), 403
+        to_email = (body.get('testEmail') or '').strip().lower()
+        if not to_email:
+            return jsonify({'ok': False, 'error': 'Test recipient email is required'}), 400
+
+        data = _read_admin_settings()
+        draft = body.get('emailConfig') if isinstance(body.get('emailConfig'), dict) else None
+        if draft:
+            existing = data.get('emailConfig') if isinstance(data.get('emailConfig'), dict) else {}
+            merged_file = normalize_email_config_for_storage(draft)
+            if not (draft.get('smtpPassword') or '').strip() and existing.get('smtpPassword'):
+                merged_file['smtpPassword'] = existing.get('smtpPassword')
+            config = merge_email_config(merged_file, DATA_DIR)
+        else:
+            config = merge_email_config(data.get('emailConfig'), DATA_DIR)
+
+        if not is_email_configured(config):
+            return jsonify({'ok': False, 'error': 'Email is not fully configured yet'}), 400
+
+        send_email(
+            config,
+            to_email,
+            'AiTC email test',
+            'This is a test email from your AiTC platform configuration.',
+            '<p>This is a <strong>test email</strong> from your AiTC platform configuration.</p>',
+        )
+        return jsonify({'ok': True, 'message': f'Test email sent to {to_email}.'})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
 

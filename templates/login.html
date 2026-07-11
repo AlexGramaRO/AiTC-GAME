@@ -57,8 +57,26 @@
             </form>
 
             <p class="auth-footnote">
-                New accounts require administrator approval before simulator access is granted.
+                New accounts require email verification, then administrator approval before simulator access is granted.
             </p>
+        </div>
+    </div>
+
+    <div id="signupVerifyModal" class="auth-verify-modal" style="display:none;" aria-hidden="true">
+        <div class="auth-verify-card" role="dialog" aria-modal="true" aria-labelledby="signupVerifyTitle">
+            <h2 id="signupVerifyTitle">Verify your email</h2>
+            <p class="hint-text">We sent a 6-digit code to <strong id="signupVerifyEmailLabel">your email</strong>. Enter it below to finish creating your account.</p>
+            <p class="auth-verify-timer">Time remaining: <span id="signupVerifyTimer">5:00</span></p>
+            <div class="form-group">
+                <label for="signupVerifyCode">Verification code</label>
+                <input type="text" id="signupVerifyCode" class="form-input auth-verify-code-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+            </div>
+            <div id="signupVerifyMessage" class="auth-message" style="display:none;"></div>
+            <div class="auth-verify-actions">
+                <button type="button" class="btn btn-primary" id="signupVerifySubmitBtn">Verify and create account</button>
+                <button type="button" class="btn btn-secondary" id="signupVerifyChangeEmailBtn">Change email</button>
+            </div>
+            <p class="hint-text auth-verify-footnote">After verification, your account will await administrator approval. Please allow up to 24 hours.</p>
         </div>
     </div>
 

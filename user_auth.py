@@ -6,6 +6,9 @@ Local dev without DATABASE_URL falls back to SQLite at data/users.sqlite3.
 
 import os
 import re
+import secrets
+import hashlib
+import hmac
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -15,6 +18,12 @@ from functools import wraps
 from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from email_service import (
+    merge_email_config,
+    is_email_configured,
+    send_signup_verification_email,
+)
+
 auth_bp = Blueprint('user_auth', __name__)
 
 _EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
@@ -22,10 +31,14 @@ _SUBSCRIPTION_MONTH_DAYS = 31
 _ONE_DAY_PASS_HOURS = 24
 PASS_TYPE_MONTHLY = 'monthly'
 PASS_TYPE_ONE_DAY = 'one_day'
+SIGNUP_CODE_TTL_MINUTES = 5
+SIGNUP_MAX_VERIFY_ATTEMPTS = 8
 
 _USE_POSTGRES = False
 _DB_PATH = None
 _pg = None
+_AUTH_DATA_DIR = None
+_APP_SECRET = ''
 
 
 def _now_utc():
@@ -173,6 +186,146 @@ def _new_user_id():
     return str(uuid.uuid4())
 
 
+def _signup_email_config():
+    return merge_email_config(data_dir=_AUTH_DATA_DIR)
+
+
+def _generate_signup_code():
+    return f'{secrets.randbelow(900000) + 100000:06d}'
+
+
+def _hash_signup_code(verification_id, code):
+    secret = (_APP_SECRET or 'dev-insecure-secret-change-me').encode('utf-8')
+    payload = f'{verification_id}:{code}'.encode('utf-8')
+    return hmac.new(secret, payload, hashlib.sha256).hexdigest()
+
+
+def _verify_signup_code(verification_id, code, code_hash):
+    if not verification_id or not code or not code_hash:
+        return False
+    expected = _hash_signup_code(verification_id, code.strip())
+    return hmac.compare_digest(expected, code_hash)
+
+
+def _cleanup_expired_signup_verifications():
+    now = _now_utc()
+    now_s = now.isoformat()
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute('DELETE FROM signup_verifications WHERE expires_at < %s', (now,))
+            cur.close()
+            return
+        conn.execute('DELETE FROM signup_verifications WHERE expires_at < ?', (now_s,))
+
+
+def _delete_signup_verifications_for_email(email):
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute('DELETE FROM signup_verifications WHERE email = %s', (email,))
+            cur.close()
+            return
+        conn.execute('DELETE FROM signup_verifications WHERE email = ?', (email,))
+
+
+def _fetch_signup_verification(verification_id):
+    verification_id = str(verification_id or '').strip()
+    if not verification_id:
+        return None
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''SELECT id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at
+                   FROM signup_verifications WHERE id = %s''',
+                (verification_id,),
+            )
+            row = cur.fetchone()
+            cur.close()
+        else:
+            row = conn.execute(
+                '''SELECT id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at
+                   FROM signup_verifications WHERE id = ?''',
+                (verification_id,),
+            ).fetchone()
+    if not row:
+        return None
+    if isinstance(row, sqlite3.Row) or hasattr(row, 'keys'):
+        data = dict(row)
+    else:
+        keys = ['id', 'email', 'password_hash', 'display_name', 'code_hash', 'expires_at', 'attempt_count', 'created_at']
+        data = dict(zip(keys, row))
+    expires_at = _parse_dt(data.get('expires_at'))
+    data['expires_at_dt'] = expires_at
+    return data
+
+
+def _create_signup_verification(email, password_hash, display_name, code):
+    verification_id = _new_user_id()
+    now = _now_utc()
+    expires_at = now + timedelta(minutes=SIGNUP_CODE_TTL_MINUTES)
+    code_hash = _hash_signup_code(verification_id, code)
+    _delete_signup_verifications_for_email(email)
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO signup_verifications (
+                    id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, 0, %s)''',
+                (verification_id, email, password_hash, display_name or None, code_hash, expires_at, now),
+            )
+            cur.close()
+        else:
+            conn.execute(
+                '''INSERT INTO signup_verifications (
+                    id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)''',
+                (verification_id, email, password_hash, display_name or None, code_hash, expires_at.isoformat(), now.isoformat()),
+            )
+    return verification_id, expires_at
+
+
+def _increment_signup_verification_attempts(verification_id):
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                'UPDATE signup_verifications SET attempt_count = attempt_count + 1 WHERE id = %s',
+                (verification_id,),
+            )
+            cur.close()
+            return
+        conn.execute(
+            'UPDATE signup_verifications SET attempt_count = attempt_count + 1 WHERE id = ?',
+            (verification_id,),
+        )
+
+
+def _delete_signup_verification(verification_id):
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute('DELETE FROM signup_verifications WHERE id = %s', (verification_id,))
+            cur.close()
+            return
+        conn.execute('DELETE FROM signup_verifications WHERE id = ?', (verification_id,))
+
+
+def _validate_signup_payload(body):
+    email = (body.get('email') or '').strip().lower()
+    password = body.get('password') or ''
+    display_name = (body.get('displayName') or '').strip()
+    if not email or not _EMAIL_RE.match(email):
+        return None, None, None, ('Enter a valid email address', 400)
+    if len(password) < 8:
+        return None, None, None, ('Password must be at least 8 characters', 400)
+    if _fetch_user_by_email(email):
+        return None, None, None, ('An account with this email already exists', 409)
+    return email, password, display_name, None
+
+
 def init_db():
     if _USE_POSTGRES:
         ddl_users = '''
@@ -228,6 +381,7 @@ def init_db():
             for stmt in indexes:
                 cur.execute(stmt)
             cur.close()
+        _ensure_signup_verifications_table()
         _migrate_schema()
         return
 
@@ -283,7 +437,51 @@ def init_db():
         for stmt in indexes:
             conn.execute(stmt)
 
+    _ensure_signup_verifications_table()
     _migrate_schema()
+
+
+def _ensure_signup_verifications_table():
+    ddl = '''
+        CREATE TABLE IF NOT EXISTS signup_verifications (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            display_name TEXT,
+            code_hash TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        )
+    '''
+    indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_signup_verifications_email ON signup_verifications (email)',
+        'CREATE INDEX IF NOT EXISTS idx_signup_verifications_expires_at ON signup_verifications (expires_at)',
+    ]
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS signup_verifications (
+                    id TEXT PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    display_name TEXT,
+                    code_hash TEXT NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                '''
+            )
+            for stmt in indexes:
+                cur.execute(stmt)
+            cur.close()
+            return
+        conn.execute(ddl)
+        for stmt in indexes:
+            conn.execute(stmt)
 
 
 def _sqlite_has_column(conn, table, column):
@@ -951,6 +1149,8 @@ PUBLIC_EXACT_PATHS = frozenset({
     '/health',
     '/api/auth/login',
     '/api/auth/signup',
+    '/api/auth/signup/start',
+    '/api/auth/signup/verify',
     '/api/auth/logout',
     '/api/auth/me',
     '/api/billing/stripe/webhook',
@@ -1024,7 +1224,18 @@ def auth_before_request():
     return None
 
 
+def get_db_connection():
+    """Shared PostgreSQL / SQLite connection for app content tables."""
+    return _db_conn()
+
+
+def database_is_postgres():
+    return _USE_POSTGRES
+
+
 def init_user_auth(app, data_dir):
+    global _AUTH_DATA_DIR, _APP_SECRET
+    _AUTH_DATA_DIR = data_dir
     _configure_db(data_dir)
 
     secret = (os.environ.get('SECRET_KEY') or '').strip()
@@ -1033,6 +1244,7 @@ def init_user_auth(app, data_dir):
         app.logger.warning('SECRET_KEY is not set; using insecure default (set SECRET_KEY on Railway).')
 
     app.config['SECRET_KEY'] = secret
+    _APP_SECRET = secret
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     if os.environ.get('SESSION_COOKIE_SECURE', '').lower() in ('1', 'true', 'yes'):
@@ -1075,24 +1287,82 @@ def signup_page():
     )
 
 
-@auth_bp.route('/api/auth/signup', methods=['POST'])
-def api_auth_signup():
+@auth_bp.route('/api/auth/signup/start', methods=['POST'])
+def api_auth_signup_start():
+    _cleanup_expired_signup_verifications()
     body = request.get_json(silent=True) or {}
-    email = (body.get('email') or '').strip().lower()
-    password = body.get('password') or ''
-    display_name = (body.get('displayName') or '').strip()
+    email, password, display_name, error = _validate_signup_payload(body)
+    if error:
+        message, status = error
+        return jsonify({'ok': False, 'error': message}), status
 
-    if not email or not _EMAIL_RE.match(email):
-        return jsonify({'ok': False, 'error': 'Enter a valid email address'}), 400
-    if len(password) < 8:
-        return jsonify({'ok': False, 'error': 'Password must be at least 8 characters'}), 400
+    email_config = _signup_email_config()
+    if not is_email_configured(email_config):
+        return jsonify({
+            'ok': False,
+            'error': 'Email verification is not configured yet. Please contact the administrator.',
+        }), 503
+
+    code = _generate_signup_code()
+    password_hash = generate_password_hash(password)
+    verification_id = None
+    try:
+        verification_id, expires_at = _create_signup_verification(email, password_hash, display_name, code)
+        send_signup_verification_email(email_config, email, code)
+    except Exception:
+        if verification_id:
+            _delete_signup_verification(verification_id)
+        return jsonify({
+            'ok': False,
+            'error': 'Could not send the verification email. Check email settings or try again later.',
+        }), 500
+
+    return jsonify({
+        'ok': True,
+        'verificationId': verification_id,
+        'email': email,
+        'expiresAt': _iso_dt(expires_at),
+        'expiresInSeconds': SIGNUP_CODE_TTL_MINUTES * 60,
+    })
+
+
+@auth_bp.route('/api/auth/signup/verify', methods=['POST'])
+def api_auth_signup_verify():
+    _cleanup_expired_signup_verifications()
+    body = request.get_json(silent=True) or {}
+    verification_id = (body.get('verificationId') or '').strip()
+    code = (body.get('code') or '').strip()
+
+    if not verification_id or not code:
+        return jsonify({'ok': False, 'error': 'Verification id and code are required'}), 400
+    if not re.fullmatch(r'\d{6}', code):
+        return jsonify({'ok': False, 'error': 'Enter the 6-digit code from your email'}), 400
+
+    pending = _fetch_signup_verification(verification_id)
+    if not pending:
+        return jsonify({'ok': False, 'error': 'Verification expired or not found. Please sign up again.'}), 404
+
+    expires_at = pending.get('expires_at_dt')
+    if not expires_at or expires_at <= _now_utc():
+        _delete_signup_verification(verification_id)
+        return jsonify({'ok': False, 'error': 'Verification code expired. Please sign up again.'}), 410
+
+    attempt_count = int(pending.get('attempt_count') or 0)
+    if attempt_count >= SIGNUP_MAX_VERIFY_ATTEMPTS:
+        _delete_signup_verification(verification_id)
+        return jsonify({'ok': False, 'error': 'Too many incorrect attempts. Please sign up again.'}), 429
+
+    if not _verify_signup_code(verification_id, code, pending.get('code_hash')):
+        _increment_signup_verification_attempts(verification_id)
+        return jsonify({'ok': False, 'error': 'Incorrect verification code. Try again.'}), 400
+
+    email = (pending.get('email') or '').strip().lower()
     if _fetch_user_by_email(email):
+        _delete_signup_verification(verification_id)
         return jsonify({'ok': False, 'error': 'An account with this email already exists'}), 409
 
     user_id = _new_user_id()
     now = _now_utc()
-    password_hash = generate_password_hash(password)
-
     with _db_conn() as conn:
         if _USE_POSTGRES:
             cur = conn.cursor()
@@ -1101,7 +1371,14 @@ def api_auth_signup():
                     id, email, password_hash, display_name, status, is_admin,
                     created_at, updated_at
                 ) VALUES (%s, %s, %s, %s, 'pending', FALSE, %s, %s)''',
-                (user_id, email, password_hash, display_name or None, now, now),
+                (
+                    user_id,
+                    email,
+                    pending.get('password_hash'),
+                    pending.get('display_name') or None,
+                    now,
+                    now,
+                ),
             )
             cur.close()
         else:
@@ -1111,14 +1388,33 @@ def api_auth_signup():
                     id, email, password_hash, display_name, status, is_admin,
                     created_at, updated_at
                 ) VALUES (?, ?, ?, ?, 'pending', 0, ?, ?)''',
-                (user_id, email, password_hash, display_name or None, now_s, now_s),
+                (
+                    user_id,
+                    email,
+                    pending.get('password_hash'),
+                    pending.get('display_name') or None,
+                    now_s,
+                    now_s,
+                ),
             )
 
+    _delete_signup_verification(verification_id)
     return jsonify({
         'ok': True,
-        'message': 'Sign-up submitted. An administrator must approve your account before you can use the simulator.',
+        'message': (
+            'Your account has been created and is awaiting administrator approval. '
+            'You will be notified once approved — please allow up to 24 hours.'
+        ),
         'user': _user_to_api(_fetch_user_by_id(user_id)),
     })
+
+
+@auth_bp.route('/api/auth/signup', methods=['POST'])
+def api_auth_signup():
+    return jsonify({
+        'ok': False,
+        'error': 'Email verification is required. Submit the sign-up form to receive a verification code.',
+    }), 400
 
 
 @auth_bp.route('/api/auth/login', methods=['POST'])

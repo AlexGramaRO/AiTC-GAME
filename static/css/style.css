@@ -10787,6 +10787,61 @@ body.auth-page {
     border: 1px solid rgba(74, 222, 128, 0.35);
 }
 
+.auth-verify-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(4, 10, 20, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+.auth-verify-card {
+    width: min(100%, 460px);
+    background: rgba(18, 28, 42, 0.96);
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    border-radius: 14px;
+    padding: 1.5rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+.auth-verify-card h2 {
+    margin: 0 0 0.75rem;
+    color: #f5f7fa;
+}
+
+.auth-verify-timer {
+    margin: 0 0 1rem;
+    font-weight: 600;
+    color: #93c5fd;
+}
+
+.auth-verify-code-input {
+    letter-spacing: 0.35em;
+    text-align: center;
+    font-size: 1.35rem;
+    font-weight: 700;
+}
+
+.auth-verify-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.auth-verify-actions .btn {
+    flex: 1 1 180px;
+}
+
+.auth-verify-footnote {
+    margin-top: 1rem;
+    margin-bottom: 0;
+}
+
 .admin-users-shell {
     width: min(1100px, 100%);
     margin: 0 auto;
