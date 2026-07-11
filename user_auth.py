@@ -793,7 +793,7 @@ def _platform_access_reason(user):
     if user.get('is_admin'):
         return None
     if not _fetch_active_subscription(user['id']):
-        return 'Subscribe to unlock the AiTC platform. Your account is approved but has no active subscription.'
+        return 'Subscribe to unlock the webATC platform. Your account is approved but has no active subscription.'
     return None
 
 

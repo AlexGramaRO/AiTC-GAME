@@ -20,7 +20,7 @@ DEFAULT_EMAIL_CONFIG = {
     'smtpUser': '',
     'smtpPassword': '',
     'fromEmail': '',
-    'fromName': 'AiTC',
+    'fromName': 'webATC',
 }
 
 
@@ -83,7 +83,7 @@ def merge_email_config(file_config=None, data_dir=None):
     merged['smtpUser'] = (merged.get('smtpUser') or '').strip()
     merged['smtpPassword'] = (merged.get('smtpPassword') or '').strip()
     merged['fromEmail'] = (merged.get('fromEmail') or '').strip()
-    merged['fromName'] = (merged.get('fromName') or 'AiTC').strip() or 'AiTC'
+    merged['fromName'] = (merged.get('fromName') or 'webATC').strip() or 'webATC'
     return merged
 
 
@@ -96,7 +96,7 @@ def normalize_email_config_for_storage(raw):
         'smtpSecurity': _normalize_security(current.get('smtpSecurity')),
         'smtpUser': (current.get('smtpUser') or '').strip(),
         'fromEmail': (current.get('fromEmail') or '').strip(),
-        'fromName': (current.get('fromName') or 'AiTC').strip() or 'AiTC',
+        'fromName': (current.get('fromName') or 'webATC').strip() or 'webATC',
     }
     password = current.get('smtpPassword')
     if isinstance(password, str) and password.strip():
@@ -115,7 +115,7 @@ def email_config_for_admin_ui(file_config=None, data_dir=None):
         'smtpSecurity': merged.get('smtpSecurity', 'starttls'),
         'smtpUser': merged.get('smtpUser', ''),
         'fromEmail': merged.get('fromEmail', ''),
-        'fromName': merged.get('fromName', 'AiTC'),
+        'fromName': merged.get('fromName', 'webATC'),
         'smtpPasswordConfigured': bool(merged.get('smtpPassword')),
         'configured': is_email_configured(merged),
         'fromEnv': bool(os.environ.get('SMTP_HOST', '').strip()),
@@ -178,14 +178,14 @@ def send_email(config, to_email, subject, text_body, html_body=None):
 
 
 def send_signup_verification_email(config, to_email, code):
-    subject = 'Your AiTC verification code'
+    subject = 'Your webATC verification code'
     text_body = (
-        f'Your AiTC verification code is: {code}\n\n'
+        f'Your webATC verification code is: {code}\n\n'
         'Enter this code in the sign-up window within 5 minutes.\n\n'
         'If you did not request this, you can ignore this email.'
     )
     html_body = (
-        f'<p>Your AiTC verification code is:</p>'
+        f'<p>Your webATC verification code is:</p>'
         f'<p style="font-size:28px;font-weight:700;letter-spacing:0.25em;">{code}</p>'
         f'<p>Enter this code in the sign-up window within <strong>5 minutes</strong>.</p>'
         f'<p>If you did not request this, you can ignore this email.</p>'
