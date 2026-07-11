@@ -2685,6 +2685,10 @@ footer {
     z-index: 1150;
 }
 
+#adminEmailSettingsModal.active {
+    z-index: 1150;
+}
+
 #adminLoadSystemSettingModal.active {
     z-index: 1150;
 }
