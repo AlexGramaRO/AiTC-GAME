@@ -279,7 +279,7 @@ def _fetch_signup_verification(verification_id):
         return None
     with _db_conn() as conn:
         if _USE_POSTGRES:
-            cur = conn.cursor()
+            cur = conn.cursor(cursor_factory=_pg.extras.RealDictCursor)
             cur.execute(
                 '''SELECT id, email, password_hash, display_name, code_hash, expires_at, attempt_count, created_at,
                           terms_version, refund_policy_version, legal_accepted_at
@@ -297,11 +297,9 @@ def _fetch_signup_verification(verification_id):
             ).fetchone()
     if not row:
         return None
-    if isinstance(row, sqlite3.Row) or hasattr(row, 'keys'):
-        data = dict(row)
-    else:
-        keys = ['id', 'email', 'password_hash', 'display_name', 'code_hash', 'expires_at', 'attempt_count', 'created_at']
-        data = dict(zip(keys, row))
+    data = _row_to_dict(row)
+    if not data:
+        return None
     expires_at = _parse_dt(data.get('expires_at'))
     data['expires_at_dt'] = expires_at
     return data
