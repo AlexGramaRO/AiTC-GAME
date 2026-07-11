@@ -11004,10 +11004,19 @@ body.auth-page {
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 1rem;
     margin-bottom: 1.25rem;
+    align-items: stretch;
+}
+
+.subscribe-plans-grid .subscribe-plan-box {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-bottom: 0;
 }
 
 .subscribe-plan-btn {
-    margin-top: 0.75rem;
+    margin-top: auto;
+    width: 100%;
 }
 
 .subscribe-plan-box {
@@ -11039,6 +11048,10 @@ body.auth-page {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
+}
+
+.subscribe-actions-primary {
+    margin-bottom: 1rem;
 }
 
 .subscribe-actions .btn,

@@ -57,18 +57,18 @@
                 }
             }
 
+            const monthly = data.activeMonthlySubscription;
             if (manageBtn) {
-                manageBtn.style.display = 'inline-flex';
+                manageBtn.style.display = monthly ? 'inline-flex' : 'none';
             }
 
-            const monthly = data.activeMonthlySubscription;
             if (cancelBtn) {
                 cancelBtn.style.display = (data.canCancelSubscription && monthly && monthly.source === 'stripe')
                     ? 'inline-flex'
                     : 'none';
             }
             if (portalBtn) {
-                portalBtn.style.display = (data.canCancelViaStripe && data.activeMonthlySubscription)
+                portalBtn.style.display = (data.canCancelViaStripe && monthly && monthly.source === 'stripe')
                     ? 'inline-flex'
                     : 'none';
             }

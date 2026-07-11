@@ -80,17 +80,7 @@
 
             <div id="subscribeMessage" class="auth-message" style="display:none;"></div>
 
-            <div class="subscribe-plan-box promo-code-box">
-                <h2>Promotion code</h2>
-                <p class="hint-text">Have a promotion code? Enter it here to activate limited-time platform access.</p>
-                <div class="promo-code-row">
-                    <input type="text" id="promoCodeInput" class="form-input promo-code-input" maxlength="10" autocomplete="off" placeholder="XXXXXXXXXX" spellcheck="false">
-                    <button type="button" class="btn btn-secondary auth-submit" id="redeemPromoCodeBtn">Apply code</button>
-                </div>
-                <div id="promoCodeMessage" class="auth-message" style="display:none;"></div>
-            </div>
-
-            <div class="subscribe-actions">
+            <div class="subscribe-actions subscribe-actions-primary">
                 <a href="{{ url_for('stripe_billing.manage_subscription_page') }}" class="btn btn-secondary auth-submit" id="subscribeManageBtn" style="display:none;">
                     Manage subscription
                 </a>
@@ -101,6 +91,19 @@
                     Update payment in Stripe
                 </button>
                 <a href="{{ url_for('index') }}" class="btn btn-secondary auth-submit" id="subscribeHomeBtn" style="display:none;">Go to simulator</a>
+            </div>
+
+            <div class="subscribe-plan-box promo-code-box">
+                <h2>Promotion code</h2>
+                <p class="hint-text">Have a promotion code? Enter it here to activate limited-time platform access.</p>
+                <div class="promo-code-row">
+                    <input type="text" id="promoCodeInput" class="form-input promo-code-input" maxlength="10" autocomplete="off" placeholder="XXXXXXXXXX" spellcheck="false">
+                    <button type="button" class="btn btn-secondary auth-submit" id="redeemPromoCodeBtn">Apply code</button>
+                </div>
+                <div id="promoCodeMessage" class="auth-message" style="display:none;"></div>
+            </div>
+
+            <div class="subscribe-actions subscribe-actions-footer">
                 <button type="button" class="btn btn-secondary auth-submit" id="subscribeLogoutBtn">Sign out</button>
             </div>
 
