@@ -10933,6 +10933,7 @@ body.auth-page {
 .admin-users-shell {
     width: min(1100px, 100%);
     margin: 0 auto;
+    padding-bottom: 2rem;
 }
 
 .admin-users-header {
@@ -10965,7 +10966,7 @@ body.auth-page {
 
 .admin-users-table-wrap {
     overflow-x: auto;
-    overflow-y: visible;
+    min-height: 28rem;
     background: rgba(12, 22, 36, 0.92);
     border: 1px solid rgba(120, 140, 170, 0.35);
     border-radius: 12px;
@@ -10990,6 +10991,10 @@ body.auth-page {
     opacity: 0.9;
 }
 
+.admin-users-table td {
+    overflow: visible;
+}
+
 .admin-users-actions-cell {
     width: 1%;
     white-space: nowrap;
@@ -11008,20 +11013,17 @@ body.auth-page {
 
 .admin-user-actions-dropdown {
     display: none;
-    position: absolute;
-    right: 0;
-    top: calc(100% + 0.25rem);
+    position: fixed;
     min-width: 12.5rem;
     padding: 0.35rem;
     border-radius: 10px;
     border: 1px solid rgba(120, 140, 170, 0.35);
     background: rgba(12, 22, 36, 0.98);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
-    z-index: 30;
+    z-index: 1200;
 }
 
-.admin-user-actions-menu:hover .admin-user-actions-dropdown,
-.admin-user-actions-menu:focus-within .admin-user-actions-dropdown {
+.admin-user-actions-menu.is-open .admin-user-actions-dropdown {
     display: block;
 }
 

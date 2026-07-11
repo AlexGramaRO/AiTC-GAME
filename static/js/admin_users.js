@@ -152,7 +152,89 @@
                 '<td class="admin-users-actions-cell">' + actionButtons(user) + '</td>' +
                 '</tr>';
         }).join('');
+        bindActionMenus();
     }
+
+    function positionActionDropdown(menu) {
+        const trigger = menu.querySelector('.admin-user-actions-trigger');
+        const dropdown = menu.querySelector('.admin-user-actions-dropdown');
+        if (!trigger || !dropdown) return;
+
+        const rect = trigger.getBoundingClientRect();
+        const gap = 0;
+        dropdown.style.top = Math.round(rect.bottom + gap) + 'px';
+        dropdown.style.right = Math.round(window.innerWidth - rect.right) + 'px';
+        dropdown.style.left = 'auto';
+        dropdown.style.bottom = 'auto';
+        dropdown.style.minWidth = Math.max(rect.width, 200) + 'px';
+
+        const dropdownRect = dropdown.getBoundingClientRect();
+        if (dropdownRect.bottom > window.innerHeight - 8) {
+            const flippedTop = Math.round(rect.top - dropdownRect.height - gap);
+            if (flippedTop >= 8) {
+                dropdown.style.top = flippedTop + 'px';
+            }
+        }
+    }
+
+    function closeAllActionMenus() {
+        document.querySelectorAll('.admin-user-actions-menu.is-open').forEach(function (menu) {
+            menu.classList.remove('is-open');
+            const trigger = menu.querySelector('.admin-user-actions-trigger');
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    function bindActionMenus() {
+        document.querySelectorAll('.admin-user-actions-menu').forEach(function (menu) {
+            if (menu.dataset.actionsBound === '1') return;
+            menu.dataset.actionsBound = '1';
+
+            const trigger = menu.querySelector('.admin-user-actions-trigger');
+            const dropdown = menu.querySelector('.admin-user-actions-dropdown');
+            if (!trigger || !dropdown) return;
+
+            function showMenu() {
+                if (menu._hideTimer) {
+                    clearTimeout(menu._hideTimer);
+                    menu._hideTimer = null;
+                }
+                closeAllActionMenus();
+                menu.classList.add('is-open');
+                trigger.setAttribute('aria-expanded', 'true');
+                positionActionDropdown(menu);
+            }
+
+            function hideMenu() {
+                menu._hideTimer = setTimeout(function () {
+                    menu.classList.remove('is-open');
+                    trigger.setAttribute('aria-expanded', 'false');
+                    menu._hideTimer = null;
+                }, 120);
+            }
+
+            menu.addEventListener('mouseenter', showMenu);
+            menu.addEventListener('mouseleave', hideMenu);
+            dropdown.addEventListener('mouseenter', showMenu);
+            dropdown.addEventListener('mouseleave', hideMenu);
+            trigger.addEventListener('focus', showMenu);
+            menu.addEventListener('focusout', function (event) {
+                const next = event.relatedTarget;
+                if (!next || !menu.contains(next)) {
+                    hideMenu();
+                }
+            });
+        });
+    }
+
+    function repositionOpenActionMenus() {
+        document.querySelectorAll('.admin-user-actions-menu.is-open').forEach(function (menu) {
+            positionActionDropdown(menu);
+        });
+    }
+
+    window.addEventListener('resize', repositionOpenActionMenus);
+    window.addEventListener('scroll', repositionOpenActionMenus, true);
 
     async function loadUsers() {
         setMessage('');
