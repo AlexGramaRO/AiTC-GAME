@@ -59877,7 +59877,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     if (userManualDemoBtn) {
         userManualDemoBtn.addEventListener('click', function() {
-            const url = new URL('/manual', window.location.origin).href;
+            const manualPath = isPlatformAdminUser() ? '/manual' : '/manual/subscriber';
+            const url = new URL(manualPath, window.location.origin).href;
             window.open(url, '_blank', 'noopener,noreferrer');
         });
     }

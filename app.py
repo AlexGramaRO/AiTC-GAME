@@ -1580,6 +1580,13 @@ def manual_index():
     return send_from_directory(_MANUAL_DIR, 'index.html')
 
 
+@app.route('/manual/subscriber')
+@app.route('/manual/subscriber/')
+def manual_subscriber():
+    """Simplified user manual for non-admin subscribers (label diagram)."""
+    return send_from_directory(_MANUAL_DIR, 'subscriber.html')
+
+
 @app.route('/manual/<path:filename>')
 def manual_static(filename):
     """CSS and other assets for the manual."""
