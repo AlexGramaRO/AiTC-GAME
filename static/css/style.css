@@ -11105,3 +11105,41 @@ body.auth-page {
     letter-spacing: 0.14em;
     font-weight: 700;
 }
+
+.admin-promotions-storage-hint {
+    margin-top: 0.35rem;
+}
+
+.admin-promotions-storage-warn {
+    color: #fca5a5;
+}
+
+.admin-promotions-actions-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    min-width: 11rem;
+}
+
+.admin-promo-action-btn {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.82rem;
+}
+
+.promo-status-pill {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.promo-status-active {
+    background: rgba(22, 101, 52, 0.25);
+    color: #86efac;
+}
+
+.promo-status-stopped {
+    background: rgba(127, 29, 29, 0.28);
+    color: #fca5a5;
+}

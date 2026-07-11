@@ -1959,8 +1959,12 @@ def admin_promotions_page():
 @auth_bp.route('/api/admin/promotions', methods=['GET'])
 @admin_required
 def api_admin_list_promotions():
-    from promotions_store import list_promotion_codes
-    return jsonify({'ok': True, 'promotions': list_promotion_codes()})
+    from promotions_store import list_promotion_codes, promotions_storage_mode
+    return jsonify({
+        'ok': True,
+        'promotions': list_promotion_codes(),
+        'storage': promotions_storage_mode(),
+    })
 
 
 @auth_bp.route('/api/admin/promotions', methods=['POST'])
@@ -1990,3 +1994,32 @@ def api_admin_create_promotion():
         return jsonify({'ok': False, 'error': str(exc) or 'Could not generate promotion code.'}), 500
 
     return jsonify({'ok': True, 'promotion': promotion})
+
+
+@auth_bp.route('/api/admin/promotions/<promotion_id>/stop', methods=['POST'])
+@admin_required
+def api_admin_stop_promotion(promotion_id):
+    from promotions_store import set_promotion_active
+    promotion = set_promotion_active(promotion_id, False)
+    if not promotion:
+        return jsonify({'ok': False, 'error': 'Promotion code not found'}), 404
+    return jsonify({'ok': True, 'promotion': promotion})
+
+
+@auth_bp.route('/api/admin/promotions/<promotion_id>/resume', methods=['POST'])
+@admin_required
+def api_admin_resume_promotion(promotion_id):
+    from promotions_store import set_promotion_active
+    promotion = set_promotion_active(promotion_id, True)
+    if not promotion:
+        return jsonify({'ok': False, 'error': 'Promotion code not found'}), 404
+    return jsonify({'ok': True, 'promotion': promotion})
+
+
+@auth_bp.route('/api/admin/promotions/<promotion_id>', methods=['DELETE'])
+@admin_required
+def api_admin_delete_promotion(promotion_id):
+    from promotions_store import delete_promotion_code
+    if not delete_promotion_code(promotion_id):
+        return jsonify({'ok': False, 'error': 'Promotion code not found'}), 404
+    return jsonify({'ok': True})

@@ -52,6 +52,31 @@ def _pg_cursor(conn):
     return conn.cursor()
 
 
+def _coerce_bool(value, default=True):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _ensure_promotion_schema(conn):
+    cur = conn.cursor()
+    if database_is_postgres():
+        cur.execute(
+            'ALTER TABLE promotion_codes ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE'
+        )
+    else:
+        from user_auth import _sqlite_has_column
+        if not _sqlite_has_column(conn, 'promotion_codes', 'is_active'):
+            conn.execute(
+                'ALTER TABLE promotion_codes ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1'
+            )
+    cur.close()
+
+
 def _init_promotion_tables():
     if database_is_postgres():
         ddl = [
@@ -62,6 +87,7 @@ def _init_promotion_tables():
                 duration_days INTEGER NOT NULL CHECK (duration_days > 0),
                 max_uses INTEGER NOT NULL CHECK (max_uses > 0),
                 use_count INTEGER NOT NULL DEFAULT 0 CHECK (use_count >= 0),
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 created_by UUID REFERENCES users(id) ON DELETE SET NULL
             )
@@ -87,6 +113,7 @@ def _init_promotion_tables():
                 duration_days INTEGER NOT NULL CHECK (duration_days > 0),
                 max_uses INTEGER NOT NULL CHECK (max_uses > 0),
                 use_count INTEGER NOT NULL DEFAULT 0 CHECK (use_count >= 0),
+                is_active INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 created_by TEXT
             )
@@ -109,6 +136,11 @@ def _init_promotion_tables():
         for stmt in ddl:
             cur.execute(stmt)
         cur.close()
+        _ensure_promotion_schema(conn)
+
+
+def promotions_storage_mode():
+    return 'postgresql' if database_is_postgres() else 'sqlite'
 
 
 def normalize_promo_code(raw):
@@ -127,6 +159,7 @@ def _promotion_to_api(row):
         return None
     max_uses = int(row.get('max_uses') or 0)
     use_count = int(row.get('use_count') or 0)
+    is_active = _coerce_bool(row.get('is_active'), True)
     return {
         'id': str(row.get('id') or ''),
         'code': row.get('code') or '',
@@ -134,17 +167,22 @@ def _promotion_to_api(row):
         'maxUses': max_uses,
         'useCount': use_count,
         'usesRemaining': max(0, max_uses - use_count),
+        'isActive': is_active,
         'createdAt': row.get('created_at'),
         'createdBy': str(row.get('created_by') or '') if row.get('created_by') else '',
     }
+
+
+def _promotion_select_columns():
+    return 'id, code, duration_days, max_uses, use_count, is_active, created_at, created_by'
 
 
 def list_promotion_codes():
     with get_db_connection() as conn:
         cur = _pg_cursor(conn)
         cur.execute(
-            '''
-            SELECT id, code, duration_days, max_uses, use_count, created_at, created_by
+            f'''
+            SELECT {_promotion_select_columns()}
             FROM promotion_codes
             ORDER BY created_at DESC
             '''
@@ -175,8 +213,8 @@ def create_promotion_code(duration_days, max_uses, created_by=None):
                     cur.execute(
                         '''
                         INSERT INTO promotion_codes (
-                            id, code, duration_days, max_uses, use_count, created_at, created_by
-                        ) VALUES (%s, %s, %s, %s, 0, NOW(), %s)
+                            id, code, duration_days, max_uses, use_count, is_active, created_at, created_by
+                        ) VALUES (%s, %s, %s, %s, 0, TRUE, NOW(), %s)
                         ''',
                         (promo_id, code, duration_days, max_uses, str(created_by) if created_by else None),
                     )
@@ -184,8 +222,8 @@ def create_promotion_code(duration_days, max_uses, created_by=None):
                     cur.execute(
                         '''
                         INSERT INTO promotion_codes (
-                            id, code, duration_days, max_uses, use_count, created_at, created_by
-                        ) VALUES (?, ?, ?, ?, 0, ?, ?)
+                            id, code, duration_days, max_uses, use_count, is_active, created_at, created_by
+                        ) VALUES (?, ?, ?, ?, 0, 1, ?, ?)
                         ''',
                         (promo_id, code, duration_days, max_uses, now, created_by),
                     )
@@ -204,16 +242,16 @@ def fetch_promotion_by_id(promotion_id):
         cur = _pg_cursor(conn)
         if database_is_postgres():
             cur.execute(
-                '''
-                SELECT id, code, duration_days, max_uses, use_count, created_at, created_by
+                f'''
+                SELECT {_promotion_select_columns()}
                 FROM promotion_codes WHERE id = %s
                 ''',
                 (promotion_id,),
             )
         else:
             cur.execute(
-                '''
-                SELECT id, code, duration_days, max_uses, use_count, created_at, created_by
+                f'''
+                SELECT {_promotion_select_columns()}
                 FROM promotion_codes WHERE id = ?
                 ''',
                 (promotion_id,),
@@ -231,16 +269,16 @@ def fetch_promotion_by_code(code):
         cur = _pg_cursor(conn)
         if database_is_postgres():
             cur.execute(
-                '''
-                SELECT id, code, duration_days, max_uses, use_count, created_at, created_by
+                f'''
+                SELECT {_promotion_select_columns()}
                 FROM promotion_codes WHERE code = %s
                 ''',
                 (code,),
             )
         else:
             cur.execute(
-                '''
-                SELECT id, code, duration_days, max_uses, use_count, created_at, created_by
+                f'''
+                SELECT {_promotion_select_columns()}
                 FROM promotion_codes WHERE code = ? COLLATE NOCASE
                 ''',
                 (code,),
@@ -260,6 +298,9 @@ def redeem_promotion_code(user_id, raw_code):
     promo = fetch_promotion_by_code(code)
     if not promo:
         raise PromotionError('Promotion code not found.')
+
+    if not promo.get('isActive', True):
+        raise PromotionError('This promotion code is no longer active.')
 
     promo_id = promo['id']
     use_count = int(promo.get('useCount') or 0)
@@ -299,12 +340,12 @@ def redeem_promotion_code(user_id, raw_code):
         cur = _pg_cursor(conn)
         if database_is_postgres():
             cur.execute(
-                'SELECT use_count, max_uses FROM promotion_codes WHERE id = %s FOR UPDATE',
+                'SELECT use_count, max_uses, is_active FROM promotion_codes WHERE id = %s FOR UPDATE',
                 (promo_id,),
             )
         else:
             cur.execute(
-                'SELECT use_count, max_uses FROM promotion_codes WHERE id = ?',
+                'SELECT use_count, max_uses, is_active FROM promotion_codes WHERE id = ?',
                 (promo_id,),
             )
         row = _row_to_dict(cur.fetchone())
@@ -316,6 +357,9 @@ def redeem_promotion_code(user_id, raw_code):
         if use_count >= max_uses:
             cur.close()
             raise PromotionError('This promotion code has reached its usage limit.')
+        if not _coerce_bool(row.get('is_active'), True):
+            cur.close()
+            raise PromotionError('This promotion code is no longer active.')
         if database_is_postgres():
             cur.execute(
                 '''
@@ -346,3 +390,45 @@ def redeem_promotion_code(user_id, raw_code):
         'promotion': fetch_promotion_by_id(promo_id),
         'subscription': subscription,
     }
+
+
+def set_promotion_active(promotion_id, is_active=True):
+    promotion_id = str(promotion_id or '').strip()
+    if not promotion_id:
+        raise ValueError('promotion id is required')
+    active_flag = _coerce_bool(is_active, True)
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        if database_is_postgres():
+            cur.execute(
+                'UPDATE promotion_codes SET is_active = %s WHERE id = %s',
+                (active_flag, promotion_id),
+            )
+        else:
+            cur.execute(
+                'UPDATE promotion_codes SET is_active = ? WHERE id = ?',
+                (1 if active_flag else 0, promotion_id),
+            )
+        updated = cur.rowcount
+        cur.close()
+    if not updated:
+        return None
+    return fetch_promotion_by_id(promotion_id)
+
+
+def delete_promotion_code(promotion_id):
+    promotion_id = str(promotion_id or '').strip()
+    if not promotion_id:
+        raise ValueError('promotion id is required')
+    existing = fetch_promotion_by_id(promotion_id)
+    if not existing:
+        return False
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        if database_is_postgres():
+            cur.execute('DELETE FROM promotion_codes WHERE id = %s', (promotion_id,))
+        else:
+            cur.execute('DELETE FROM promotion_codes WHERE id = ?', (promotion_id,))
+        deleted = cur.rowcount
+        cur.close()
+    return deleted > 0

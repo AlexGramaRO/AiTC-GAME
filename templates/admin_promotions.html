@@ -12,6 +12,7 @@
             <div>
                 <h1>Promotions</h1>
                 <p class="hint-text">Generate promotion codes for limited-time platform access. Each code is 10 characters (A–Z, 0–9).</p>
+                <p id="adminPromotionsStorageHint" class="hint-text admin-promotions-storage-hint"></p>
             </div>
             <div class="admin-users-header-actions">
                 <a href="{{ url_for('user_auth.admin_users_page') }}" class="btn btn-secondary">Users</a>
@@ -51,11 +52,13 @@
                         <th>Days</th>
                         <th>Uses</th>
                         <th>Remaining</th>
+                        <th>Status</th>
                         <th>Created</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="adminPromotionsTableBody">
-                    <tr><td colspan="5" class="hint-text">Loading…</td></tr>
+                    <tr><td colspan="7" class="hint-text">Loading…</td></tr>
                 </tbody>
             </table>
         </div>

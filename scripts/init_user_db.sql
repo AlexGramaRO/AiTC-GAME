@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS promotion_codes (
     duration_days INTEGER NOT NULL CHECK (duration_days > 0),
     max_uses INTEGER NOT NULL CHECK (max_uses > 0),
     use_count INTEGER NOT NULL DEFAULT 0 CHECK (use_count >= 0),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id) ON DELETE SET NULL
 );
