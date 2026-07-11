@@ -2570,11 +2570,47 @@ footer {
 }
 
 .subscriber-exercise-card {
+    position: relative;
+    overflow: hidden;
     cursor: pointer;
+    padding-bottom: 1.5rem;
+}
+
+.subscriber-exercise-card.is-start-ready {
+    border-color: rgba(34, 197, 94, 0.55);
+    box-shadow: 0 4px 16px rgba(34, 197, 94, 0.18);
 }
 
 .subscriber-exercise-card:hover {
     border-color: rgba(96, 165, 250, 0.45);
+}
+
+.subscriber-exercise-start-rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3.1rem;
+    transform: translateX(-100%);
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.subscriber-exercise-card.is-start-ready .subscriber-exercise-start-rail {
+    transform: translateX(0);
+    pointer-events: auto;
+}
+
+.subscriber-exercise-start-btn.btn {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border-radius: 0 0 8px 8px;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
 }
 
 .exercise-categories-footer {

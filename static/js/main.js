@@ -550,29 +550,50 @@ function renderExercisesForCategory(categoryId) {
         const duration = exercise.duration ? `<div class="exercise-detail-item"><span class="exercise-detail-label">Duration:</span><span class="exercise-detail-value">${escapeHtml(String(exercise.duration))} minutes</span></div>` : '';
         return `
             <div class="exercise-card subscriber-exercise-card" data-exercise-id="${exercise.id}">
-                <div class="exercise-card-header">
-                    <div class="exercise-card-name">${escapeHtml(exercise.name || 'Unnamed exercise')}</div>
-                    <div class="exercise-card-date">${escapeHtml(airspace)}</div>
-                </div>
-                <div class="exercise-card-details">
-                    ${description}
-                    ${difficulty}
-                    ${duration}
-                    <div class="exercise-detail-item">
-                        <span class="exercise-detail-label">Aircraft:</span>
-                        <span class="exercise-detail-value">${Array.isArray(exercise.flights) ? exercise.flights.length : 0}</span>
+                <div class="subscriber-exercise-card-body">
+                    <div class="exercise-card-header">
+                        <div class="exercise-card-name">${escapeHtml(exercise.name || 'Unnamed exercise')}</div>
+                        <div class="exercise-card-date">${escapeHtml(airspace)}</div>
                     </div>
+                    <div class="exercise-card-details">
+                        ${description}
+                        ${difficulty}
+                        ${duration}
+                        <div class="exercise-detail-item">
+                            <span class="exercise-detail-label">Aircraft:</span>
+                            <span class="exercise-detail-value">${Array.isArray(exercise.flights) ? exercise.flights.length : 0}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="subscriber-exercise-start-rail" aria-hidden="true">
+                    <button type="button" class="btn btn-success subscriber-exercise-start-btn" data-exercise-id="${exercise.id}">
+                        <span class="btn-icon" aria-hidden="true">▶</span>
+                        <span class="btn-text">Start</span>
+                    </button>
                 </div>
             </div>
         `;
     }).join('');
 
     listEl.querySelectorAll('.subscriber-exercise-card').forEach(card => {
-        card.addEventListener('click', async function() {
-            const exercise = exercises.find(ex => String(ex.id) === String(card.getAttribute('data-exercise-id')));
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('.subscriber-exercise-start-btn')) return;
+            listEl.querySelectorAll('.subscriber-exercise-card').forEach(function(other) {
+                other.classList.remove('is-start-ready');
+                const rail = other.querySelector('.subscriber-exercise-start-rail');
+                if (rail) rail.setAttribute('aria-hidden', 'true');
+            });
+            card.classList.add('is-start-ready');
+            const rail = card.querySelector('.subscriber-exercise-start-rail');
+            if (rail) rail.setAttribute('aria-hidden', 'false');
+        });
+    });
+
+    listEl.querySelectorAll('.subscriber-exercise-start-btn').forEach(btn => {
+        btn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+            const exercise = exercises.find(ex => String(ex.id) === String(btn.getAttribute('data-exercise-id')));
             if (!exercise) return;
-            const label = exercise.name || 'this exercise';
-            if (!window.confirm(`Start "${label}" as Single User?`)) return;
             await startSingleUserExerciseDirectly(exercise);
         });
     });
