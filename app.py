@@ -42,6 +42,13 @@ from content_store import (
     replace_all_exercises,
     replace_all_sectors,
 )
+from platform_settings_store import (
+    ADMIN_SETTINGS_KEY,
+    init_platform_settings,
+    load_admin_settings_document,
+    load_platform_setting,
+    save_platform_setting,
+)
 
 app = Flask(__name__)
 
@@ -121,6 +128,7 @@ EN_MGMT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'EN-MGMT'
 ADMIN_SETTINGS_FILE = os.path.join(DATA_DIR, 'admin_settings.json')
 
 init_user_auth(app, DATA_DIR)
+init_platform_settings(DATA_DIR)
 init_content_store(DATA_DIR)
 init_stripe_billing(app)
 
@@ -809,8 +817,16 @@ def _normalize_hosted_sessions_label_profiles(profiles):
     return out
 
 
+def _save_admin_settings(data):
+    if not isinstance(data, dict):
+        raise ValueError('admin settings must be a dict')
+    save_platform_setting(ADMIN_SETTINGS_KEY, data)
+
+
 def _read_admin_settings():
-    data = _read_json(ADMIN_SETTINGS_FILE, {})
+    data = load_platform_setting(ADMIN_SETTINGS_KEY)
+    if not isinstance(data, dict) or not data:
+        data = load_admin_settings_document(DATA_DIR)
     if not isinstance(data, dict):
         data = {}
     if not data.get('passwordHash'):
@@ -818,7 +834,7 @@ def _read_admin_settings():
         data.setdefault('openaiApiKey', '')
         data.setdefault('openaiModel', DEFAULT_OPENAI_MODEL)
         data.setdefault('aiPilotGeneralInstructions', DEFAULT_AI_PILOT_GENERAL_INSTRUCTIONS)
-        _write_json(ADMIN_SETTINGS_FILE, data)
+        _save_admin_settings(data)
     data.setdefault('openaiApiKey', '')
     data.setdefault('openaiModel', DEFAULT_OPENAI_MODEL)
     data.setdefault('aiPilotGeneralInstructions', DEFAULT_AI_PILOT_GENERAL_INSTRUCTIONS)
@@ -2220,7 +2236,7 @@ def api_save_admin_email_settings():
 
         data['emailConfig'] = stored
         data['updatedAt'] = datetime.now(timezone.utc).isoformat()
-        _write_json(ADMIN_SETTINGS_FILE, data)
+        _save_admin_settings(data)
         return jsonify({
             'ok': True,
             'emailConfig': email_config_for_admin_ui(data.get('emailConfig'), DATA_DIR),
@@ -2301,7 +2317,7 @@ def api_save_admin_label_simulation_defaults():
             hid = body.get('defaultHostedSessionsLabelProfileId', '')
             data['defaultHostedSessionsLabelProfileId'] = hid.strip() if isinstance(hid, str) else ''
         data['updatedAt'] = datetime.now(timezone.utc).isoformat()
-        _write_json(ADMIN_SETTINGS_FILE, data)
+        _save_admin_settings(data)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
@@ -2321,7 +2337,7 @@ def api_save_admin_single_user_label_config():
             assigned = body.get('singleUserLabelAssignedProfileId', '')
             data['singleUserLabelAssignedProfileId'] = assigned.strip() if isinstance(assigned, str) else ''
         data['updatedAt'] = datetime.now(timezone.utc).isoformat()
-        _write_json(ADMIN_SETTINGS_FILE, data)
+        _save_admin_settings(data)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
@@ -2341,7 +2357,7 @@ def api_save_admin_hosted_sessions_label_config():
             assigned = body.get('hostedSessionsLabelAssignedProfileId', '')
             data['hostedSessionsLabelAssignedProfileId'] = assigned.strip() if isinstance(assigned, str) else ''
         data['updatedAt'] = datetime.now(timezone.utc).isoformat()
-        _write_json(ADMIN_SETTINGS_FILE, data)
+        _save_admin_settings(data)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
@@ -2363,7 +2379,7 @@ def api_save_admin_global_aircraft_label():
         if 'labelSetups' in body:
             data['globalLabelSetups'] = _normalize_label_setups(body.get('labelSetups'))
         data['updatedAt'] = datetime.now(timezone.utc).isoformat()
-        _write_json(ADMIN_SETTINGS_FILE, data)
+        _save_admin_settings(data)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
@@ -2407,7 +2423,7 @@ def api_save_system_default_sim_settings():
                 'settings': settings,
                 'updatedAt': datetime.now(timezone.utc).isoformat()
             }
-        _write_json(ADMIN_SETTINGS_FILE, data)
+        _save_admin_settings(data)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
@@ -2438,7 +2454,7 @@ def api_save_admin_settings():
         if 'recordSimulations' in body:
             data['recordSimulations'] = bool(body.get('recordSimulations'))
         data['updatedAt'] = datetime.now(timezone.utc).isoformat()
-        _write_json(ADMIN_SETTINGS_FILE, data)
+        _save_admin_settings(data)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400

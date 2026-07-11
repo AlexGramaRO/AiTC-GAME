@@ -24,3 +24,10 @@ CREATE TABLE IF NOT EXISTS exercise_categories (
 );
 
 CREATE INDEX IF NOT EXISTS idx_exercises_document_sector_id ON exercises ((document->>'sectorId'));
+
+CREATE TABLE IF NOT EXISTS platform_settings (
+    setting_key TEXT PRIMARY KEY,
+    document JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

@@ -41,7 +41,18 @@ def _normalize_security(value):
     return 'starttls'
 
 
-def _read_admin_email_config_file(data_dir):
+def _read_admin_email_config(data_dir):
+    """Read emailConfig from DB-backed admin settings, with legacy file fallback."""
+    try:
+        from platform_settings_store import load_admin_settings_document
+        data = load_admin_settings_document(data_dir)
+        if isinstance(data, dict):
+            raw = data.get('emailConfig')
+            if isinstance(raw, dict):
+                return raw
+    except Exception:
+        pass
+
     path = os.path.join(data_dir or 'data', 'admin_settings.json')
     if not os.path.isfile(path):
         return {}
@@ -55,8 +66,8 @@ def _read_admin_email_config_file(data_dir):
 
 
 def merge_email_config(file_config=None, data_dir=None):
-    """Merge admin file config with SMTP_* environment variables."""
-    file_config = file_config if isinstance(file_config, dict) else _read_admin_email_config_file(data_dir)
+    """Merge admin settings with SMTP_* environment variables."""
+    file_config = file_config if isinstance(file_config, dict) else _read_admin_email_config(data_dir)
     merged = dict(DEFAULT_EMAIL_CONFIG)
     merged.update({k: v for k, v in file_config.items() if k in DEFAULT_EMAIL_CONFIG})
 
