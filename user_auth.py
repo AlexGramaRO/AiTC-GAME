@@ -2023,6 +2023,27 @@ def api_admin_cancel_one_day_pass(user_id):
     })
 
 
+@auth_bp.route('/api/admin/user-accounts/<user_id>/cancel-promo-access', methods=['POST'])
+@admin_required
+def api_admin_cancel_promo_access(user_id):
+    """Cancel the user's active promo access."""
+    target = _fetch_user_by_id(user_id)
+    if not target:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    if target.get('is_admin'):
+        return jsonify({'ok': False, 'error': 'Admin accounts do not have promo access'}), 400
+
+    count = _cancel_active_by_pass_type(user_id, PASS_TYPE_PROMO)
+    if count <= 0:
+        return jsonify({'ok': False, 'error': 'No active promo access to cancel'}), 400
+
+    return jsonify({
+        'ok': True,
+        'cancelledCount': count,
+        'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
+    })
+
+
 @auth_bp.route('/api/admin/user-accounts/<user_id>/subscriptions/revoke-active', methods=['POST'])
 @admin_required
 def api_admin_revoke_active_subscriptions(user_id):

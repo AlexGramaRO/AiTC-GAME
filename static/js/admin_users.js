@@ -82,7 +82,15 @@
             if (user.activeOneDayPass) {
                 parts.push(actionButton('cancel-one-day-pass', id, 'Cancel One Day Pass', false));
             }
-            if (user.activeMonthlySubscription && user.activeOneDayPass) {
+            if (user.activePromoAccess) {
+                parts.push(actionButton('cancel-promo-access', id, 'Cancel promo access', false));
+            }
+            const activeAccessCount = [
+                user.activeMonthlySubscription,
+                user.activeOneDayPass,
+                user.activePromoAccess,
+            ].filter(Boolean).length;
+            if (activeAccessCount >= 2) {
                 parts.push(actionButton('revoke-active', id, 'Cancel all access', false));
             }
         }
@@ -148,6 +156,8 @@
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/cancel-subscription';
         } else if (action === 'cancel-one-day-pass') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/cancel-one-day-pass';
+        } else if (action === 'cancel-promo-access') {
+            url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/cancel-promo-access';
         } else if (action === 'revoke-active') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/subscriptions/revoke-active';
         }
@@ -171,8 +181,11 @@
         if (action === 'cancel-one-day-pass') {
             return window.confirm('Cancel this user\'s active One Day Pass? They will lose pass-based access immediately.');
         }
+        if (action === 'cancel-promo-access') {
+            return window.confirm('Cancel this user\'s active promo access? They will lose promo-based access immediately.');
+        }
         if (action === 'revoke-active') {
-            return window.confirm('Cancel all active subscriptions and passes for this user?');
+            return window.confirm('Cancel all active subscriptions, passes, and promo access for this user?');
         }
         return true;
     }
