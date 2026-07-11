@@ -59770,11 +59770,17 @@ async function initUserSessionBar() {
     const manageLink = document.getElementById('userManageSubscriptionBtn');
     const categoriesSettingsRow = document.getElementById('exerciseCategoriesSettingsRow');
     const logoutBtn = document.getElementById('userLogoutBtn');
-    if (!bar) return;
+    if (!bar) {
+        document.body.classList.remove('landing-role-pending');
+        return;
+    }
     try {
         const resp = await fetch('/api/auth/me');
         const data = await resp.json();
-        if (!data.authenticated || !data.user) return;
+        if (!data.authenticated || !data.user) {
+            document.body.classList.remove('landing-role-pending', 'landing-role-admin', 'landing-role-subscriber');
+            return;
+        }
         bar.style.display = 'flex';
         if (emailEl) emailEl.textContent = data.user.email || '';
         if (adminLink) adminLink.style.display = data.user.isAdmin ? 'inline-flex' : 'none';
@@ -59784,7 +59790,9 @@ async function initUserSessionBar() {
             manageLink.style.display = (data.isApproved && !data.user.isAdmin) ? 'inline-flex' : 'none';
         }
         applyPlatformAccessGate(data);
-    } catch (_) {}
+    } catch (_) {
+        document.body.classList.remove('landing-role-pending', 'landing-role-admin', 'landing-role-subscriber');
+    }
     logoutBtn?.addEventListener('click', async function () {
         await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/login';
@@ -59794,30 +59802,21 @@ async function initUserSessionBar() {
 function applyLandingRoleUi(authData) {
     const isAdmin = !!(authData && authData.user && authData.user.isAdmin);
     currentUserIsAdmin = isAdmin;
-
-    const adminOnlyLandingIds = [
-        'landingAirspaceMenuWrap',
-        'landingExercisesMenuWrap',
-        'settingsBtn',
-        'playbackBtn',
-        'vccsLinkBtn'
-    ];
-
-    adminOnlyLandingIds.forEach(function(id) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.style.display = isAdmin ? '' : 'none';
-    });
+    document.body.classList.remove('landing-role-pending', 'landing-role-admin', 'landing-role-subscriber');
+    document.body.classList.add(isAdmin ? 'landing-role-admin' : 'landing-role-subscriber');
 
     const categoriesSettingsRow = document.getElementById('exerciseCategoriesSettingsRow');
     if (categoriesSettingsRow) {
         categoriesSettingsRow.style.display = isAdmin ? 'block' : 'none';
     }
+}
 
-    const landingPlayerOptionsBtn = document.getElementById('landingPlayerOptionsBtn');
-    if (landingPlayerOptionsBtn) {
-        landingPlayerOptionsBtn.style.display = isAdmin ? 'none' : '';
-    }
+function openSubscriberUserManualModal() {
+    openModal('subscriberUserManualModal');
+}
+
+function closeSubscriberUserManualModal() {
+    closeModal('subscriberUserManualModal');
 }
 
 function applyPlatformAccessGate(authData) {
@@ -59872,7 +59871,7 @@ function applyPlatformAccessGate(authData) {
 document.addEventListener('DOMContentLoaded', async function() {
     installHostSessionAbandonHandlers();
     installHostAutoPauseWhenTabHidden();
-    initUserSessionBar();
+    await initUserSessionBar();
     try {
         installAdvancedLabelPanelDrag();
         installAdvancedLabelPanelResizeClamp();
@@ -59958,11 +59957,16 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     if (userManualDemoBtn) {
         userManualDemoBtn.addEventListener('click', function() {
-            const manualPath = isPlatformAdminUser() ? '/manual' : '/manual/subscriber';
-            const url = new URL(manualPath, window.location.origin).href;
-            window.open(url, '_blank', 'noopener,noreferrer');
+            if (isPlatformAdminUser()) {
+                const url = new URL('/manual', window.location.origin).href;
+                window.open(url, '_blank', 'noopener,noreferrer');
+                return;
+            }
+            openSubscriberUserManualModal();
         });
     }
+    document.getElementById('closeSubscriberUserManualBtn')?.addEventListener('click', closeSubscriberUserManualModal);
+    document.getElementById('closeSubscriberUserManualFooterBtn')?.addEventListener('click', closeSubscriberUserManualModal);
 
     // Close modal handlers
     document.getElementById('closeSettingsBtn')?.addEventListener('click', () => closeModal('settingsModal'));

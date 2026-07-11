@@ -261,6 +261,47 @@ body {
     margin-top: 0;
 }
 
+.landing-admin-only,
+.landing-subscriber-only {
+    display: none !important;
+}
+
+body.landing-role-admin .landing-menu-wrap.landing-admin-only,
+body.landing-role-admin button.landing-admin-only.btn,
+body.landing-role-admin a.landing-admin-only.btn {
+    display: flex !important;
+}
+
+body.landing-role-subscriber button.landing-subscriber-only.btn {
+    display: flex !important;
+}
+
+.subscriber-user-manual-body {
+    padding-top: 0.5rem;
+}
+
+.subscriber-user-manual-figure {
+    margin: 0;
+    background: #fff;
+    border: 1px solid rgba(148, 180, 220, 0.18);
+    border-radius: 10px;
+    padding: 0.75rem;
+    overflow: auto;
+}
+
+.subscriber-user-manual-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+}
+
+#subscriberUserManualModal .landing-player-options-actions .ai-pp-ptt-btn.btn {
+    flex: 0 1 auto;
+    min-width: 5.5rem;
+    max-width: 8rem;
+}
+
 #landingPlayerOptionsModal .landing-player-voice-select {
     width: 100%;
     margin-bottom: 0.65rem;
