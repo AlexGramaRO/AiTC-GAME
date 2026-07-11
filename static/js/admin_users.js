@@ -36,7 +36,13 @@
         }
         if (user.activeOneDayPass) {
             const d = user.activeOneDayPass;
-            parts.push(d.planName + ' · until ' + formatDateTime(d.expiresAt || d.endDate) + ' (24h pass)');
+            const label = d.displayPlanName || d.planName || 'One Day Pass';
+            parts.push(label + ' · until ' + formatDateTime(d.expiresAt || d.endDate) + ' (24h pass)');
+        }
+        if (user.activePromoAccess) {
+            const p = user.activePromoAccess;
+            const label = p.displayPlanName || 'Promo access';
+            parts.push(label + ' · until ' + formatDateTime(p.expiresAt || p.endDate) + ' (promo)');
         }
         if (parts.length) return parts.join(' · ');
         const subs = user.subscriptions || [];

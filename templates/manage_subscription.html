@@ -37,6 +37,11 @@
                 <p class="subscribe-plan-detail" id="oneDayPlanDetail">No active One Day Pass.</p>
             </div>
 
+            <div class="subscribe-plan-box" id="promoAccessPlanBox">
+                <h2>Promo access</h2>
+                <p class="subscribe-plan-detail" id="promoAccessPlanDetail">No active promo access.</p>
+            </div>
+
             <div class="subscribe-actions">
                 <a href="{{ url_for('stripe_billing.subscribe_page') }}" class="btn btn-secondary auth-submit">Buy or change plan</a>
                 <a href="{{ url_for('index') }}" class="btn btn-secondary auth-submit">Back to simulator</a>
@@ -53,6 +58,7 @@
             stripeConfigured: {{ 'true' if stripe_configured else 'false' }},
             monthly: {{ summary.activeMonthlySubscription | tojson if summary.activeMonthlySubscription else 'null' }},
             oneDay: {{ summary.activeOneDayPass | tojson if summary.activeOneDayPass else 'null' }},
+            promo: {{ summary.activePromoAccess | tojson if summary.activePromoAccess else 'null' }},
         };
     </script>
     <script src="{{ url_for('static', filename='js/promo_redeem.js') }}"></script>

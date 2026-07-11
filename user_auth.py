@@ -31,6 +31,7 @@ _SUBSCRIPTION_MONTH_DAYS = 31
 _ONE_DAY_PASS_HOURS = 24
 PASS_TYPE_MONTHLY = 'monthly'
 PASS_TYPE_ONE_DAY = 'one_day'
+PASS_TYPE_PROMO = 'promo'
 SIGNUP_CODE_TTL_MINUTES = 5
 SIGNUP_MAX_VERIFY_ATTEMPTS = 8
 
@@ -97,12 +98,32 @@ def _parse_dt(value):
     return parsed.astimezone(timezone.utc)
 
 
+def _normalized_pass_type(sub):
+    if not sub:
+        return PASS_TYPE_MONTHLY
+    pass_type = (sub.get('pass_type') or PASS_TYPE_MONTHLY).strip().lower()
+    plan_name = (sub.get('plan_name') or '').strip().lower()
+    if pass_type == PASS_TYPE_PROMO or plan_name in ('promo-access', 'promo_access'):
+        return PASS_TYPE_PROMO
+    return pass_type
+
+
+def _subscription_display_plan_name(sub):
+    pass_type = _normalized_pass_type(sub)
+    if pass_type == PASS_TYPE_PROMO:
+        return 'Promo access'
+    raw = (sub.get('plan_name') or 'standard').strip()
+    if pass_type == PASS_TYPE_ONE_DAY and raw in ('one-day-pass', 'admin-one-day-pass'):
+        return 'One Day Pass'
+    return raw or 'standard'
+
+
 def _subscription_covers_now(sub, now=None):
     if not sub or sub.get('status') != 'active':
         return False
     now = now or _now_utc()
-    pass_type = (sub.get('pass_type') or PASS_TYPE_MONTHLY).strip().lower()
-    if pass_type == PASS_TYPE_ONE_DAY:
+    pass_type = _normalized_pass_type(sub)
+    if pass_type in (PASS_TYPE_ONE_DAY, PASS_TYPE_PROMO):
         expires = _parse_dt(sub.get('expires_at'))
         return bool(expires and expires > now)
     today = now.date()
@@ -510,6 +531,11 @@ def _migrate_schema():
                    ON subscriptions (stripe_checkout_session_id)
                    WHERE stripe_checkout_session_id IS NOT NULL'''
             )
+            cur.execute(
+                '''UPDATE subscriptions SET pass_type = 'promo'
+                   WHERE pass_type = 'one_day'
+                     AND LOWER(COALESCE(plan_name, '')) IN ('promo-access', 'promo_access')'''
+            )
             cur.close()
             return
 
@@ -534,6 +560,11 @@ def _migrate_schema():
             '''CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_checkout_session_id
                ON subscriptions (stripe_checkout_session_id)
                WHERE stripe_checkout_session_id IS NOT NULL'''
+        )
+        conn.execute(
+            '''UPDATE subscriptions SET pass_type = 'promo'
+               WHERE pass_type = 'one_day'
+                 AND LOWER(COALESCE(plan_name, '')) IN ('promo-access', 'promo_access')'''
         )
 
 
@@ -672,15 +703,15 @@ def _fetch_active_subscription(user_id):
                 '''SELECT * FROM subscriptions
                    WHERE user_id = %s AND status = 'active'
                      AND (
-                       (pass_type = 'one_day' AND expires_at IS NOT NULL AND expires_at > %s)
+                       (pass_type IN ('one_day', 'promo') AND expires_at IS NOT NULL AND expires_at > %s)
                        OR (
-                         COALESCE(pass_type, 'monthly') <> 'one_day'
+                         COALESCE(pass_type, 'monthly') NOT IN ('one_day', 'promo')
                          AND start_date <= %s AND end_date >= %s
                        )
                      )
                    ORDER BY
                      CASE
-                       WHEN pass_type = 'one_day' THEN expires_at
+                       WHEN pass_type IN ('one_day', 'promo') THEN expires_at
                        ELSE (end_date::timestamp AT TIME ZONE 'UTC')
                      END DESC
                    LIMIT 1''',
@@ -697,9 +728,9 @@ def _fetch_active_subscription(user_id):
             '''SELECT * FROM subscriptions
                WHERE user_id = ? AND status = 'active'
                  AND (
-                   (pass_type = 'one_day' AND expires_at IS NOT NULL AND expires_at > ?)
+                   (pass_type IN ('one_day', 'promo') AND expires_at IS NOT NULL AND expires_at > ?)
                    OR (
-                     COALESCE(pass_type, 'monthly') <> 'one_day'
+                     COALESCE(pass_type, 'monthly') NOT IN ('one_day', 'promo')
                      AND start_date <= ? AND end_date >= ?
                    )
                  )
@@ -719,7 +750,8 @@ def _subscription_to_api(sub):
     return {
         'id': str(sub['id']),
         'planName': sub.get('plan_name') or 'standard',
-        'passType': (sub.get('pass_type') or PASS_TYPE_MONTHLY),
+        'displayPlanName': _subscription_display_plan_name(sub),
+        'passType': _normalized_pass_type(sub),
         'startDate': _iso_dt(sub.get('start_date')),
         'endDate': _iso_dt(sub.get('end_date')),
         'expiresAt': _iso_dt(sub.get('expires_at')),
@@ -934,15 +966,15 @@ def grant_promo_access(user_id, duration_days, promo_code_label, created_by=None
 
     now = _now_utc()
     extra = timedelta(days=duration_days)
-    one_day = _fetch_active_subscription_by_type(user_id, PASS_TYPE_ONE_DAY)
+    promo = _fetch_active_subscription_by_type(user_id, PASS_TYPE_PROMO)
     notes = f'Promotion code {promo_code_label} (+{duration_days} day(s))'
 
-    if one_day:
-        current_expires = _parse_dt(one_day.get('expires_at')) or now
+    if promo:
+        current_expires = _parse_dt(promo.get('expires_at')) or now
         base = max(current_expires, now)
         new_expires = base + extra
         new_end_date = new_expires.date()
-        sub_id = one_day['id']
+        sub_id = promo['id']
         with _db_conn() as conn:
             if _USE_POSTGRES:
                 cur = conn.cursor()
@@ -958,7 +990,7 @@ def grant_promo_access(user_id, duration_days, promo_code_label, created_by=None
                 )
                 cur.close()
             else:
-                existing_notes = (one_day.get('notes') or '').strip()
+                existing_notes = (promo.get('notes') or '').strip()
                 merged_notes = notes if not existing_notes else f'{existing_notes} | {notes}'
                 conn.execute(
                     '''UPDATE subscriptions SET
@@ -983,7 +1015,7 @@ def grant_promo_access(user_id, duration_days, promo_code_label, created_by=None
                 ) VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s, %s, %s, %s)''',
                 (
                     sub_id, user_id, plan_name, start_date, end_date, notes,
-                    now, now, created_by, PASS_TYPE_ONE_DAY, expires,
+                    now, now, created_by, PASS_TYPE_PROMO, expires,
                 ),
             )
             cur.close()
@@ -995,7 +1027,7 @@ def grant_promo_access(user_id, duration_days, promo_code_label, created_by=None
                 ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)''',
                 (
                     sub_id, user_id, plan_name, start_date.isoformat(), end_date.isoformat(), notes,
-                    now.isoformat(), now.isoformat(), created_by, PASS_TYPE_ONE_DAY, expires.isoformat(),
+                    now.isoformat(), now.isoformat(), created_by, PASS_TYPE_PROMO, expires.isoformat(),
                 ),
             )
     return _subscription_to_api(_fetch_subscription_by_id(sub_id))
@@ -1158,8 +1190,7 @@ def _fetch_active_subscriptions_for_user(user_id):
 
 def _fetch_active_subscription_by_type(user_id, pass_type):
     for sub in _fetch_active_subscriptions_for_user(user_id):
-        current_type = (sub.get('pass_type') or PASS_TYPE_MONTHLY).strip().lower()
-        if current_type == pass_type:
+        if _normalized_pass_type(sub) == pass_type:
             return sub
     return None
 
@@ -1184,8 +1215,7 @@ def _cancel_subscription_record(sub):
 def _cancel_active_by_pass_type(user_id, pass_type):
     cancelled = 0
     for sub in list(_fetch_active_subscriptions_for_user(user_id)):
-        current_type = (sub.get('pass_type') or PASS_TYPE_MONTHLY).strip().lower()
-        if current_type != pass_type:
+        if _normalized_pass_type(sub) != pass_type:
             continue
         if _cancel_subscription_record(sub):
             cancelled += 1
@@ -1562,6 +1592,7 @@ def api_auth_me():
         return jsonify({'ok': True, 'authenticated': False})
     monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
     one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
+    promo = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_PROMO)
     has_stripe_monthly = bool(monthly and monthly.get('stripe_subscription_id'))
     pending_cancel = bool(monthly and monthly.get('cancel_at_period_end'))
     return jsonify({
@@ -1576,6 +1607,7 @@ def api_auth_me():
         'subscriptionPendingCancellation': pending_cancel,
         'activeMonthlySubscription': _subscription_to_api(monthly),
         'activeOneDayPass': _subscription_to_api(one_day),
+        'activePromoAccess': _subscription_to_api(promo),
         'user': _user_to_api(user, include_subscription=True),
     })
 
@@ -1619,8 +1651,10 @@ def api_admin_list_users():
         entry['subscriptions'] = [_subscription_to_api(s) for s in subs]
         monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
         one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
+        promo = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_PROMO)
         entry['activeMonthlySubscription'] = _subscription_to_api(monthly)
         entry['activeOneDayPass'] = _subscription_to_api(one_day)
+        entry['activePromoAccess'] = _subscription_to_api(promo)
         users_out.append(entry)
 
     return jsonify({'ok': True, 'users': users_out})

@@ -20,6 +20,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request, url_fo
 from user_auth import (
     PASS_TYPE_MONTHLY,
     PASS_TYPE_ONE_DAY,
+    PASS_TYPE_PROMO,
     cancel_subscription_by_stripe_id,
     create_one_day_pass,
     fetch_subscription_by_stripe_id,
@@ -238,12 +239,14 @@ def _ensure_stripe_customer(user):
 def _billing_account_summary(user):
     monthly = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_MONTHLY)
     one_day = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_ONE_DAY)
+    promo = _fetch_active_subscription_by_type(user['id'], PASS_TYPE_PROMO)
     monthly_api = _subscription_to_api(monthly)
     has_stripe_monthly = bool(monthly and monthly.get('stripe_subscription_id'))
     pending_cancel = bool(monthly and monthly.get('cancel_at_period_end'))
     return {
         'activeMonthlySubscription': monthly_api,
         'activeOneDayPass': _subscription_to_api(one_day),
+        'activePromoAccess': _subscription_to_api(promo),
         'canCancelViaStripe': has_stripe_monthly,
         'canCancelSubscription': bool(has_stripe_monthly and not pending_cancel),
         'subscriptionPendingCancellation': pending_cancel,
@@ -345,6 +348,7 @@ def api_billing_status():
         'subscriptionPendingCancellation': summary['subscriptionPendingCancellation'],
         'activeMonthlySubscription': summary['activeMonthlySubscription'],
         'activeOneDayPass': summary['activeOneDayPass'],
+        'activePromoAccess': summary['activePromoAccess'],
         'user': _user_to_api(user, include_subscription=True),
     })
 
@@ -565,11 +569,13 @@ def api_redeem_promo_code():
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
     duration_days = int((result.get('promotion') or {}).get('durationDays') or 0)
-    active = _fetch_active_subscription(user['id'])
+    summary = _billing_account_summary(user)
     return jsonify({
         'ok': True,
         'message': f'Promotion applied. {duration_days} day(s) of access added to your account.',
         'promotion': result.get('promotion'),
-        'activeSubscription': _subscription_to_api(active),
+        'activeSubscription': _subscription_to_api(_fetch_active_subscription(user['id'])),
+        'activePromoAccess': summary['activePromoAccess'],
+        'activeOneDayPass': summary['activeOneDayPass'],
         'canAccessPlatform': user_can_access_platform(user),
     })

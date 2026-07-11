@@ -26,6 +26,8 @@
             <div class="auth-banner auth-banner-info" id="activeSubscriptionBanner">
                 {% if active_subscription.passType == 'one_day' %}
                 One Day Pass active until {{ active_subscription.expiresAt or active_subscription.endDate }}.
+                {% elif active_subscription.passType == 'promo' %}
+                Promo access active until {{ active_subscription.expiresAt or active_subscription.endDate }}.
                 {% else %}
                 Monthly access active until {{ active_subscription.endDate }}.
                 {% if active_subscription.source == 'stripe' %}

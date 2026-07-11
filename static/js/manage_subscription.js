@@ -4,6 +4,7 @@
     const monthlyDetail = document.getElementById('monthlyPlanDetail');
     const monthlyActions = document.getElementById('monthlyPlanActions');
     const oneDayDetail = document.getElementById('oneDayPlanDetail');
+    const promoDetail = document.getElementById('promoAccessPlanDetail');
     const messageEl = document.getElementById('manageSubscriptionMessage');
     const logoutBtn = document.getElementById('manageLogoutBtn');
     const cfg = window.AITC_MANAGE || {};
@@ -114,9 +115,27 @@
         }
 
         if (oneDayDetail) {
-            oneDayDetail.textContent = sub.planName + ' · active until '
+            const label = sub.displayPlanName || sub.planName || 'One Day Pass';
+            oneDayDetail.textContent = label + ' · active until '
                 + formatDateTime(sub.expiresAt || sub.endDate)
                 + '. One Day Passes expire automatically after 24 hours and are not renewed.';
+        }
+    }
+
+    function renderPromo() {
+        const sub = cfg.promo;
+        if (!sub) {
+            if (promoDetail) {
+                promoDetail.textContent = 'No active promo access.';
+            }
+            return;
+        }
+
+        if (promoDetail) {
+            const label = sub.displayPlanName || 'Promo access';
+            promoDetail.textContent = label + ' · active until '
+                + formatDateTime(sub.expiresAt || sub.endDate)
+                + '. Promo access expires automatically and is not renewed.';
         }
     }
 
@@ -176,6 +195,7 @@
 
     renderMonthly();
     renderOneDay();
+    renderPromo();
 
     if (window.initPromoCodeRedemption) {
         window.initPromoCodeRedemption({
@@ -186,11 +206,13 @@
                     if (resp.ok && data.ok) {
                         cfg.monthly = data.activeMonthlySubscription || null;
                         cfg.oneDay = data.activeOneDayPass || null;
+                        cfg.promo = data.activePromoAccess || null;
                         cfg.canCancelSubscription = !!data.canCancelSubscription;
                         cfg.canCancelViaStripe = !!data.canCancelViaStripe;
                         cfg.subscriptionPendingCancellation = !!data.subscriptionPendingCancellation;
                         renderMonthly();
                         renderOneDay();
+                        renderPromo();
                     }
                 } catch (_) {}
             },
