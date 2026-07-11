@@ -281,7 +281,7 @@ def subscribe_page():
         return redirect(url_for('user_auth.login_page', next='/subscribe'))
     if not user_is_approved(user):
         return redirect(url_for('user_auth.login_page', reason=user.get('status') or 'pending'))
-    if user_can_access_platform(user):
+    if user.get('is_admin'):
         return redirect(url_for('index'))
 
     active = _fetch_active_subscription(user['id'])
