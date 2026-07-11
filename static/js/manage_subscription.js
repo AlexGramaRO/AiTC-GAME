@@ -52,7 +52,7 @@
 
         const source = sub.source === 'stripe' ? 'Stripe' : 'Administrator';
         if (monthlyDetail) {
-            let detail = sub.planName + ' · ' + formatDate(sub.startDate)
+            let detail = (sub.displayPlanName || 'Monthly subscription') + ' · ' + formatDate(sub.startDate)
                 + ' → ' + formatDate(sub.endDate) + ' · via ' + source;
             if (sub.cancelAtPeriodEnd) {
                 detail += ' · auto-renewal off';

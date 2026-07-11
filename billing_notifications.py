@@ -97,9 +97,25 @@ def _deliver(user_id, send_callable):
         return
 
 
+def _subscription_label(subscription, default):
+    sub = subscription or {}
+    display = (sub.get('displayPlanName') or '').strip()
+    if display:
+        return display
+    from user_auth import _subscription_display_plan_name
+    if sub.get('plan_name') is not None or sub.get('pass_type') is not None:
+        return _subscription_display_plan_name(sub)
+    if sub.get('planName') is not None or sub.get('passType') is not None:
+        return _subscription_display_plan_name({
+            'plan_name': sub.get('planName'),
+            'pass_type': sub.get('passType') or sub.get('pass_type'),
+        })
+    return default
+
+
 def notify_monthly_subscription_activated(user_id, subscription=None, plan_name=None, start_date=None, end_date=None, source='Stripe'):
     sub = subscription or {}
-    plan = plan_name or sub.get('planName') or sub.get('plan_name') or 'Monthly subscription'
+    plan = plan_name or _subscription_label(sub, 'Monthly subscription')
     start = start_date or sub.get('startDate') or sub.get('start_date')
     end = end_date or sub.get('endDate') or sub.get('end_date')
     manage_url = _manage_subscription_url()
@@ -121,7 +137,7 @@ def notify_monthly_subscription_activated(user_id, subscription=None, plan_name=
 
 def notify_one_day_pass_activated(user_id, subscription=None, plan_name=None, expires_at=None, source='Stripe'):
     sub = subscription or {}
-    plan = plan_name or sub.get('displayPlanName') or sub.get('planName') or sub.get('plan_name') or 'One Day Pass'
+    plan = plan_name or _subscription_label(sub, 'One Day Pass')
     expires = expires_at or sub.get('expiresAt') or sub.get('expires_at') or sub.get('endDate') or sub.get('end_date')
     manage_url = _manage_subscription_url()
     purchase_source = source or 'Stripe'
@@ -159,7 +175,7 @@ def notify_promo_access_activated(user_id, promo_code, duration_days, subscripti
 
 def notify_subscription_cancellation_scheduled(user_id, subscription=None, plan_name=None, end_date=None):
     sub = subscription or {}
-    plan = plan_name or sub.get('displayPlanName') or sub.get('planName') or sub.get('plan_name') or 'Monthly subscription'
+    plan = plan_name or _subscription_label(sub, 'Monthly subscription')
     end = end_date or sub.get('endDate') or sub.get('end_date')
     manage_url = _manage_subscription_url()
 

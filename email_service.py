@@ -221,24 +221,25 @@ def _billing_email_html(title, paragraphs, manage_url=None):
 
 
 def send_monthly_subscription_activation_email(config, to_email, plan_name, start_date, end_date, source='Stripe', manage_url=None):
-    subject = f'Your {plan_name} is active — webATC'
+    label = 'Monthly subscription'
+    subject = f'Your {label} is active — webATC'
     text_body = (
-        f'Your {plan_name} is now active on webATC.\n\n'
+        f'Your {label} is now active on webATC.\n\n'
         f'Access period: {start_date} to {end_date}\n'
         f'Purchased via: {source}\n\n'
         'You can use the simulator for the full paid period. '
-        'Monthly plans renew automatically unless you cancel before the next billing date.\n'
+        'Monthly subscriptions renew automatically unless you cancel before the next billing date.\n'
     )
     if manage_url:
         text_body += f'\nManage your subscription: {manage_url}\n'
     html_body = _billing_email_html(
         'Monthly subscription confirmed',
         [
-            f'Your <strong>{plan_name}</strong> is now active on webATC.',
+            f'Your <strong>{label}</strong> is now active on webATC.',
             f'Access period: <strong>{start_date}</strong> to <strong>{end_date}</strong>.',
             f'Purchased via: <strong>{source}</strong>.',
             'You can use the simulator for the full paid period. '
-            'Monthly plans renew automatically unless you cancel before the next billing date.',
+            'Monthly subscriptions renew automatically unless you cancel before the next billing date.',
         ],
         manage_url,
     )
@@ -246,9 +247,10 @@ def send_monthly_subscription_activation_email(config, to_email, plan_name, star
 
 
 def send_one_day_pass_activation_email(config, to_email, plan_name, expires_at, source='Stripe', manage_url=None):
-    subject = f'Your {plan_name} is active — webATC'
+    label = 'One Day Pass'
+    subject = f'Your {label} is active — webATC'
     text_body = (
-        f'Your {plan_name} is now active on webATC.\n\n'
+        f'Your {label} is now active on webATC.\n\n'
         f'Access expires: {expires_at}\n'
         f'Purchased via: {source}\n\n'
         'Your pass provides 24 hours of platform access from activation and does not auto-renew.\n'
@@ -258,7 +260,7 @@ def send_one_day_pass_activation_email(config, to_email, plan_name, expires_at, 
     html_body = _billing_email_html(
         'One Day Pass confirmed',
         [
-            f'Your <strong>{plan_name}</strong> is now active on webATC.',
+            f'Your <strong>{label}</strong> is now active on webATC.',
             f'Access expires: <strong>{expires_at}</strong>.',
             f'Purchased via: <strong>{source}</strong>.',
             'Your pass provides 24 hours of platform access from activation and does not auto-renew.',
@@ -269,9 +271,10 @@ def send_one_day_pass_activation_email(config, to_email, plan_name, expires_at, 
 
 
 def send_promo_access_activation_email(config, to_email, promo_code, duration_days, expires_at, manage_url=None):
-    subject = 'Promotion code applied — webATC'
+    subject = 'Promo access activated — webATC'
     text_body = (
-        f'Your promotion code {promo_code} has been applied on webATC.\n\n'
+        f'Your promo access is now active on webATC.\n\n'
+        f'Promotion code: {promo_code}\n'
         f'Access added: {duration_days} day(s)\n'
         f'Access expires: {expires_at}\n\n'
         'Promo access does not auto-renew.\n'
@@ -279,9 +282,10 @@ def send_promo_access_activation_email(config, to_email, promo_code, duration_da
     if manage_url:
         text_body += f'\nManage your access: {manage_url}\n'
     html_body = _billing_email_html(
-        'Promotion code applied',
+        'Promo access confirmed',
         [
-            f'Your promotion code <strong>{promo_code}</strong> has been applied.',
+            'Your <strong>promo access</strong> is now active on webATC.',
+            f'Promotion code: <strong>{promo_code}</strong>.',
             f'Access added: <strong>{duration_days} day(s)</strong>.',
             f'Access expires: <strong>{expires_at}</strong>.',
             'Promo access does not auto-renew.',
@@ -292,18 +296,19 @@ def send_promo_access_activation_email(config, to_email, promo_code, duration_da
 
 
 def send_subscription_cancellation_email(config, to_email, plan_name, end_date, manage_url=None):
-    subject = f'{plan_name} cancellation confirmed — webATC'
+    label = 'Monthly subscription'
+    subject = f'{label} cancellation confirmed — webATC'
     text_body = (
-        f'Your {plan_name} auto-renewal has been cancelled on webATC.\n\n'
+        f'Your {label} auto-renewal has been cancelled on webATC.\n\n'
         f'You keep full access until: {end_date}\n\n'
         'You will not be charged again for the next billing period.\n'
     )
     if manage_url:
         text_body += f'\nManage your subscription: {manage_url}\n'
     html_body = _billing_email_html(
-        'Subscription cancellation confirmed',
+        'Monthly subscription cancellation confirmed',
         [
-            f'Your <strong>{plan_name}</strong> auto-renewal has been cancelled.',
+            f'Your <strong>{label}</strong> auto-renewal has been cancelled.',
             f'You keep full access until <strong>{end_date}</strong>.',
             'You will not be charged again for the next billing period.',
         ],

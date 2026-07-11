@@ -32,7 +32,8 @@
         const parts = [];
         if (user.activeMonthlySubscription) {
             const m = user.activeMonthlySubscription;
-            parts.push(m.planName + ' · ' + formatDate(m.startDate) + ' → ' + formatDate(m.endDate) + ' (monthly)');
+            const label = m.displayPlanName || 'Monthly subscription';
+            parts.push(label + ' · ' + formatDate(m.startDate) + ' → ' + formatDate(m.endDate) + ' (monthly)');
         }
         if (user.activeOneDayPass) {
             const d = user.activeOneDayPass;
@@ -148,7 +149,7 @@
 
         if (action === 'subscription') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/subscriptions';
-            body = JSON.stringify({ planName: 'standard' });
+            body = JSON.stringify({ planName: 'monthly-subscription' });
         } else if (action === 'one-day-pass') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/one-day-pass';
             body = JSON.stringify({ planName: 'admin-one-day-pass' });

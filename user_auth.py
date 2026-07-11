@@ -131,10 +131,14 @@ def _subscription_display_plan_name(sub):
     pass_type = _normalized_pass_type(sub)
     if pass_type == PASS_TYPE_PROMO:
         return 'Promo access'
-    raw = (sub.get('plan_name') or 'standard').strip()
-    if pass_type == PASS_TYPE_ONE_DAY and raw in ('one-day-pass', 'admin-one-day-pass'):
+    if pass_type == PASS_TYPE_ONE_DAY:
         return 'One Day Pass'
-    return raw or 'standard'
+    raw = (sub.get('plan_name') or '').strip().lower()
+    if raw in ('stripe-monthly',):
+        stripe_name = (os.environ.get('STRIPE_PLAN_NAME') or '').strip()
+        if stripe_name:
+            return stripe_name
+    return 'Monthly subscription'
 
 
 def _subscription_covers_now(sub, now=None):
@@ -1829,7 +1833,7 @@ def api_admin_create_subscription(user_id):
         return jsonify({'ok': False, 'error': 'User not found'}), 404
 
     body = request.get_json(silent=True) or {}
-    plan_name = (body.get('planName') or 'standard').strip() or 'standard'
+    plan_name = (body.get('planName') or 'monthly-subscription').strip() or 'monthly-subscription'
     notes = (body.get('notes') or '').strip() or None
 
     start_raw = (body.get('startDate') or '').strip()
