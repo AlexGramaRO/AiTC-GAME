@@ -997,11 +997,13 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="landingPlayerTtsVoiceSelect">Voice Pack</label>
-                    <div class="sim-probing-row">
-                        <select id="landingPlayerTtsVoiceSelect" class="form-select">
-                            <option value="">System default</option>
-                        </select>
-                        <button type="button" class="btn btn-secondary sim-settings-subpanel-btn" id="landingPlayerUpdateVoicePacksBtn">Update Voice Packs</button>
+                    <select id="landingPlayerTtsVoiceSelect" class="form-select landing-player-voice-select">
+                        <option value="">System default</option>
+                    </select>
+                    <div class="landing-player-voice-actions">
+                        <button type="button" class="btn btn-secondary ai-pp-ptt-btn" id="landingPlayerUpdateVoicePacksBtn">Update Voice Packs</button>
+                        <button type="button" class="btn btn-secondary ai-pp-ptt-btn" id="landingPlayerPreviewVoiceBtn">Preview Voice</button>
+                        <button type="button" class="btn btn-secondary ai-pp-ptt-btn" id="landingPlayerPreviewRadioBtn">Preview Radio</button>
                     </div>
                     <div class="hint-text" id="landingPlayerVoicePacksStatus">Select an <strong>English</strong> voice pack for aircraft readbacks. If none appear, install one in your system settings, then click Update Voice Packs.</div>
                 </div>
@@ -1050,9 +1052,11 @@
                     </div>
                 </fieldset>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-success" id="saveLandingPlayerOptionsBtn">Save</button>
-                <button type="button" class="btn btn-secondary" id="cancelLandingPlayerOptionsBtn">Cancel</button>
+            <div class="modal-footer landing-player-options-footer">
+                <div class="landing-player-options-actions">
+                    <button type="button" class="btn btn-success ai-pp-ptt-btn" id="saveLandingPlayerOptionsBtn">Save</button>
+                    <button type="button" class="btn btn-secondary ai-pp-ptt-btn" id="cancelLandingPlayerOptionsBtn">Cancel</button>
+                </div>
             </div>
         </div>
     </div>

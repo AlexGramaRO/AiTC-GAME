@@ -27667,6 +27667,86 @@ function updateLandingPlayerPttDisplay() {
     if (display) display.textContent = keyInfo ? `Selected: ${keyInfo.label}` : 'No key selected';
 }
 
+function applyLandingPlayerTtsVoiceToUtterance(u) {
+    try {
+        const voiceURI = (document.getElementById('landingPlayerTtsVoiceSelect')?.value ?? '').toString();
+        const voice = getSimulationTtsVoiceByURI(voiceURI);
+        if (voice) u.voice = voice;
+    } catch (e) {}
+}
+
+function getLandingPlayerRadioPreviewSettings() {
+    return {
+        staticEnabled: !!document.getElementById('landingPlayerRadioStaticEnabled')?.checked,
+        staticOpts: {
+            noiseType: document.getElementById('landingPlayerRadioStaticNoiseType')?.value,
+            frequencyHz: parseInt(document.getElementById('landingPlayerRadioStaticFrequency')?.value, 10),
+            intensity: parseInt(document.getElementById('landingPlayerRadioStaticIntensity')?.value, 10)
+        },
+        squelchEnabled: !!document.getElementById('landingPlayerSquelchEnabled')?.checked,
+        squelchOpts: {
+            type: document.getElementById('landingPlayerSquelchType')?.value,
+            intensity: parseInt(document.getElementById('landingPlayerSquelchIntensity')?.value, 10)
+        }
+    };
+}
+
+function updateLandingPlayerPreviewRadioBtn() {
+    const btn = document.getElementById('landingPlayerPreviewRadioBtn');
+    if (!btn) return;
+    const { staticEnabled, squelchEnabled } = getLandingPlayerRadioPreviewSettings();
+    const enabled = staticEnabled || squelchEnabled;
+    btn.disabled = !enabled;
+    btn.title = enabled
+        ? 'Preview transmission with the selected voice, background static, and squelch settings'
+        : 'Enable background static or squelch to preview radio effects';
+}
+
+function previewLandingPlayerVoice() {
+    if (!isSimulationTtsSupported()) {
+        alert('Text-to-speech is not supported in this browser.');
+        return;
+    }
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    stopSimRadioStatic(0);
+    const u = new SpeechSynthesisUtterance('Radio check, one, two, three, four, five.');
+    u.rate = 1;
+    u.pitch = 1;
+    u.volume = 1;
+    applyLandingPlayerTtsVoiceToUtterance(u);
+    try { window.speechSynthesis.resume(); } catch (e) {}
+    window.speechSynthesis.speak(u);
+}
+
+function previewLandingPlayerRadio() {
+    if (!isSimulationTtsSupported()) {
+        alert('Text-to-speech is not supported in this browser.');
+        return;
+    }
+    const { staticEnabled, staticOpts, squelchEnabled, squelchOpts } = getLandingPlayerRadioPreviewSettings();
+    if (!staticEnabled && !squelchEnabled) return;
+
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    stopSimRadioStatic(0);
+
+    const u = new SpeechSynthesisUtterance('Radio check, one, two, three, four, five.');
+    u.rate = 1;
+    u.pitch = 1;
+    u.volume = 1;
+    applyLandingPlayerTtsVoiceToUtterance(u);
+
+    if (squelchEnabled) { try { playSimRadioSquelch(squelchOpts); } catch (e) {} }
+    u.onstart = () => { if (staticEnabled) { try { startSimRadioStatic(staticOpts); } catch (e) {} } };
+    const finish = () => {
+        if (staticEnabled) { try { stopSimRadioStatic(); } catch (e) {} }
+        if (squelchEnabled) { try { playSimRadioSquelch(squelchOpts); } catch (e) {} }
+    };
+    u.onend = finish;
+    u.onerror = finish;
+    try { window.speechSynthesis.resume(); } catch (e) {}
+    window.speechSynthesis.speak(u);
+}
+
 function populateLandingPlayerVoiceSelect(statusOverride) {
     const sel = document.getElementById('landingPlayerTtsVoiceSelect');
     if (!sel) return [];
@@ -27713,6 +27793,7 @@ function openLandingPlayerOptionsModal(opts = {}) {
     ensureSimulationTtsVoicesChangedListener();
     try { window.speechSynthesis.getVoices(); } catch (e) {}
     populateLandingPlayerVoiceSelect();
+    updateLandingPlayerPreviewRadioBtn();
     const intro = document.getElementById('landingPlayerOptionsIntro');
     if (intro) {
         intro.textContent = landingPlayerOptionsFromSimulation
@@ -63052,6 +63133,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         ensureSimulationTtsVoicesChangedListener();
         try { window.speechSynthesis.getVoices(); } catch (e) {}
         setTimeout(() => populateLandingPlayerVoiceSelect(), 120);
+    });
+    document.getElementById('landingPlayerPreviewVoiceBtn')?.addEventListener('click', previewLandingPlayerVoice);
+    document.getElementById('landingPlayerPreviewRadioBtn')?.addEventListener('click', previewLandingPlayerRadio);
+    ['landingPlayerRadioStaticEnabled', 'landingPlayerSquelchEnabled'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('change', updateLandingPlayerPreviewRadioBtn);
     });
     ['landingPlayerRadioStaticFrequency', 'landingPlayerRadioStaticIntensity', 'landingPlayerSquelchIntensity'].forEach((id) => {
         document.getElementById(id)?.addEventListener('input', function() {

@@ -261,6 +261,46 @@ body {
     margin-top: 0;
 }
 
+#landingPlayerOptionsModal .landing-player-voice-select {
+    width: 100%;
+    margin-bottom: 0.65rem;
+}
+
+#landingPlayerOptionsModal .landing-player-voice-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+}
+
+#landingPlayerOptionsModal .landing-player-options-footer {
+    display: flex;
+    justify-content: center;
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+#landingPlayerOptionsModal .landing-player-options-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    width: 100%;
+}
+
+#landingPlayerOptionsModal .landing-player-options-actions .ai-pp-ptt-btn.btn {
+    flex: 1 1 0;
+    min-width: 5.5rem;
+    max-width: 8rem;
+    justify-content: center;
+}
+
+#landingPlayerOptionsModal .landing-player-voice-actions .ai-pp-ptt-btn.btn {
+    flex: 0 1 auto;
+    min-width: 5.5rem;
+    max-width: none;
+    justify-content: center;
+}
+
 .simulation-subscriber-options-wrap .edit-exercise-topbar-dropdown-trigger {
     min-width: 6.5rem;
 }
