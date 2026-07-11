@@ -218,12 +218,15 @@ def _handle_checkout_completed(session_obj):
         if pass_type not in (PASS_TYPE_ONE_DAY, 'one_day', 'oneday'):
             pass_type = PASS_TYPE_ONE_DAY
         if pass_type == PASS_TYPE_ONE_DAY and user_id:
-            create_one_day_pass(
+            sub = create_one_day_pass(
                 user_id,
                 plan_name=_one_day_plan_name(),
                 notes='Stripe One Day Pass (24 hours of platform access)',
                 stripe_checkout_session_id=session_obj.get('id'),
             )
+            if sub:
+                from billing_notifications import notify_one_day_pass_activated
+                notify_one_day_pass_activated(user_id, subscription=sub, source='Stripe')
 
 
 def _ensure_stripe_customer(user):
@@ -590,6 +593,15 @@ def api_redeem_promo_code():
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
     duration_days = int((result.get('promotion') or {}).get('durationDays') or 0)
+    promo_code = (result.get('promotion') or {}).get('code') or code
+    promo_sub = result.get('subscription')
+    from billing_notifications import notify_promo_access_activated
+    notify_promo_access_activated(
+        user['id'],
+        promo_code,
+        duration_days,
+        subscription=promo_sub,
+    )
     summary = _billing_account_summary(user)
     return jsonify({
         'ok': True,

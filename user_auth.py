@@ -1089,6 +1089,7 @@ def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_
     now = _now_utc()
     cancel_flag = bool(cancel_at_period_end)
     existing = fetch_subscription_by_stripe_id(stripe_subscription_id)
+    was_cancel_pending = bool(existing and existing.get('cancel_at_period_end'))
     with _db_conn() as conn:
         if existing:
             if _USE_POSTGRES:
@@ -1111,7 +1112,11 @@ def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_
                        WHERE id = ?''',
                     (start_date.isoformat(), end_date.isoformat(), plan_name, PASS_TYPE_MONTHLY, now.isoformat(), 1 if cancel_flag else 0, existing['id']),
                 )
-            return fetch_subscription_by_stripe_id(stripe_subscription_id)
+            updated = fetch_subscription_by_stripe_id(stripe_subscription_id)
+            if cancel_flag and not was_cancel_pending:
+                from billing_notifications import maybe_notify_subscription_cancellation_scheduled
+                maybe_notify_subscription_cancellation_scheduled(existing['user_id'], updated or existing, was_cancel_pending)
+            return updated
 
         sub_id = _new_user_id()
         if _USE_POSTGRES:
@@ -1143,10 +1148,15 @@ def upsert_stripe_subscription(user_id, stripe_subscription_id, start_date, end_
                     1 if cancel_flag else 0,
                 ),
             )
-        return fetch_subscription_by_stripe_id(stripe_subscription_id)
+        created = fetch_subscription_by_stripe_id(stripe_subscription_id)
+        from billing_notifications import notify_monthly_subscription_activated
+        notify_monthly_subscription_activated(user_id, subscription=created, source='Stripe')
+        return created
 
 
 def set_subscription_cancel_at_period_end(stripe_subscription_id, cancel_at_period_end=True):
+    existing = fetch_subscription_by_stripe_id(stripe_subscription_id)
+    was_cancel_pending = bool(existing and existing.get('cancel_at_period_end'))
     now = _now_utc()
     cancel_flag = bool(cancel_at_period_end)
     with _db_conn() as conn:
@@ -1166,6 +1176,10 @@ def set_subscription_cancel_at_period_end(stripe_subscription_id, cancel_at_peri
                 (1 if cancel_flag else 0, now.isoformat(), stripe_subscription_id),
             )
             updated = cur.rowcount
+    if updated and cancel_flag and not was_cancel_pending and existing:
+        updated_row = fetch_subscription_by_stripe_id(stripe_subscription_id)
+        from billing_notifications import maybe_notify_subscription_cancellation_scheduled
+        maybe_notify_subscription_cancellation_scheduled(existing['user_id'], updated_row or existing, was_cancel_pending)
     return updated > 0
 
 
@@ -1380,6 +1394,10 @@ def get_db_connection():
 
 def database_is_postgres():
     return _USE_POSTGRES
+
+
+def get_auth_data_dir():
+    return _AUTH_DATA_DIR
 
 
 def init_user_auth(app, data_dir):
@@ -1855,7 +1873,11 @@ def api_admin_create_subscription(user_id):
             sub_row = s
             break
 
-    return jsonify({'ok': True, 'subscription': _subscription_to_api(sub_row)})
+    sub_api = _subscription_to_api(sub_row)
+    from billing_notifications import notify_monthly_subscription_activated
+    notify_monthly_subscription_activated(user_id, subscription=sub_api, source='Administrator')
+
+    return jsonify({'ok': True, 'subscription': sub_api})
 
 
 @auth_bp.route('/api/admin/user-accounts/<user_id>/one-day-pass', methods=['POST'])
@@ -1874,6 +1896,9 @@ def api_admin_create_one_day_pass(user_id):
     sub = create_one_day_pass(user_id, plan_name=plan_name, created_by=actor['id'])
     if not sub:
         return jsonify({'ok': False, 'error': 'Could not create One Day Pass'}), 500
+
+    from billing_notifications import notify_one_day_pass_activated
+    notify_one_day_pass_activated(user_id, subscription=sub, source='Administrator')
 
     return jsonify({
         'ok': True,
