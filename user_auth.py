@@ -1335,6 +1335,28 @@ def _cancel_active_by_pass_type(user_id, pass_type):
     return cancelled
 
 
+def _delete_user_account(user_id):
+    """Permanently delete a user account and rely on DB cascades for related rows."""
+    user_id = str(user_id or '').strip()
+    if not user_id:
+        return False
+
+    for sub in list(_fetch_user_subscriptions(user_id)):
+        if sub.get('status') == 'active':
+            _cancel_subscription_record(sub)
+
+    with _db_conn() as conn:
+        if _USE_POSTGRES:
+            cur = conn.cursor()
+            cur.execute('DELETE FROM users WHERE id = %s', (user_id,))
+            deleted = cur.rowcount
+            cur.close()
+        else:
+            cur = conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            deleted = cur.rowcount
+    return deleted > 0
+
+
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -2203,6 +2225,25 @@ def api_admin_revoke_active_subscriptions(user_id):
         'cancelledCount': cancelled,
         'user': _user_to_api(_fetch_user_by_id(user_id), include_subscription=True),
     })
+
+
+@auth_bp.route('/api/admin/user-accounts/<user_id>', methods=['DELETE'])
+@admin_required
+def api_admin_delete_user(user_id):
+    """Permanently delete a user account."""
+    actor = get_current_user()
+    target = _fetch_user_by_id(user_id)
+    if not target:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    if target.get('is_admin'):
+        return jsonify({'ok': False, 'error': 'Admin accounts cannot be deleted'}), 400
+    if actor and str(actor.get('id')) == str(user_id):
+        return jsonify({'ok': False, 'error': 'You cannot delete your own account while signed in'}), 400
+
+    if not _delete_user_account(user_id):
+        return jsonify({'ok': False, 'error': 'Could not delete user account'}), 500
+
+    return jsonify({'ok': True, 'deletedUserId': str(user_id)})
 
 
 @auth_bp.route('/admin/promotions')

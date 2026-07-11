@@ -10965,6 +10965,7 @@ body.auth-page {
 
 .admin-users-table-wrap {
     overflow-x: auto;
+    overflow-y: visible;
     background: rgba(12, 22, 36, 0.92);
     border: 1px solid rgba(120, 140, 170, 0.35);
     border-radius: 12px;
@@ -10987,6 +10988,79 @@ body.auth-page {
 .admin-users-table th {
     font-weight: 600;
     opacity: 0.9;
+}
+
+.admin-users-actions-cell {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.admin-user-actions-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.admin-user-actions-trigger {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.82rem;
+    min-width: 5.5rem;
+}
+
+.admin-user-actions-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    min-width: 12.5rem;
+    padding: 0.35rem;
+    border-radius: 10px;
+    border: 1px solid rgba(120, 140, 170, 0.35);
+    background: rgba(12, 22, 36, 0.98);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    z-index: 30;
+}
+
+.admin-user-actions-menu:hover .admin-user-actions-dropdown,
+.admin-user-actions-menu:focus-within .admin-user-actions-dropdown {
+    display: block;
+}
+
+.admin-user-action-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.65rem;
+    margin: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.admin-user-action-item:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-user-action-item:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.admin-user-action-primary {
+    color: #86efac;
+}
+
+.admin-user-action-danger {
+    color: #fca5a5;
+}
+
+.admin-user-actions-divider {
+    height: 1px;
+    margin: 0.35rem 0.2rem;
+    background: rgba(120, 140, 170, 0.25);
 }
 
 .admin-user-actions {

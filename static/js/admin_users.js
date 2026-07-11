@@ -52,39 +52,42 @@
         return latest.planName + ' · ' + formatDate(latest.startDate) + ' → ' + formatDate(latest.endDate) + ' (' + latest.status + ')';
     }
 
-    function actionButton(action, userId, label, primary) {
-        const cls = primary ? 'btn btn-primary admin-user-action' : 'btn btn-secondary admin-user-action';
-        return '<button type="button" class="' + cls + '" data-action="' + action + '" data-id="' + escapeHtml(userId) + '">' + escapeHtml(label) + '</button>';
+    function escapeHtml(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
-    function actionButtons(user) {
+    function buildActionItems(user) {
         const id = user.id;
-        const parts = [];
+        const items = [];
 
         if (user.isAdmin) {
-            return '<span class="hint-text">Admin account</span>';
+            return items;
         }
 
         if (user.status === 'pending') {
-            parts.push(actionButton('approve', id, 'Approve', true));
-            parts.push(actionButton('reject', id, 'Reject', false));
+            items.push({ action: 'approve', label: 'Approve', primary: true });
+            items.push({ action: 'reject', label: 'Reject' });
         } else if (user.status === 'rejected') {
-            parts.push(actionButton('approve', id, 'Approve', true));
-            parts.push(actionButton('disable', id, 'Disable', false));
+            items.push({ action: 'approve', label: 'Approve', primary: true });
+            items.push({ action: 'disable', label: 'Disable' });
         } else if (user.status === 'disabled') {
-            parts.push(actionButton('approve', id, 'Move to approved', true));
+            items.push({ action: 'approve', label: 'Move to approved', primary: true });
         } else if (user.status === 'approved') {
-            parts.push(actionButton('disable', id, 'Disable', false));
-            parts.push(actionButton('subscription', id, 'Add 31-day sub', false));
-            parts.push(actionButton('one-day-pass', id, 'Add 24h pass', false));
+            items.push({ action: 'disable', label: 'Disable' });
+            items.push({ action: 'subscription', label: 'Add 31-day sub' });
+            items.push({ action: 'one-day-pass', label: 'Add 24h pass' });
             if (user.activeMonthlySubscription) {
-                parts.push(actionButton('cancel-subscription', id, 'Cancel subscription', false));
+                items.push({ action: 'cancel-subscription', label: 'Cancel subscription' });
             }
             if (user.activeOneDayPass) {
-                parts.push(actionButton('cancel-one-day-pass', id, 'Cancel One Day Pass', false));
+                items.push({ action: 'cancel-one-day-pass', label: 'Cancel One Day Pass' });
             }
             if (user.activePromoAccess) {
-                parts.push(actionButton('cancel-promo-access', id, 'Cancel promo access', false));
+                items.push({ action: 'cancel-promo-access', label: 'Cancel promo access' });
             }
             const activeAccessCount = [
                 user.activeMonthlySubscription,
@@ -92,12 +95,45 @@
                 user.activePromoAccess,
             ].filter(Boolean).length;
             if (activeAccessCount >= 2) {
-                parts.push(actionButton('revoke-active', id, 'Cancel all access', false));
+                items.push({ action: 'revoke-active', label: 'Cancel all access' });
             }
         }
 
-        if (!parts.length) return '<span class="hint-text">—</span>';
-        return '<div class="admin-user-actions">' + parts.join('') + '</div>';
+        if (items.length) {
+            items.push({ type: 'divider' });
+        }
+        items.push({ action: 'delete', label: 'Delete user', danger: true });
+        return items;
+    }
+
+    function actionMenuItem(item, userId) {
+        if (item.type === 'divider') {
+            return '<div class="admin-user-actions-divider" role="separator"></div>';
+        }
+        let cls = 'admin-user-action admin-user-action-item';
+        if (item.primary) cls += ' admin-user-action-primary';
+        if (item.danger) cls += ' admin-user-action-danger';
+        return '<button type="button" class="' + cls + '" role="menuitem" data-action="' + item.action + '" data-id="' + escapeHtml(userId) + '">' + escapeHtml(item.label) + '</button>';
+    }
+
+    function actionButtons(user) {
+        if (user.isAdmin) {
+            return '<span class="hint-text">Admin account</span>';
+        }
+
+        const items = buildActionItems(user);
+        if (!items.length) {
+            return '<span class="hint-text">—</span>';
+        }
+
+        const menuHtml = items.map(function (item) {
+            return actionMenuItem(item, user.id);
+        }).join('');
+
+        return '<div class="admin-user-actions-menu">' +
+            '<button type="button" class="btn btn-secondary admin-user-actions-trigger" aria-haspopup="true" aria-expanded="false">Actions</button>' +
+            '<div class="admin-user-actions-dropdown" role="menu">' + menuHtml + '</div>' +
+            '</div>';
     }
 
     function renderUsers(users) {
@@ -113,17 +149,9 @@
                 '<td><span class="status-pill status-' + escapeHtml(user.status) + '">' + escapeHtml(user.status) + '</span></td>' +
                 '<td>' + escapeHtml(subscriptionSummary(user)) + '</td>' +
                 '<td>' + escapeHtml(formatDate(user.createdAt)) + '</td>' +
-                '<td>' + actionButtons(user) + '</td>' +
+                '<td class="admin-users-actions-cell">' + actionButtons(user) + '</td>' +
                 '</tr>';
         }).join('');
-    }
-
-    function escapeHtml(text) {
-        return String(text || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
     }
 
     async function loadUsers() {
@@ -145,6 +173,7 @@
 
     async function runAction(action, userId) {
         let url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/' + action;
+        let method = 'POST';
         let body = undefined;
 
         if (action === 'subscription') {
@@ -161,12 +190,15 @@
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/cancel-promo-access';
         } else if (action === 'revoke-active') {
             url = '/api/admin/user-accounts/' + encodeURIComponent(userId) + '/subscriptions/revoke-active';
+        } else if (action === 'delete') {
+            url = '/api/admin/user-accounts/' + encodeURIComponent(userId);
+            method = 'DELETE';
         }
 
         const resp = await fetch(url, {
-            method: 'POST',
+            method: method,
             headers: body ? { 'Content-Type': 'application/json' } : undefined,
-            body,
+            body: body,
         });
         const data = await resp.json();
         if (!resp.ok || !data.ok) {
@@ -175,7 +207,16 @@
         return data;
     }
 
-    function confirmAction(action) {
+    function confirmAction(action, btn) {
+        const emailCell = btn?.closest('tr')?.querySelector('td');
+        const emailLabel = emailCell ? emailCell.textContent.trim() : 'this user';
+
+        if (action === 'delete') {
+            return window.confirm(
+                'Permanently delete ' + emailLabel + '?\n\n'
+                + 'This removes the account, subscriptions, and promo history. This cannot be undone.'
+            );
+        }
         if (action === 'cancel-subscription') {
             return window.confirm('Cancel this user\'s active monthly subscription? They will lose subscription-based access immediately.');
         }
@@ -198,14 +239,14 @@
         const userId = btn.getAttribute('data-id');
         if (!action || !userId) return;
 
-        if (!confirmAction(action)) {
+        if (!confirmAction(action, btn)) {
             return;
         }
 
         btn.disabled = true;
         try {
             await runAction(action, userId);
-            setMessage('Updated successfully.', 'success');
+            setMessage(action === 'delete' ? 'User deleted.' : 'Updated successfully.', 'success');
             await loadUsers();
         } catch (err) {
             setMessage(err.message || 'Action failed.', 'error');
