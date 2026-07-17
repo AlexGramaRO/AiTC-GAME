@@ -355,3 +355,29 @@ def send_account_rejected_email(config, to_email, login_url=None):
         login_url,
     )
     send_email(config, to_email, subject, text_body, html_body)
+
+
+PROMO_CODE_PLACEHOLDER = '<PROMOCODE>'
+
+
+def apply_promo_code_placeholder(text, promo_code):
+    """Replace <PROMOCODE> in subject/body with the actual promotion code."""
+    value = '' if text is None else str(text)
+    code = '' if promo_code is None else str(promo_code)
+    return value.replace(PROMO_CODE_PLACEHOLDER, code)
+
+
+def send_promo_notify_email(config, to_email, subject, message, promo_code):
+    """Send a custom admin promo notification; substitutes <PROMOCODE> in subject and body."""
+    from html import escape as html_escape
+
+    final_subject = apply_promo_code_placeholder(subject, promo_code).strip() or 'webATC promotion'
+    final_text = apply_promo_code_placeholder(message, promo_code)
+    escaped = html_escape(final_text).replace('\n', '<br>\n')
+    html_body = (
+        f'<div style="font-family:Arial,sans-serif;line-height:1.5;color:#1a1a1a;">'
+        f'{escaped}'
+        f'<p style="margin:20px 0 0;color:#666;font-size:13px;">webATC platform</p>'
+        f'</div>'
+    )
+    send_email(config, to_email, final_subject, final_text, html_body)

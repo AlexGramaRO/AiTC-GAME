@@ -64,6 +64,47 @@
         </div>
     </div>
 
+    <div id="promoNotifyModal" class="modal" aria-hidden="true">
+        <div class="modal-content modal-large promo-notify-modal-content">
+            <div class="modal-header">
+                <h2 id="promoNotifyModalTitle">Notify users</h2>
+                <button type="button" class="modal-close" id="promoNotifyCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body promo-notify-modal-body">
+                <p class="hint-text promo-notify-hint">
+                    Select recipients, then write the email. Use <code>&lt;PROMOCODE&gt;</code> in the subject or message to insert this promotion code.
+                </p>
+                <div class="promo-notify-layout">
+                    <section class="promo-notify-users-section">
+                        <div class="promo-notify-users-header">
+                            <h3>Users</h3>
+                            <button type="button" class="btn btn-secondary" id="promoNotifySelectAllBtn">Select all</button>
+                        </div>
+                        <div id="promoNotifyUsersList" class="promo-notify-users-list">
+                            <p class="hint-text">Loading users…</p>
+                        </div>
+                        <p id="promoNotifySelectedCount" class="hint-text promo-notify-selected-count">0 selected</p>
+                    </section>
+                    <section class="promo-notify-compose-section">
+                        <div class="form-group">
+                            <label class="form-label" for="promoNotifySubject">Subject</label>
+                            <input type="text" id="promoNotifySubject" class="form-input" maxlength="200" autocomplete="off" placeholder="Your webATC promo code" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="promoNotifyMessage">Message</label>
+                            <textarea id="promoNotifyMessage" class="form-textarea promo-notify-message" rows="10" placeholder="Hello,&#10;&#10;Use code &lt;PROMOCODE&gt; to activate your access."></textarea>
+                        </div>
+                    </section>
+                </div>
+                <div id="promoNotifyMessageEl" class="auth-message" style="display:none;"></div>
+                <div class="form-actions promo-notify-actions">
+                    <button type="button" class="btn btn-success" id="promoNotifySendBtn">Send</button>
+                    <button type="button" class="btn btn-secondary" id="promoNotifyCancelBtn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/admin_promotions.js') }}"></script>
 </body>
 </html>

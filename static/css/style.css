@@ -11599,12 +11599,118 @@ body.auth-page {
     display: flex;
     flex-wrap: wrap;
     gap: 0.45rem;
-    min-width: 11rem;
+    min-width: 16rem;
 }
 
 .admin-promo-action-btn {
     padding: 0.35rem 0.65rem;
     font-size: 0.82rem;
+}
+
+.promo-notify-modal-content {
+    max-width: min(920px, 96vw);
+}
+
+.promo-notify-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.promo-notify-hint {
+    margin: 0;
+}
+
+.promo-notify-layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.95fr) minmax(0, 1.2fr);
+    gap: 1.25rem;
+    min-height: 18rem;
+}
+
+@media (max-width: 800px) {
+    .promo-notify-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.promo-notify-users-section,
+.promo-notify-compose-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.promo-notify-users-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.promo-notify-users-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.promo-notify-users-list {
+    max-height: 22rem;
+    overflow-y: auto;
+    border: 1px solid rgba(74, 144, 226, 0.28);
+    border-radius: 8px;
+    background: rgba(8, 14, 24, 0.55);
+    padding: 0.45rem;
+}
+
+.promo-notify-user-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    color: rgba(245, 247, 250, 0.95);
+    font-size: 0.88rem;
+}
+
+.promo-notify-user-row:hover {
+    background: rgba(74, 144, 226, 0.12);
+}
+
+.promo-notify-user-row input {
+    margin-top: 0.15rem;
+}
+
+.promo-notify-user-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.promo-notify-user-email {
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.promo-notify-user-status {
+    font-size: 0.78rem;
+    color: rgba(245, 247, 250, 0.55);
+}
+
+.promo-notify-selected-count {
+    margin: 0;
+}
+
+.promo-notify-message {
+    min-height: 12rem;
+    resize: vertical;
+}
+
+.promo-notify-actions {
+    justify-content: flex-end;
+    margin-top: 0.25rem;
 }
 
 .promo-status-pill {

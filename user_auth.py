@@ -2323,3 +2323,81 @@ def api_admin_delete_promotion(promotion_id):
     if not delete_promotion_code(promotion_id):
         return jsonify({'ok': False, 'error': 'Promotion code not found'}), 404
     return jsonify({'ok': True})
+
+
+@auth_bp.route('/api/admin/promotions/<promotion_id>/notify', methods=['POST'])
+@admin_required
+def api_admin_notify_promotion(promotion_id):
+    """Email selected users about a promotion code. Substitutes <PROMOCODE> in subject/message."""
+    from email_service import is_email_configured, merge_email_config, send_promo_notify_email
+    from promotions_store import fetch_promotion_by_id
+
+    promotion = fetch_promotion_by_id(promotion_id)
+    if not promotion:
+        return jsonify({'ok': False, 'error': 'Promotion code not found'}), 404
+
+    body = request.get_json(silent=True) or {}
+    subject = (body.get('subject') or '').strip()
+    message = body.get('message')
+    if message is None:
+        message = ''
+    else:
+        message = str(message)
+    raw_ids = body.get('userIds') or body.get('user_ids') or []
+    if not isinstance(raw_ids, list):
+        return jsonify({'ok': False, 'error': 'userIds must be a list'}), 400
+    if not subject:
+        return jsonify({'ok': False, 'error': 'Subject is required'}), 400
+    if not message.strip():
+        return jsonify({'ok': False, 'error': 'Message is required'}), 400
+
+    user_ids = []
+    seen = set()
+    for raw in raw_ids:
+        uid = str(raw or '').strip()
+        if not uid or uid in seen:
+            continue
+        seen.add(uid)
+        user_ids.append(uid)
+    if not user_ids:
+        return jsonify({'ok': False, 'error': 'Select at least one user'}), 400
+
+    config = merge_email_config(data_dir=get_auth_data_dir())
+    if not is_email_configured(config):
+        return jsonify({
+            'ok': False,
+            'error': 'Email is not configured. Configure SMTP in Admin Settings first.',
+        }), 400
+
+    promo_code = (promotion.get('code') or '').strip()
+    sent = 0
+    failed = []
+    skipped = []
+
+    for uid in user_ids:
+        user = _fetch_user_by_id(uid)
+        if not user:
+            skipped.append({'userId': uid, 'reason': 'not_found'})
+            continue
+        to_email = (user.get('email') or '').strip()
+        if not to_email:
+            skipped.append({'userId': uid, 'reason': 'no_email'})
+            continue
+        try:
+            send_promo_notify_email(config, to_email, subject, message, promo_code)
+            sent += 1
+        except Exception as exc:
+            failed.append({
+                'userId': uid,
+                'email': to_email,
+                'error': str(exc) or 'send_failed',
+            })
+
+    return jsonify({
+        'ok': True,
+        'promoCode': promo_code,
+        'sent': sent,
+        'failed': failed,
+        'skipped': skipped,
+        'requested': len(user_ids),
+    })
