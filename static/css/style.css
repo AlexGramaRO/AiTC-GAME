@@ -3761,6 +3761,7 @@ footer {
 .exercise-view-options-btn,
 .exercise-ai-pilot-btn,
 .exercise-restrictions-btn,
+.exercise-instructions-btn,
 .exercise-duplicate-btn {
     width: 100%;
     padding: 0.6rem 0.9rem;
@@ -3771,6 +3772,7 @@ footer {
 .edit-exercise-topbar .exercise-view-options-btn,
 .edit-exercise-topbar .exercise-ai-pilot-btn,
 .edit-exercise-topbar .exercise-restrictions-btn,
+.edit-exercise-topbar .exercise-instructions-btn,
 .edit-exercise-topbar .exercise-duplicate-btn {
     width: auto;
     padding: 0.45rem 1rem;
@@ -4255,6 +4257,270 @@ footer {
     margin: 0;
     font-size: 0.82rem;
     line-height: 1.35;
+}
+
+.exercise-instructions-editor-modal {
+    max-width: min(1100px, 96vw);
+}
+
+.exercise-instructions-editor-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.exercise-instructions-editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.exercise-instructions-page-label {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: rgba(245, 247, 250, 0.95);
+}
+
+.exercise-instructions-editor-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.exercise-instructions-editor-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.9fr);
+    gap: 1.25rem;
+    min-height: 18rem;
+}
+
+@media (max-width: 820px) {
+    .exercise-instructions-editor-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.exercise-instructions-editor-text-col,
+.exercise-instructions-editor-image-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-width: 0;
+}
+
+.exercise-instructions-text-input {
+    min-height: 16rem;
+    resize: vertical;
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+
+.exercise-instructions-image-preview {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 14rem;
+    border: 1px solid rgba(74, 144, 226, 0.28);
+    border-radius: 8px;
+    background: rgba(8, 14, 24, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.exercise-instructions-image-placeholder {
+    color: rgba(245, 247, 250, 0.45);
+    font-size: 0.9rem;
+}
+
+.exercise-instructions-image-preview img {
+    max-width: 100%;
+    max-height: 18rem;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
+
+.exercise-instructions-image-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.exercise-instructions-editor-footer {
+    margin-top: 0.25rem;
+    justify-content: flex-end;
+}
+
+/* Pre-simulation instructions viewer */
+.exercise-instructions-viewer-modal.active {
+    background: rgba(0, 0, 0, 0.88);
+}
+
+.exercise-instructions-viewer-content {
+    max-width: min(1080px, 94vw);
+    width: 100%;
+    background: #000;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+    color: #fff;
+    overflow: hidden;
+}
+
+.exercise-instructions-viewer-inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: min(70vh, 640px);
+    padding: 2rem 2.25rem 1.5rem;
+    gap: 1.5rem;
+    background: #000;
+}
+
+.exercise-instructions-viewer-cancel {
+    position: absolute;
+    top: 0.85rem;
+    right: 1rem;
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 0.35rem 0.5rem;
+    transition: color 0.18s ease;
+}
+
+.exercise-instructions-viewer-cancel:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.exercise-instructions-viewer-main {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 2rem;
+    align-items: stretch;
+    min-height: 0;
+}
+
+.exercise-instructions-viewer-main.exercise-instructions-viewer-main--text-only {
+    grid-template-columns: 1fr;
+}
+
+.exercise-instructions-viewer-text-col {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+}
+
+.exercise-instructions-viewer-text {
+    width: 100%;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #ffffff;
+    font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+    line-height: 1.55;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+}
+
+.exercise-instructions-viewer-image-col {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding-left: 1.5rem;
+}
+
+.exercise-instructions-viewer-image-col[hidden] {
+    display: none !important;
+}
+
+.exercise-instructions-viewer-image {
+    max-width: 100%;
+    max-height: min(52vh, 480px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+.exercise-instructions-viewer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.exercise-instructions-viewer-page-label {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.exercise-instructions-viewer-btn {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.82);
+    padding: 0.55rem 1.15rem;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.exercise-instructions-viewer-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+}
+
+.exercise-instructions-viewer-btn:disabled {
+    opacity: 0.28;
+    cursor: default;
+}
+
+.exercise-instructions-viewer-btn--primary {
+    border-color: rgba(255, 255, 255, 0.45);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.exercise-instructions-viewer-btn--primary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 760px) {
+    .exercise-instructions-viewer-inner {
+        padding: 1.35rem 1.2rem 1.1rem;
+    }
+
+    .exercise-instructions-viewer-main {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+
+    .exercise-instructions-viewer-image-col {
+        border-left: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-left: 0;
+        padding-top: 1.1rem;
+    }
 }
 
 .exercise-view-option-checkbox {

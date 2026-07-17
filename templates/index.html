@@ -1306,6 +1306,7 @@
                     <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-ai-pilot-btn" id="exerciseAiPilotBtn" disabled aria-pressed="false">AI Pilot</button>
                     <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-view-options-btn" id="exerciseViewOptionsBtn" disabled aria-pressed="false">View Options</button>
                     <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-restrictions-btn" id="exerciseRestrictionsBtn" disabled aria-pressed="false">Restrictions</button>
+                    <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-instructions-btn" id="exerciseInstructionsBtn" disabled>Instructions</button>
                     <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-duplicate-btn" id="exerciseDuplicateBtn" disabled>Duplicate</button>
                     <button type="button" class="btn btn-secondary edit-exercise-topbar-action-btn exercise-save-exercise-btn" id="saveExerciseBtn" disabled>Save Exercise</button>
                 </div>
@@ -1404,6 +1405,10 @@
                             <label class="exercise-view-option-checkbox">
                                 <input type="checkbox" id="exerciseRestrictCommandsDuringPause" />
                                 <span>Commands during pause</span>
+                            </label>
+                            <label class="exercise-view-option-checkbox">
+                                <input type="checkbox" id="exerciseRestrictRemoveInstructions" />
+                                <span>Remove instructions</span>
                             </label>
                         </div>
                     </div>
@@ -2159,6 +2164,71 @@
                 <div class="form-actions" style="margin-top: 1rem;">
                     <button type="button" class="btn btn-success" id="duplicateExerciseCreateBtn">Create</button>
                     <button type="button" class="btn btn-secondary" id="duplicateExerciseCancelBtn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exercise Instructions editor (Edit Exercise) -->
+    <div id="exerciseInstructionsModal" class="modal">
+        <div class="modal-content modal-large exercise-instructions-editor-modal">
+            <div class="modal-header">
+                <h2>Exercise Instructions</h2>
+                <button type="button" class="modal-close" id="closeExerciseInstructionsBtn">&times;</button>
+            </div>
+            <div class="modal-body exercise-instructions-editor-body">
+                <div class="exercise-instructions-editor-toolbar">
+                    <span id="exerciseInstructionsPageLabel" class="exercise-instructions-page-label">Page 1 of 1</span>
+                    <div class="exercise-instructions-editor-toolbar-actions">
+                        <button type="button" class="btn btn-secondary" id="exerciseInstructionsPrevPageBtn">Previous</button>
+                        <button type="button" class="btn btn-secondary" id="exerciseInstructionsNextPageBtn">Next</button>
+                        <button type="button" class="btn btn-primary" id="exerciseInstructionsAddPageBtn">Add page</button>
+                        <button type="button" class="btn btn-danger" id="exerciseInstructionsDeletePageBtn">Delete page</button>
+                    </div>
+                </div>
+                <div class="exercise-instructions-editor-layout">
+                    <div class="exercise-instructions-editor-text-col">
+                        <label class="form-label" for="exerciseInstructionsTextInput">Instructions</label>
+                        <textarea id="exerciseInstructionsTextInput" class="form-textarea exercise-instructions-text-input" rows="14" placeholder="Write the instructions for this page…"></textarea>
+                    </div>
+                    <div class="exercise-instructions-editor-image-col">
+                        <label class="form-label">Picture (optional)</label>
+                        <div id="exerciseInstructionsImagePreview" class="exercise-instructions-image-preview" aria-label="Instruction page picture preview">
+                            <span class="exercise-instructions-image-placeholder">No picture</span>
+                            <img id="exerciseInstructionsImageEl" alt="Instruction page" hidden />
+                        </div>
+                        <div class="exercise-instructions-image-actions">
+                            <button type="button" class="btn btn-secondary" id="exerciseInstructionsAddImageBtn">Add / Change picture</button>
+                            <button type="button" class="btn btn-secondary" id="exerciseInstructionsRemoveImageBtn">Remove picture</button>
+                            <input type="file" id="exerciseInstructionsImageFileInput" accept="image/*" hidden />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions exercise-instructions-editor-footer">
+                    <button type="button" class="btn btn-success" id="exerciseInstructionsSaveBtn">Save</button>
+                    <button type="button" class="btn btn-secondary" id="exerciseInstructionsCloseBtn">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pre-simulation exercise instructions viewer -->
+    <div id="exerciseInstructionsViewerModal" class="modal exercise-instructions-viewer-modal">
+        <div class="modal-content exercise-instructions-viewer-content">
+            <div class="exercise-instructions-viewer-inner">
+                <button type="button" class="exercise-instructions-viewer-cancel" id="exerciseInstructionsViewerCancelBtn" aria-label="Cancel">Cancel</button>
+                <div class="exercise-instructions-viewer-main">
+                    <div class="exercise-instructions-viewer-text-col">
+                        <div id="exerciseInstructionsViewerText" class="exercise-instructions-viewer-text"></div>
+                    </div>
+                    <div id="exerciseInstructionsViewerImageCol" class="exercise-instructions-viewer-image-col" hidden>
+                        <img id="exerciseInstructionsViewerImage" class="exercise-instructions-viewer-image" alt="Instruction illustration" />
+                    </div>
+                </div>
+                <div class="exercise-instructions-viewer-footer">
+                    <button type="button" class="exercise-instructions-viewer-btn" id="exerciseInstructionsViewerPrevBtn">Previous page</button>
+                    <span id="exerciseInstructionsViewerPageLabel" class="exercise-instructions-viewer-page-label">1 / 1</span>
+                    <button type="button" class="exercise-instructions-viewer-btn exercise-instructions-viewer-btn--primary" id="exerciseInstructionsViewerNextBtn">Next page</button>
                 </div>
             </div>
         </div>

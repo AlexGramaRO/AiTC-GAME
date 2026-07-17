@@ -637,7 +637,7 @@ async function startSingleUserExerciseDirectly(exercise) {
     simulationSingleUserAtcSectorLocked = true;
     window._runTypePresetMode = 'DL';
     closeModal('selectExerciseModal');
-    startSimulation(exercise);
+    requestSimulationStartWithInstructions(exercise);
 }
 
 /** Export bundle identifier for JSON files produced by Export Data (for future import). */
@@ -4224,20 +4224,31 @@ let exerciseViewOptionsActive = false;
 let exerciseAiPilotActive = false;
 let exerciseRestrictionsActive = false;
 let exerciseSpeedVectorEnabled = false;
-/** @type {{ labelMouseInputs: boolean, measurements: boolean, pauseDuringRun: boolean, commandsDuringPause: boolean }} */
+/** @type {{ labelMouseInputs: boolean, measurements: boolean, pauseDuringRun: boolean, commandsDuringPause: boolean, removeInstructions: boolean }} */
 let currentEditingRestrictions = {
     labelMouseInputs: false,
     measurements: false,
     pauseDuringRun: false,
-    commandsDuringPause: false
+    commandsDuringPause: false,
+    removeInstructions: false
 };
 /** Runtime copy applied when a simulation starts from an exercise. */
 let simulationExerciseRestrictions = {
     labelMouseInputs: false,
     measurements: false,
     pauseDuringRun: false,
-    commandsDuringPause: false
+    commandsDuringPause: false,
+    removeInstructions: false
 };
+/** @type {Array<{id:string,text:string,imageDataUrl:string|null}>} */
+let currentEditingInstructionPages = [];
+let exerciseInstructionsEditorPageIndex = 0;
+/** Pending start after pre-sim instruction viewer confirms. */
+let pendingInstructionsStartExercise = null;
+let pendingInstructionsStartAfter = null;
+let exerciseInstructionsViewerPageIndex = 0;
+/** @type {Array<{id:string,text:string,imageDataUrl:string|null}>} */
+let exerciseInstructionsViewerPages = [];
 let exerciseSectorLoadCache = { sig: '', data: null };
 let exerciseSectorLoadResizeObserver = null;
 const EXERCISE_SECTOR_LOAD_COLORS = [
@@ -5236,7 +5247,7 @@ function populateEditExerciseSelect(sectorId) {
 }
 
 function setEditExerciseButtonsEnabled(enabled) {
-    ['addFlightBtn', 'addMultipleFlightsBtn', 'exerciseCreateFlowsBtn', 'exerciseLoadFlowsBtn', 'saveExerciseBtn', 'exerciseSectorLoadBtn', 'exerciseAiPilotBtn', 'exerciseViewOptionsBtn', 'exerciseRestrictionsBtn', 'exerciseDuplicateBtn', 'editExerciseAddMenuTrigger', 'editExerciseFlowsMenuTrigger', 'exerciseFlightsPopupBtn'].forEach(id => {
+    ['addFlightBtn', 'addMultipleFlightsBtn', 'exerciseCreateFlowsBtn', 'exerciseLoadFlowsBtn', 'saveExerciseBtn', 'exerciseSectorLoadBtn', 'exerciseAiPilotBtn', 'exerciseViewOptionsBtn', 'exerciseRestrictionsBtn', 'exerciseInstructionsBtn', 'exerciseDuplicateBtn', 'editExerciseAddMenuTrigger', 'editExerciseFlowsMenuTrigger', 'exerciseFlightsPopupBtn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = !enabled;
     });
@@ -5247,7 +5258,8 @@ function defaultExerciseRestrictions() {
         labelMouseInputs: false,
         measurements: false,
         pauseDuringRun: false,
-        commandsDuringPause: false
+        commandsDuringPause: false,
+        removeInstructions: false
     };
 }
 
@@ -5258,7 +5270,8 @@ function normalizeExerciseRestrictions(raw) {
         labelMouseInputs: !!raw.labelMouseInputs,
         measurements: !!raw.measurements,
         pauseDuringRun: !!raw.pauseDuringRun,
-        commandsDuringPause: !!raw.commandsDuringPause
+        commandsDuringPause: !!raw.commandsDuringPause,
+        removeInstructions: !!raw.removeInstructions
     };
 }
 
@@ -5267,7 +5280,8 @@ function syncExerciseRestrictionsControls() {
         ['exerciseRestrictLabelMouseInputs', 'labelMouseInputs'],
         ['exerciseRestrictMeasurements', 'measurements'],
         ['exerciseRestrictPauseDuringRun', 'pauseDuringRun'],
-        ['exerciseRestrictCommandsDuringPause', 'commandsDuringPause']
+        ['exerciseRestrictCommandsDuringPause', 'commandsDuringPause'],
+        ['exerciseRestrictRemoveInstructions', 'removeInstructions']
     ];
     map.forEach(([id, key]) => {
         const el = document.getElementById(id);
@@ -5280,9 +5294,251 @@ function readExerciseRestrictionsFromControls() {
         labelMouseInputs: !!document.getElementById('exerciseRestrictLabelMouseInputs')?.checked,
         measurements: !!document.getElementById('exerciseRestrictMeasurements')?.checked,
         pauseDuringRun: !!document.getElementById('exerciseRestrictPauseDuringRun')?.checked,
-        commandsDuringPause: !!document.getElementById('exerciseRestrictCommandsDuringPause')?.checked
+        commandsDuringPause: !!document.getElementById('exerciseRestrictCommandsDuringPause')?.checked,
+        removeInstructions: !!document.getElementById('exerciseRestrictRemoveInstructions')?.checked
     };
     return { ...currentEditingRestrictions };
+}
+
+function createEmptyExerciseInstructionPage() {
+    return {
+        id: newSectorEntityId('insp'),
+        text: '',
+        imageDataUrl: null
+    };
+}
+
+function normalizeExerciseInstructionPage(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const text = typeof raw.text === 'string' ? raw.text : '';
+    const imageDataUrl = (typeof raw.imageDataUrl === 'string' && raw.imageDataUrl.startsWith('data:image/'))
+        ? raw.imageDataUrl
+        : null;
+    return {
+        id: String(raw.id || '').trim() || newSectorEntityId('insp'),
+        text,
+        imageDataUrl
+    };
+}
+
+function normalizeExerciseInstructionPagesFromExercise(exercise) {
+    const raw = exercise?.instructionPages;
+    if (!Array.isArray(raw) || !raw.length) return [];
+    return raw.map(normalizeExerciseInstructionPage).filter(Boolean);
+}
+
+function cloneExerciseInstructionPages(pages) {
+    return (Array.isArray(pages) ? pages : []).map((p) => ({
+        id: p.id,
+        text: typeof p.text === 'string' ? p.text : '',
+        imageDataUrl: p.imageDataUrl || null
+    }));
+}
+
+function getExerciseInstructionPagesForDisplay(exercise) {
+    const pages = normalizeExerciseInstructionPagesFromExercise(exercise);
+    return pages.filter((p) => {
+        const hasText = !!(p.text && p.text.trim());
+        const hasImage = !!(p.imageDataUrl && String(p.imageDataUrl).startsWith('data:image/'));
+        return hasText || hasImage;
+    });
+}
+
+function shouldShowExerciseInstructionsBeforeStart(exercise) {
+    if (!exercise) return false;
+    const restrictions = normalizeExerciseRestrictions(exercise.restrictions);
+    if (restrictions.removeInstructions) return false;
+    return getExerciseInstructionPagesForDisplay(exercise).length > 0;
+}
+
+function flushExerciseInstructionsEditorPageToState() {
+    if (!currentEditingInstructionPages.length) return;
+    const idx = Math.max(0, Math.min(exerciseInstructionsEditorPageIndex, currentEditingInstructionPages.length - 1));
+    const page = currentEditingInstructionPages[idx];
+    if (!page) return;
+    const textEl = document.getElementById('exerciseInstructionsTextInput');
+    if (textEl) page.text = textEl.value;
+}
+
+function syncExerciseInstructionsEditorUi() {
+    if (!currentEditingInstructionPages.length) {
+        currentEditingInstructionPages = [createEmptyExerciseInstructionPage()];
+    }
+    exerciseInstructionsEditorPageIndex = Math.max(
+        0,
+        Math.min(exerciseInstructionsEditorPageIndex, currentEditingInstructionPages.length - 1)
+    );
+    const page = currentEditingInstructionPages[exerciseInstructionsEditorPageIndex];
+    const label = document.getElementById('exerciseInstructionsPageLabel');
+    if (label) {
+        label.textContent = `Page ${exerciseInstructionsEditorPageIndex + 1} of ${currentEditingInstructionPages.length}`;
+    }
+    const textEl = document.getElementById('exerciseInstructionsTextInput');
+    if (textEl) textEl.value = page?.text || '';
+    const imgEl = document.getElementById('exerciseInstructionsImageEl');
+    const placeholder = document.querySelector('#exerciseInstructionsImagePreview .exercise-instructions-image-placeholder');
+    const hasImage = !!(page?.imageDataUrl);
+    if (imgEl) {
+        if (hasImage) {
+            imgEl.src = page.imageDataUrl;
+            imgEl.hidden = false;
+        } else {
+            imgEl.removeAttribute('src');
+            imgEl.hidden = true;
+        }
+    }
+    if (placeholder) placeholder.hidden = hasImage;
+    const prevBtn = document.getElementById('exerciseInstructionsPrevPageBtn');
+    const nextBtn = document.getElementById('exerciseInstructionsNextPageBtn');
+    const delBtn = document.getElementById('exerciseInstructionsDeletePageBtn');
+    if (prevBtn) prevBtn.disabled = exerciseInstructionsEditorPageIndex <= 0;
+    if (nextBtn) nextBtn.disabled = exerciseInstructionsEditorPageIndex >= currentEditingInstructionPages.length - 1;
+    if (delBtn) delBtn.disabled = currentEditingInstructionPages.length <= 1;
+}
+
+function openExerciseInstructionsEditor() {
+    if (!currentEditingExerciseId) return;
+    if (!currentEditingInstructionPages.length) {
+        currentEditingInstructionPages = [createEmptyExerciseInstructionPage()];
+    }
+    exerciseInstructionsEditorPageIndex = 0;
+    syncExerciseInstructionsEditorUi();
+    openModal('exerciseInstructionsModal');
+}
+
+function persistCurrentEditingInstructionPages() {
+    if (!currentEditingExerciseId) return;
+    flushExerciseInstructionsEditorPageToState();
+    const exercises = getExercises();
+    const idx = exercises.findIndex(ex => ex && ex.id === currentEditingExerciseId);
+    if (idx === -1) return;
+    exercises[idx] = {
+        ...exercises[idx],
+        instructionPages: cloneExerciseInstructionPages(currentEditingInstructionPages),
+        updatedAt: new Date().toISOString()
+    };
+    saveExercises(exercises);
+}
+
+function readImageFileAsResizedDataUrl(file, maxDim = 1400, quality = 0.84) {
+    return new Promise((resolve, reject) => {
+        if (!file) {
+            reject(new Error('No file'));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Could not read image'));
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    let w = img.naturalWidth || img.width;
+                    let h = img.naturalHeight || img.height;
+                    if (!w || !h) {
+                        resolve(String(reader.result || ''));
+                        return;
+                    }
+                    const scale = Math.min(1, maxDim / Math.max(w, h));
+                    w = Math.max(1, Math.round(w * scale));
+                    h = Math.max(1, Math.round(h * scale));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const type = (file.type === 'image/png') ? 'image/png' : 'image/jpeg';
+                    resolve(canvas.toDataURL(type, quality));
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            img.onerror = () => reject(new Error('Invalid image'));
+            img.src = String(reader.result || '');
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function renderExerciseInstructionsViewerPage() {
+    const pages = exerciseInstructionsViewerPages;
+    if (!pages.length) return;
+    exerciseInstructionsViewerPageIndex = Math.max(
+        0,
+        Math.min(exerciseInstructionsViewerPageIndex, pages.length - 1)
+    );
+    const page = pages[exerciseInstructionsViewerPageIndex];
+    const textEl = document.getElementById('exerciseInstructionsViewerText');
+    if (textEl) textEl.textContent = page?.text || '';
+    const imgCol = document.getElementById('exerciseInstructionsViewerImageCol');
+    const imgEl = document.getElementById('exerciseInstructionsViewerImage');
+    const main = document.querySelector('#exerciseInstructionsViewerModal .exercise-instructions-viewer-main');
+    const hasImage = !!(page?.imageDataUrl);
+    if (imgCol) imgCol.hidden = !hasImage;
+    if (imgEl) {
+        if (hasImage) imgEl.src = page.imageDataUrl;
+        else imgEl.removeAttribute('src');
+    }
+    if (main) main.classList.toggle('exercise-instructions-viewer-main--text-only', !hasImage);
+    const label = document.getElementById('exerciseInstructionsViewerPageLabel');
+    if (label) label.textContent = `${exerciseInstructionsViewerPageIndex + 1} / ${pages.length}`;
+    const prevBtn = document.getElementById('exerciseInstructionsViewerPrevBtn');
+    const nextBtn = document.getElementById('exerciseInstructionsViewerNextBtn');
+    if (prevBtn) prevBtn.disabled = exerciseInstructionsViewerPageIndex <= 0;
+    if (nextBtn) {
+        const isLast = exerciseInstructionsViewerPageIndex >= pages.length - 1;
+        nextBtn.textContent = isLast ? 'Start Simulation' : 'Next page';
+    }
+}
+
+function closeExerciseInstructionsViewer(abort) {
+    closeModal('exerciseInstructionsViewerModal');
+    if (abort) {
+        pendingInstructionsStartExercise = null;
+        pendingInstructionsStartAfter = null;
+        exerciseInstructionsViewerPages = [];
+    }
+}
+
+async function confirmExerciseInstructionsViewerStart() {
+    const exercise = pendingInstructionsStartExercise;
+    const after = pendingInstructionsStartAfter;
+    pendingInstructionsStartExercise = null;
+    pendingInstructionsStartAfter = null;
+    exerciseInstructionsViewerPages = [];
+    closeModal('exerciseInstructionsViewerModal');
+    if (!exercise) return;
+    await startSimulation(exercise);
+    if (typeof after === 'function') {
+        try { after(); } catch (e) {}
+    }
+}
+
+function showExerciseInstructionsBeforeStart(exercise, afterStart) {
+    exerciseInstructionsViewerPages = getExerciseInstructionPagesForDisplay(exercise);
+    if (!exerciseInstructionsViewerPages.length) {
+        return Promise.resolve(startSimulation(exercise)).then(() => {
+            if (typeof afterStart === 'function') afterStart();
+        });
+    }
+    pendingInstructionsStartExercise = exercise;
+    pendingInstructionsStartAfter = typeof afterStart === 'function' ? afterStart : null;
+    exerciseInstructionsViewerPageIndex = 0;
+    renderExerciseInstructionsViewerPage();
+    openModal('exerciseInstructionsViewerModal');
+    return Promise.resolve();
+}
+
+async function requestSimulationStartWithInstructions(exercise, afterStart) {
+    if (!exercise) return;
+    const latest = (exercise.id != null ? getExerciseById(exercise.id) : null) || exercise;
+    if (!shouldShowExerciseInstructionsBeforeStart(latest)) {
+        await startSimulation(latest);
+        if (typeof afterStart === 'function') {
+            try { afterStart(); } catch (e) {}
+        }
+        return;
+    }
+    showExerciseInstructionsBeforeStart(latest, afterStart);
 }
 
 function persistCurrentEditingRestrictions() {
@@ -5340,6 +5596,11 @@ function cloneExerciseForDuplicate(exercise, displayName) {
     x.createdAt = new Date().toISOString();
     x.updatedAt = x.createdAt;
     x.restrictions = normalizeExerciseRestrictions(x.restrictions);
+    x.instructionPages = normalizeExerciseInstructionPagesFromExercise(x).map((p) => ({
+        ...p,
+        id: newSectorEntityId('insp')
+    }));
+    if (!x.instructionPages.length) x.instructionPages = [createEmptyExerciseInstructionPage()];
     if (Array.isArray(x.flights)) {
         x.flights = x.flights.filter(Boolean).map(f => {
             const oldId = f.id != null ? String(f.id) : '';
@@ -5496,6 +5757,8 @@ function openEditExerciseModal() {
     currentEditingSuppressedInitialPilotCalls = [];
     currentEditingRestrictions = defaultExerciseRestrictions();
     syncExerciseRestrictionsControls();
+    currentEditingInstructionPages = [createEmptyExerciseInstructionPage()];
+    exerciseInstructionsEditorPageIndex = 0;
     currentEditingFlows = [];
     currentEditingSector = null;
     exercisePreviewLabelOffsetsByAircraftId = {};
@@ -5569,6 +5832,11 @@ async function loadExerciseForEditing(exerciseId) {
     currentEditingSuppressedInitialPilotCalls = normalizeSuppressedInitialPilotCallsFromExercise(exercise);
     currentEditingRestrictions = normalizeExerciseRestrictions(exercise.restrictions);
     syncExerciseRestrictionsControls();
+    currentEditingInstructionPages = normalizeExerciseInstructionPagesFromExercise(exercise);
+    if (!currentEditingInstructionPages.length) {
+        currentEditingInstructionPages = [createEmptyExerciseInstructionPage()];
+    }
+    exerciseInstructionsEditorPageIndex = 0;
     currentEditingFlows = normalizeFlowsFromSector(sector);
     exercisePreviewLabelOffsetsByAircraftId = {};
     exercisePreviewLabelZOrder = [];
@@ -8121,6 +8389,7 @@ function saveCurrentExercise(opts = {}) {
     if (!currentEditingExerciseId) return;
     flushExerciseAiPilotContextFromPanel();
     readExerciseRestrictionsFromControls();
+    flushExerciseInstructionsEditorPageToState();
     const exercises = getExercises();
     const idx = exercises.findIndex(ex => ex && ex.id === currentEditingExerciseId);
     if (idx === -1) return;
@@ -8130,6 +8399,7 @@ function saveCurrentExercise(opts = {}) {
         aiPilotContext: currentEditingAiPilotContext,
         aiPilotScripts: currentEditingAiPilotScripts.map(s => ({ ...s })),
         suppressedInitialPilotCalls: currentEditingSuppressedInitialPilotCalls.map(e => ({ ...e })),
+        instructionPages: cloneExerciseInstructionPages(currentEditingInstructionPages),
         restrictions: { ...currentEditingRestrictions },
         updatedAt: new Date().toISOString()
     };
@@ -60958,7 +61228,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     // deleteExercisesModal, deleteSectorsModal, editAircraftDbModal, editAirlinesDbModal, addFlightModal, addMultipleFlightsModal,
     // simulationEnMgmtRulesModal (close via X / Cancel / Save only — avoids losing rule edits on a stray click)
     const duplicateExerciseModal = document.getElementById('duplicateExerciseModal');
-    const modalsWithBackdropClose = [startSessionModal, selectExerciseModal, playbackModal, exerciseFlightsPopupModal, editSectorInportModal, verticalLimitsModal, airportsModal, addRunwayModal, addApproachModal, addWaypointModal, addNavaidModal, addRouteModal, addMultipleWaypointsModal, addMultipleNavaidsModal, addMultipleRoutesModal, addMultipleAtcSectorsModal, addMultipleAirportsModal, addMultipleRunwaysModal, addMultipleApproachesModal, addMultipleAreasModal, addMultipleHoldingsModal, sectorMapBackgroundPickRenameModal, sectorMapBackgroundRenameModal, atcSectorsModal, duplicateAirspaceModal, duplicateExerciseModal, joinSessionAssignModal, aiPpPttModal, adminUnlockModal, adminSettingsModal, adminEmailSettingsModal, adminAiPilotInstructionsModal, simulationSettingsModal, simulationEnMgmtRoutesModal, simulationEnMgmtMergeRoutesModal, simulationEnMgmtAddRouteModal, simulationEnMgmtIdentifierModal, simulationEnMgmtLevelsModal, simulationEnMgmtSaveRoutesModal, simulationEnMgmtSaveRoutesOverwriteModal, simulationEnMgmtLoadRoutesModal, simulationEnMgmtLoadRoutesDeleteConfirmModal, simulationEnMgmtDeleteRoutesModal, simulationEnMgmtDeleteRouteConfirmModal, simulationDebugLogModal, stopSimulationConfirmModal, simulationLabelEditorModal, adminSingleUserLabelConfigModal, labelSetupSaveConfirmModal, labelSetupDeleteConfirmModal, simulationLabelAuthModal, loadSimSettingsPresetsModal, saveSimSettingsPresetModal, adminLoadSystemSettingModal, stcaParametersModal, flightStatusColorsModal, simulationConnectedUsersModal, runTypeModal, sectorMapBackgroundPickEditModal, sectorMapBackgroundPickDeleteModal, sectorMapBackgroundConfirmDeleteOneModal, sectorMapBackgroundConfirmDeleteAllModal, sectorMapBackgroundModal, exportDataModal, importDataModal];
+    const exerciseInstructionsModal = document.getElementById('exerciseInstructionsModal');
+    const modalsWithBackdropClose = [startSessionModal, selectExerciseModal, playbackModal, exerciseFlightsPopupModal, editSectorInportModal, verticalLimitsModal, airportsModal, addRunwayModal, addApproachModal, addWaypointModal, addNavaidModal, addRouteModal, addMultipleWaypointsModal, addMultipleNavaidsModal, addMultipleRoutesModal, addMultipleAtcSectorsModal, addMultipleAirportsModal, addMultipleRunwaysModal, addMultipleApproachesModal, addMultipleAreasModal, addMultipleHoldingsModal, sectorMapBackgroundPickRenameModal, sectorMapBackgroundRenameModal, atcSectorsModal, duplicateAirspaceModal, duplicateExerciseModal, exerciseInstructionsModal, joinSessionAssignModal, aiPpPttModal, adminUnlockModal, adminSettingsModal, adminEmailSettingsModal, adminAiPilotInstructionsModal, simulationSettingsModal, simulationEnMgmtRoutesModal, simulationEnMgmtMergeRoutesModal, simulationEnMgmtAddRouteModal, simulationEnMgmtIdentifierModal, simulationEnMgmtLevelsModal, simulationEnMgmtSaveRoutesModal, simulationEnMgmtSaveRoutesOverwriteModal, simulationEnMgmtLoadRoutesModal, simulationEnMgmtLoadRoutesDeleteConfirmModal, simulationEnMgmtDeleteRoutesModal, simulationEnMgmtDeleteRouteConfirmModal, simulationDebugLogModal, stopSimulationConfirmModal, simulationLabelEditorModal, adminSingleUserLabelConfigModal, labelSetupSaveConfirmModal, labelSetupDeleteConfirmModal, simulationLabelAuthModal, loadSimSettingsPresetsModal, saveSimSettingsPresetModal, adminLoadSystemSettingModal, stcaParametersModal, flightStatusColorsModal, simulationConnectedUsersModal, runTypeModal, sectorMapBackgroundPickEditModal, sectorMapBackgroundPickDeleteModal, sectorMapBackgroundConfirmDeleteOneModal, sectorMapBackgroundConfirmDeleteAllModal, sectorMapBackgroundModal, exportDataModal, importDataModal];
     modalsWithBackdropClose.forEach(modal => {
         if (modal) {
             modal.addEventListener('click', function(e) {
@@ -61025,10 +61296,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 clearSimulationJoinerIdentityForHostSession();
                 simulationSessionId = data.sessionId;
                 window._runTypePresetMode = 'DL';
-                startSimulation(exercise);
                 closeModal('runTypeModal');
-                startHostPpLateralPoll();
-                startHostSessionStatePushInterval();
+                requestSimulationStartWithInstructions(exercise, () => {
+                    startHostPpLateralPoll();
+                    startHostSessionStatePushInterval();
+                });
             })
             .catch(() => { if (errEl) { errEl.textContent = 'Network error.'; errEl.style.display = 'block'; } });
     });
@@ -61057,8 +61329,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         simulationHostAtcScope = atcSectorId;
         simulationSingleUserAtcSectorLocked = true;
         window._runTypePresetMode = runTypeSingleSelectedMode;
-        startSimulation(exercise);
         closeModal('runTypeModal');
+        requestSimulationStartWithInstructions(exercise);
     });
     document.getElementById('runTypeSingleAtcSectorSelect')?.addEventListener('change', function() {
         runTypeSingleSelectedAtcSectorId = (this.value || '').toString().trim() || null;
@@ -61166,6 +61438,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         currentEditingSuppressedInitialPilotCalls = [];
         currentEditingRestrictions = defaultExerciseRestrictions();
         syncExerciseRestrictionsControls();
+        currentEditingInstructionPages = [createEmptyExerciseInstructionPage()];
+        exerciseInstructionsEditorPageIndex = 0;
         currentEditingFlows = [];
         currentEditingSector = null;
         exercisePreviewLabelOffsetsByAircraftId = {};
@@ -61259,11 +61533,107 @@ document.addEventListener('DOMContentLoaded', async function() {
         'exerciseRestrictLabelMouseInputs',
         'exerciseRestrictMeasurements',
         'exerciseRestrictPauseDuringRun',
-        'exerciseRestrictCommandsDuringPause'
+        'exerciseRestrictCommandsDuringPause',
+        'exerciseRestrictRemoveInstructions'
     ].forEach((id) => {
         document.getElementById(id)?.addEventListener('change', () => {
             persistCurrentEditingRestrictions();
         });
+    });
+    document.getElementById('exerciseInstructionsBtn')?.addEventListener('click', function() {
+        if (this.disabled) return;
+        openExerciseInstructionsEditor();
+    });
+    document.getElementById('closeExerciseInstructionsBtn')?.addEventListener('click', () => {
+        flushExerciseInstructionsEditorPageToState();
+        persistCurrentEditingInstructionPages();
+        closeModal('exerciseInstructionsModal');
+    });
+    document.getElementById('exerciseInstructionsCloseBtn')?.addEventListener('click', () => {
+        flushExerciseInstructionsEditorPageToState();
+        persistCurrentEditingInstructionPages();
+        closeModal('exerciseInstructionsModal');
+    });
+    document.getElementById('exerciseInstructionsSaveBtn')?.addEventListener('click', () => {
+        flushExerciseInstructionsEditorPageToState();
+        persistCurrentEditingInstructionPages();
+        alert('Instructions saved.');
+    });
+    document.getElementById('exerciseInstructionsPrevPageBtn')?.addEventListener('click', () => {
+        flushExerciseInstructionsEditorPageToState();
+        if (exerciseInstructionsEditorPageIndex > 0) {
+            exerciseInstructionsEditorPageIndex -= 1;
+            syncExerciseInstructionsEditorUi();
+        }
+    });
+    document.getElementById('exerciseInstructionsNextPageBtn')?.addEventListener('click', () => {
+        flushExerciseInstructionsEditorPageToState();
+        if (exerciseInstructionsEditorPageIndex < currentEditingInstructionPages.length - 1) {
+            exerciseInstructionsEditorPageIndex += 1;
+            syncExerciseInstructionsEditorUi();
+        }
+    });
+    document.getElementById('exerciseInstructionsAddPageBtn')?.addEventListener('click', () => {
+        flushExerciseInstructionsEditorPageToState();
+        currentEditingInstructionPages.push(createEmptyExerciseInstructionPage());
+        exerciseInstructionsEditorPageIndex = currentEditingInstructionPages.length - 1;
+        syncExerciseInstructionsEditorUi();
+        persistCurrentEditingInstructionPages();
+    });
+    document.getElementById('exerciseInstructionsDeletePageBtn')?.addEventListener('click', () => {
+        if (currentEditingInstructionPages.length <= 1) return;
+        if (!confirm('Delete this instructions page?')) return;
+        flushExerciseInstructionsEditorPageToState();
+        currentEditingInstructionPages.splice(exerciseInstructionsEditorPageIndex, 1);
+        exerciseInstructionsEditorPageIndex = Math.max(0, exerciseInstructionsEditorPageIndex - 1);
+        syncExerciseInstructionsEditorUi();
+        persistCurrentEditingInstructionPages();
+    });
+    document.getElementById('exerciseInstructionsTextInput')?.addEventListener('input', () => {
+        flushExerciseInstructionsEditorPageToState();
+    });
+    document.getElementById('exerciseInstructionsAddImageBtn')?.addEventListener('click', () => {
+        document.getElementById('exerciseInstructionsImageFileInput')?.click();
+    });
+    document.getElementById('exerciseInstructionsRemoveImageBtn')?.addEventListener('click', () => {
+        flushExerciseInstructionsEditorPageToState();
+        const page = currentEditingInstructionPages[exerciseInstructionsEditorPageIndex];
+        if (page) page.imageDataUrl = null;
+        syncExerciseInstructionsEditorUi();
+        persistCurrentEditingInstructionPages();
+    });
+    document.getElementById('exerciseInstructionsImageFileInput')?.addEventListener('change', async function() {
+        const file = this.files && this.files[0];
+        this.value = '';
+        if (!file) return;
+        try {
+            const dataUrl = await readImageFileAsResizedDataUrl(file);
+            flushExerciseInstructionsEditorPageToState();
+            const page = currentEditingInstructionPages[exerciseInstructionsEditorPageIndex];
+            if (page) page.imageDataUrl = dataUrl;
+            syncExerciseInstructionsEditorUi();
+            persistCurrentEditingInstructionPages();
+        } catch (e) {
+            alert('Could not load that image. Please try another file.');
+        }
+    });
+    document.getElementById('exerciseInstructionsViewerPrevBtn')?.addEventListener('click', () => {
+        if (exerciseInstructionsViewerPageIndex <= 0) return;
+        exerciseInstructionsViewerPageIndex -= 1;
+        renderExerciseInstructionsViewerPage();
+    });
+    document.getElementById('exerciseInstructionsViewerNextBtn')?.addEventListener('click', () => {
+        if (!exerciseInstructionsViewerPages.length) return;
+        const isLast = exerciseInstructionsViewerPageIndex >= exerciseInstructionsViewerPages.length - 1;
+        if (isLast) {
+            confirmExerciseInstructionsViewerStart();
+            return;
+        }
+        exerciseInstructionsViewerPageIndex += 1;
+        renderExerciseInstructionsViewerPage();
+    });
+    document.getElementById('exerciseInstructionsViewerCancelBtn')?.addEventListener('click', () => {
+        closeExerciseInstructionsViewer(true);
     });
     document.getElementById('exerciseAircraftLabelSizeSlider')?.addEventListener('input', function() {
         const v = Math.min(24, Math.max(8, parseInt(this.value, 10) || SIM_MAP_DEFAULTS.labelSize));
@@ -63321,6 +63691,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             duration: duration || null,
             flights: [],
             aiPilotContext: '',
+            instructionPages: [createEmptyExerciseInstructionPage()],
             restrictions: defaultExerciseRestrictions(),
             createdAt: new Date().toISOString()
         };
