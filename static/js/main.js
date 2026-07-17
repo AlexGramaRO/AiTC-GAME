@@ -2773,6 +2773,7 @@ function resetSimulationRunToExerciseStart(exercise, opts = {}) {
         exeAlvMismatchRadarLogKeys.clear();
     } catch (e) {}
     try { cancelDctPathMode(); } catch (e) {}
+    simulationExerciseRestrictions = normalizeExerciseRestrictions(exercise?.restrictions);
     window.simulationData.exercise = exercise;
     window.simulationData.flights = Array.isArray(exercise.flights) ? exercise.flights.map(f => ({ ...f })) : [];
     try { window.simulationData.aircraft = buildSimulationAircraftTracks(window.simulationData); } catch (e) { window.simulationData.aircraft = []; }
@@ -3078,6 +3079,7 @@ async function startSimulation(exercise) {
     simulationBackgroundImageCache = {};
 
     // Store simulation data
+    simulationExerciseRestrictions = normalizeExerciseRestrictions(exercise?.restrictions);
     window.simulationData = {
         waypoints: simulationWaypoints,
         routes: simulationRoutes,
@@ -3165,10 +3167,9 @@ async function startSimulation(exercise) {
     simulationIsPaused = false;
     const overlay = document.getElementById('simulationPausedOverlay');
     if (overlay) overlay.style.display = 'none';
-    const pauseBtn = document.getElementById('pauseSimulationBtn');
-    if (pauseBtn) pauseBtn.textContent = 'Pause';
     const speedEl = document.getElementById('simulationSpeedStatus');
     if (speedEl) speedEl.textContent = '';
+    updatePauseButtonUI();
     startSimulationClock(true);
 
     // Reset mode of operation for each simulation run (unless caller sets it after for Host/Single)
@@ -4221,7 +4222,22 @@ let exercisePreviewIntegrationCache = { sig: '', previewSec: -1, radarSec: -1, a
 let exerciseSectorLoadActive = false;
 let exerciseViewOptionsActive = false;
 let exerciseAiPilotActive = false;
+let exerciseRestrictionsActive = false;
 let exerciseSpeedVectorEnabled = false;
+/** @type {{ labelMouseInputs: boolean, measurements: boolean, pauseDuringRun: boolean, commandsDuringPause: boolean }} */
+let currentEditingRestrictions = {
+    labelMouseInputs: false,
+    measurements: false,
+    pauseDuringRun: false,
+    commandsDuringPause: false
+};
+/** Runtime copy applied when a simulation starts from an exercise. */
+let simulationExerciseRestrictions = {
+    labelMouseInputs: false,
+    measurements: false,
+    pauseDuringRun: false,
+    commandsDuringPause: false
+};
 let exerciseSectorLoadCache = { sig: '', data: null };
 let exerciseSectorLoadResizeObserver = null;
 const EXERCISE_SECTOR_LOAD_COLORS = [
@@ -5220,10 +5236,184 @@ function populateEditExerciseSelect(sectorId) {
 }
 
 function setEditExerciseButtonsEnabled(enabled) {
-    ['addFlightBtn', 'addMultipleFlightsBtn', 'exerciseCreateFlowsBtn', 'exerciseLoadFlowsBtn', 'saveExerciseBtn', 'exerciseSectorLoadBtn', 'exerciseAiPilotBtn', 'exerciseViewOptionsBtn', 'editExerciseAddMenuTrigger', 'editExerciseFlowsMenuTrigger', 'exerciseFlightsPopupBtn'].forEach(id => {
+    ['addFlightBtn', 'addMultipleFlightsBtn', 'exerciseCreateFlowsBtn', 'exerciseLoadFlowsBtn', 'saveExerciseBtn', 'exerciseSectorLoadBtn', 'exerciseAiPilotBtn', 'exerciseViewOptionsBtn', 'exerciseRestrictionsBtn', 'exerciseDuplicateBtn', 'editExerciseAddMenuTrigger', 'editExerciseFlowsMenuTrigger', 'exerciseFlightsPopupBtn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = !enabled;
     });
+}
+
+function defaultExerciseRestrictions() {
+    return {
+        labelMouseInputs: false,
+        measurements: false,
+        pauseDuringRun: false,
+        commandsDuringPause: false
+    };
+}
+
+function normalizeExerciseRestrictions(raw) {
+    const base = defaultExerciseRestrictions();
+    if (!raw || typeof raw !== 'object') return base;
+    return {
+        labelMouseInputs: !!raw.labelMouseInputs,
+        measurements: !!raw.measurements,
+        pauseDuringRun: !!raw.pauseDuringRun,
+        commandsDuringPause: !!raw.commandsDuringPause
+    };
+}
+
+function syncExerciseRestrictionsControls() {
+    const map = [
+        ['exerciseRestrictLabelMouseInputs', 'labelMouseInputs'],
+        ['exerciseRestrictMeasurements', 'measurements'],
+        ['exerciseRestrictPauseDuringRun', 'pauseDuringRun'],
+        ['exerciseRestrictCommandsDuringPause', 'commandsDuringPause']
+    ];
+    map.forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!currentEditingRestrictions[key];
+    });
+}
+
+function readExerciseRestrictionsFromControls() {
+    currentEditingRestrictions = {
+        labelMouseInputs: !!document.getElementById('exerciseRestrictLabelMouseInputs')?.checked,
+        measurements: !!document.getElementById('exerciseRestrictMeasurements')?.checked,
+        pauseDuringRun: !!document.getElementById('exerciseRestrictPauseDuringRun')?.checked,
+        commandsDuringPause: !!document.getElementById('exerciseRestrictCommandsDuringPause')?.checked
+    };
+    return { ...currentEditingRestrictions };
+}
+
+function persistCurrentEditingRestrictions() {
+    if (!currentEditingExerciseId) return;
+    readExerciseRestrictionsFromControls();
+    const exercises = getExercises();
+    const idx = exercises.findIndex(ex => ex && ex.id === currentEditingExerciseId);
+    if (idx === -1) return;
+    exercises[idx] = {
+        ...exercises[idx],
+        restrictions: { ...currentEditingRestrictions },
+        updatedAt: new Date().toISOString()
+    };
+    saveExercises(exercises);
+}
+
+function isSimulationRestrictionActive(key) {
+    return !!(simulationExerciseRestrictions && simulationExerciseRestrictions[key]);
+}
+
+/** Label field pickers / heading / DCT / speed / etc. have no effect. */
+function isSimulationLabelMouseInputRestricted() {
+    if (isSimulationRestrictionActive('labelMouseInputs')) return true;
+    return !!(simulationIsPaused && isSimulationRestrictionActive('commandsDuringPause'));
+}
+
+function isSimulationMeasurementRestricted() {
+    return isSimulationRestrictionActive('measurements');
+}
+
+function isSimulationPauseRestricted() {
+    return isSimulationRestrictionActive('pauseDuringRun');
+}
+
+/** AI_PP / label commands blocked while paused when that restriction is set. */
+function isSimulationCommandRestrictedWhilePaused() {
+    return !!(simulationIsPaused && isSimulationRestrictionActive('commandsDuringPause'));
+}
+
+function exerciseNameAlreadyExists(name, exercises, exceptId) {
+    const t = (name || '').trim().toLowerCase();
+    if (!t) return true;
+    return (exercises || []).some(ex => {
+        if (!ex) return false;
+        if (exceptId != null && String(ex.id) === String(exceptId)) return false;
+        return (ex.name || '').toString().trim().toLowerCase() === t;
+    });
+}
+
+function cloneExerciseForDuplicate(exercise, displayName) {
+    const x = JSON.parse(JSON.stringify(exercise || {}));
+    const flightIdMap = new Map();
+    x.id = newSectorEntityId('ex');
+    x.name = (displayName || '').toString().trim() || 'Duplicated exercise';
+    x.createdAt = new Date().toISOString();
+    x.updatedAt = x.createdAt;
+    x.restrictions = normalizeExerciseRestrictions(x.restrictions);
+    if (Array.isArray(x.flights)) {
+        x.flights = x.flights.filter(Boolean).map(f => {
+            const oldId = f.id != null ? String(f.id) : '';
+            const newId = newSectorEntityId('flt');
+            if (oldId) flightIdMap.set(oldId, newId);
+            return { ...f, id: newId };
+        });
+    }
+    if (Array.isArray(x.aiPilotScripts)) {
+        x.aiPilotScripts = x.aiPilotScripts.filter(Boolean).map(s => {
+            const oldAc = s.aircraftId != null ? String(s.aircraftId) : '';
+            const mappedAc = oldAc && flightIdMap.has(oldAc) ? flightIdMap.get(oldAc) : oldAc;
+            return {
+                ...s,
+                id: newSectorEntityId('scr'),
+                aircraftId: mappedAc
+            };
+        });
+    }
+    if (Array.isArray(x.suppressedInitialPilotCalls)) {
+        x.suppressedInitialPilotCalls = x.suppressedInitialPilotCalls.filter(Boolean).map(e => {
+            const oldAc = e.aircraftId != null ? String(e.aircraftId) : '';
+            const mappedAc = oldAc && flightIdMap.has(oldAc) ? flightIdMap.get(oldAc) : oldAc;
+            return { ...e, aircraftId: mappedAc };
+        });
+    }
+    return x;
+}
+
+function openDuplicateExerciseModal() {
+    if (!currentEditingExerciseId) {
+        alert('Please select an exercise first');
+        return;
+    }
+    const exercises = getExercises();
+    const cur = exercises.find(ex => ex && ex.id === currentEditingExerciseId);
+    const inp = document.getElementById('duplicateExerciseNameInput');
+    if (inp) {
+        const base = cur ? (cur.name || 'Exercise').toString().trim() : 'Exercise';
+        inp.value = `${base} (copy)`;
+    }
+    openModal('duplicateExerciseModal');
+    setTimeout(() => {
+        inp?.focus();
+        inp?.select();
+    }, 100);
+}
+
+async function confirmDuplicateExerciseCreate() {
+    if (!currentEditingExerciseId) return;
+    // Persist current editor state into the source exercise before cloning.
+    try { saveCurrentExercise({ silent: true }); } catch (e) {}
+    const inp = document.getElementById('duplicateExerciseNameInput');
+    const newName = (inp?.value || '').trim();
+    if (!newName) {
+        alert('Please enter a name for the new exercise.');
+        return;
+    }
+    const exercises = getExercises();
+    if (exerciseNameAlreadyExists(newName, exercises)) {
+        alert('An exercise with this name already exists. Choose a different name.');
+        return;
+    }
+    const source = exercises.find(ex => ex && ex.id === currentEditingExerciseId);
+    if (!source) {
+        alert('Could not read the current exercise.');
+        return;
+    }
+    const duplicate = cloneExerciseForDuplicate(source, newName);
+    exercises.push(duplicate);
+    saveExercises(exercises);
+    closeModal('duplicateExerciseModal');
+    await loadExerciseForEditing(duplicate.id);
+    alert(`Exercise "${newName}" was created as a duplicate.`);
 }
 
 function exitEditExerciseCreateFlowsView() {
@@ -5304,6 +5494,8 @@ function openEditExerciseModal() {
     currentEditingAiPilotContext = '';
     currentEditingAiPilotScripts = [];
     currentEditingSuppressedInitialPilotCalls = [];
+    currentEditingRestrictions = defaultExerciseRestrictions();
+    syncExerciseRestrictionsControls();
     currentEditingFlows = [];
     currentEditingSector = null;
     exercisePreviewLabelOffsetsByAircraftId = {};
@@ -5375,6 +5567,8 @@ async function loadExerciseForEditing(exerciseId) {
     });
     ensureExerciseInitialCallLblTinFieldsSynced();
     currentEditingSuppressedInitialPilotCalls = normalizeSuppressedInitialPilotCallsFromExercise(exercise);
+    currentEditingRestrictions = normalizeExerciseRestrictions(exercise.restrictions);
+    syncExerciseRestrictionsControls();
     currentEditingFlows = normalizeFlowsFromSector(sector);
     exercisePreviewLabelOffsetsByAircraftId = {};
     exercisePreviewLabelZOrder = [];
@@ -6108,10 +6302,11 @@ function syncExerciseViewOptionsControls() {
 }
 
 function setExerciseLeftPanelMode(mode) {
-    const nextMode = (mode === 'traffic' || mode === 'view' || mode === 'aiPilot') ? mode : null;
+    const nextMode = (mode === 'traffic' || mode === 'view' || mode === 'aiPilot' || mode === 'restrictions') ? mode : null;
     exerciseSectorLoadActive = nextMode === 'traffic';
     exerciseViewOptionsActive = nextMode === 'view';
     exerciseAiPilotActive = nextMode === 'aiPilot';
+    exerciseRestrictionsActive = nextMode === 'restrictions';
 
     const panel = document.getElementById('exerciseSectorLoadPanel');
     const btn = document.getElementById('exerciseSectorLoadBtn');
@@ -6121,6 +6316,9 @@ function setExerciseLeftPanelMode(mode) {
     const aiPilotPanel = document.getElementById('exerciseAiPilotPanel');
     const aiPilotBtn = document.getElementById('exerciseAiPilotBtn');
     const aiPilotSection = document.getElementById('exerciseAiPilotSection');
+    const restrictionsPanel = document.getElementById('exerciseRestrictionsPanel');
+    const restrictionsBtn = document.getElementById('exerciseRestrictionsBtn');
+    const restrictionsSection = document.getElementById('exerciseRestrictionsSection');
     const sidebar = document.querySelector('#editExerciseModal .exercise-sidebar');
     if (btn) {
         btn.setAttribute('aria-pressed', exerciseSectorLoadActive ? 'true' : 'false');
@@ -6131,6 +6329,9 @@ function setExerciseLeftPanelMode(mode) {
     if (aiPilotBtn) {
         aiPilotBtn.setAttribute('aria-pressed', exerciseAiPilotActive ? 'true' : 'false');
     }
+    if (restrictionsBtn) {
+        restrictionsBtn.setAttribute('aria-pressed', exerciseRestrictionsActive ? 'true' : 'false');
+    }
     if (sidebar) {
         sidebar.classList.toggle('exercise-sidebar--traffic-hidden', nextMode == null);
     }
@@ -6140,9 +6341,13 @@ function setExerciseLeftPanelMode(mode) {
     if (aiPilotSection) {
         aiPilotSection.classList.toggle('exercise-ai-pilot-section--active', exerciseAiPilotActive);
     }
+    if (restrictionsSection) {
+        restrictionsSection.classList.toggle('exercise-restrictions-section--active', exerciseRestrictionsActive);
+    }
     if (panel) panel.hidden = !exerciseSectorLoadActive;
     if (viewPanel) viewPanel.hidden = !exerciseViewOptionsActive;
     if (aiPilotPanel) aiPilotPanel.hidden = !exerciseAiPilotActive;
+    if (restrictionsPanel) restrictionsPanel.hidden = !exerciseRestrictionsActive;
     if (exerciseSectorLoadActive) {
         exerciseSectorLoadCache = { sig: '', data: null };
         layoutExerciseSectorLoadCanvas();
@@ -6152,6 +6357,8 @@ function setExerciseLeftPanelMode(mode) {
     } else if (exerciseAiPilotActive) {
         syncExerciseAiPilotPanelFromExercise();
         renderExerciseScriptsList();
+    } else if (exerciseRestrictionsActive) {
+        syncExerciseRestrictionsControls();
     } else {
         hideExerciseScriptMarkerTooltip();
         exercisePreviewScriptMarkerHoverId = null;
@@ -6177,10 +6384,15 @@ function toggleExerciseAiPilotPanel() {
     setExerciseLeftPanelMode(exerciseAiPilotActive ? null : 'aiPilot');
 }
 
+function toggleExerciseRestrictionsPanel() {
+    setExerciseLeftPanelMode(exerciseRestrictionsActive ? null : 'restrictions');
+}
+
 function resetExerciseSectorLoadUi() {
     exerciseSectorLoadActive = false;
     exerciseViewOptionsActive = false;
     exerciseAiPilotActive = false;
+    exerciseRestrictionsActive = false;
     exerciseSectorLoadCache = { sig: '', data: null };
     const panel = document.getElementById('exerciseSectorLoadPanel');
     const btn = document.getElementById('exerciseSectorLoadBtn');
@@ -6188,8 +6400,11 @@ function resetExerciseSectorLoadUi() {
     const viewBtn = document.getElementById('exerciseViewOptionsBtn');
     const aiPilotPanel = document.getElementById('exerciseAiPilotPanel');
     const aiPilotBtn = document.getElementById('exerciseAiPilotBtn');
+    const restrictionsPanel = document.getElementById('exerciseRestrictionsPanel');
+    const restrictionsBtn = document.getElementById('exerciseRestrictionsBtn');
     const section = document.getElementById('exerciseSectorLoadSection');
     const aiPilotSection = document.getElementById('exerciseAiPilotSection');
+    const restrictionsSection = document.getElementById('exerciseRestrictionsSection');
     const sidebar = document.querySelector('#editExerciseModal .exercise-sidebar');
     const legend = document.getElementById('exerciseSectorLoadLegend');
     const aiPilotHint = document.getElementById('exerciseAiPilotSavedHint');
@@ -6199,9 +6414,12 @@ function resetExerciseSectorLoadUi() {
     if (viewBtn) viewBtn.setAttribute('aria-pressed', 'false');
     if (aiPilotPanel) aiPilotPanel.hidden = true;
     if (aiPilotBtn) aiPilotBtn.setAttribute('aria-pressed', 'false');
+    if (restrictionsPanel) restrictionsPanel.hidden = true;
+    if (restrictionsBtn) restrictionsBtn.setAttribute('aria-pressed', 'false');
     if (sidebar) sidebar.classList.add('exercise-sidebar--traffic-hidden');
     if (section) section.classList.remove('exercise-sector-load-section--active');
     if (aiPilotSection) aiPilotSection.classList.remove('exercise-ai-pilot-section--active');
+    if (restrictionsSection) restrictionsSection.classList.remove('exercise-restrictions-section--active');
     if (legend) legend.innerHTML = '';
     if (aiPilotHint) aiPilotHint.textContent = '';
 }
@@ -7899,9 +8117,10 @@ function renderExerciseFlightsList(opts) {
     }
 }
 
-function saveCurrentExercise() {
+function saveCurrentExercise(opts = {}) {
     if (!currentEditingExerciseId) return;
     flushExerciseAiPilotContextFromPanel();
+    readExerciseRestrictionsFromControls();
     const exercises = getExercises();
     const idx = exercises.findIndex(ex => ex && ex.id === currentEditingExerciseId);
     if (idx === -1) return;
@@ -7911,10 +8130,11 @@ function saveCurrentExercise() {
         aiPilotContext: currentEditingAiPilotContext,
         aiPilotScripts: currentEditingAiPilotScripts.map(s => ({ ...s })),
         suppressedInitialPilotCalls: currentEditingSuppressedInitialPilotCalls.map(e => ({ ...e })),
+        restrictions: { ...currentEditingRestrictions },
         updatedAt: new Date().toISOString()
     };
     saveExercises(exercises);
-    alert('Exercise saved.');
+    if (!opts.silent) alert('Exercise saved.');
 }
 
 function getCurrentExerciseAiPilotContext() {
@@ -16993,6 +17213,10 @@ function updatePauseButtonUI() {
     if (simulationIsPaused) btn.textContent = 'PLAY';
     else if (simulationRate !== 1) btn.textContent = 'PLAY X1';
     else btn.textContent = 'Pause';
+    // When pause is restricted, keep Play available if already paused; otherwise disable Pause.
+    const pauseBlocked = !simulationIsPaused && isSimulationPauseRestricted() && simulationRate === 1;
+    btn.disabled = pauseBlocked;
+    btn.title = pauseBlocked ? 'Pause is restricted for this exercise' : '';
 }
 
 /** Hosted DL: host/single-user playback controls; joiners follow the host clock. */
@@ -17011,6 +17235,10 @@ function syncSimulationPlaybackButtonsVisibility() {
 }
 
 function setSimulationPaused(paused) {
+    if (paused && isSimulationPauseRestricted()) {
+        // Restriction: pause not allowed during this exercise run.
+        return;
+    }
     simulationIsPaused = !!paused;
     const overlay = document.getElementById('simulationPausedOverlay');
     if (overlay) overlay.style.display = simulationIsPaused ? 'block' : 'none';
@@ -28990,6 +29218,8 @@ function findAircraftTrajectoryWaypointIndexByName(ac, waypointName) {
 }
 
 function applyAiPilotActionToSimulator(action) {
+    // Exercise restriction: no AI_PP / voice commands while paused.
+    if (isSimulationCommandRestrictedWhilePaused()) return false;
     if (!action || action.action === 'unknown') return false;
     const ac = findSimulationAircraftByAiPilotCallsign(action.callsign);
     if (!ac) {
@@ -29156,6 +29386,13 @@ function handleAiPpGlobalKeyDown(e) {
     if (!aiPpEnabled || e.repeat || !aiPpEventMatchesPtt(e)) return;
     e.preventDefault();
     aiPpPttPressed = true;
+    if (isSimulationCommandRestrictedWhilePaused()) {
+        aiPpPttBlockedByTts = true;
+        setAiPpTxRx(true, false, { blocked: true });
+        startAiPpPttBlockBeep();
+        setAiPpStatus('PTT blocked — commands not allowed while paused');
+        return;
+    }
     if (isSimulationTtsSpeakingNow()) {
         aiPpPttBlockedByTts = true;
         setAiPpTxRx(true, false, { blocked: true });
@@ -32650,6 +32887,7 @@ function labelLayoutHasFreeText() {
 }
 
 function openSimulationFreeTextModal(aircraftId) {
+    if (isSimulationLabelMouseInputRestricted()) return;
     pendingSimulationFreeTextAircraftId = aircraftId || null;
     const input = document.getElementById('simulationFreeTextInput');
     if (input) {
@@ -32704,6 +32942,7 @@ function hideSimulationXlvPicker() {
 }
 
 function openSimulationXlvPicker(aircraftId, clientX, clientY) {
+    if (isSimulationLabelMouseInputRestricted()) return;
     if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
     if (!window.simulationData || !Array.isArray(window.simulationData.aircraft)) return;
@@ -32825,6 +33064,7 @@ function hideSimulationRocPicker() {
 }
 
 function openSimulationRocPicker(aircraftId, clientX, clientY) {
+    if (isSimulationLabelMouseInputRestricted()) return;
     if (!canUseSimulationLabelFieldPickers()) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
     if (!window.simulationData || !Array.isArray(window.simulationData.aircraft)) return;
@@ -33103,6 +33343,7 @@ function issueSimulationDestRunwaySelectionFromUi(ac, rwId, rwEnd, rwName) {
 }
 
 function openSimulationRwyPicker(aircraftId, clientX, clientY) {
+    if (isSimulationLabelMouseInputRestricted()) return;
     if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
     if (!usesSimulationRwyPickerDomain()) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
@@ -33693,6 +33934,7 @@ function applyAutoSpeedReadoutMode(ac) {
 }
 
 function openSimulationSpeedPicker(aircraftId, clientX, clientY) {
+    if (isSimulationLabelMouseInputRestricted()) return;
     if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
     if (!window.simulationData || !Array.isArray(window.simulationData.aircraft)) return;
@@ -33815,6 +34057,7 @@ function openSimulationSpeedPicker(aircraftId, clientX, clientY) {
 }
 
 function openSimulationDctPicker(aircraftId, clientX, clientY) {
+    if (isSimulationLabelMouseInputRestricted()) return;
     if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
     if (!window.simulationData || !Array.isArray(window.simulationData.aircraft)) return;
@@ -34385,6 +34628,7 @@ function commitSimulationAlvPickerSelection(aircraftId, next) {
 }
 
 function openSimulationAlvPicker(aircraftId, clientX, clientY) {
+    if (isSimulationLabelMouseInputRestricted()) return;
     if (simulationOperationModeId !== 'DL' || simulationIsMonitorOnly) return;
     try { hideSimulationFlightStatusPopup(); } catch (e) {}
     const acOpen = getSimulationAircraftById(aircraftId);
@@ -37496,8 +37740,10 @@ function setupSimulationCanvasInteractions() {
 
         if (e.button === labelMoveBtn) {
             // Reserve label inputs from initiating label drag.
+            // During spoken readback, do not reserve HDG — allow middle-click label move.
+            const ttsBusy = isSimulationTtsSpeakingNow();
             const reserved =
-                (e.button === 1 && (hitCallsign() || hitTrajectoryEstimate() || hitXlv() || hitHdgDct())) ||
+                (e.button === 1 && (hitCallsign() || hitTrajectoryEstimate() || hitXlv() || (!ttsBusy && hitHdgDct()))) ||
                 (e.button === 0 && hitHdgDct());
             if (!reserved) {
                 if (tryStartLabelDragAt(clickX, clickY)) {
@@ -37652,7 +37898,7 @@ function setupSimulationCanvasInteractions() {
             // (rect/clickX/clickY computed above)
 
             // ALV click (DL mode only, not monitor-only) — open before outside-close so the open press does not dismiss the list
-            if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftAlvTextBounds.length) {
+            if (!isSimulationLabelMouseInputRestricted() && simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftAlvTextBounds.length) {
                 const alvById = new Map(simulationAircraftAlvTextBounds.map(b => [b.aircraftId, b]));
                 for (let zi = simulationLabelZOrder.length - 1; zi >= 0; zi--) {
                     const id = simulationLabelZOrder[zi];
@@ -37715,7 +37961,7 @@ function setupSimulationCanvasInteractions() {
             }
 
             // XLV click (DL mode only, not monitor-only) - open selector (topmost label first)
-            if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftXlvTextBounds.length) {
+            if (!isSimulationLabelMouseInputRestricted() && simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftXlvTextBounds.length) {
                 const xlvById = new Map(simulationAircraftXlvTextBounds.map(b => [b.aircraftId, b]));
                 for (let zi = simulationLabelZOrder.length - 1; zi >= 0; zi--) {
                     const id = simulationLabelZOrder[zi];
@@ -37731,7 +37977,7 @@ function setupSimulationCanvasInteractions() {
             }
 
             // RWY click (DL mode, not monitor-only): left-click on RW segment opens runway picker (opaque label only)
-            if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftRwyTextBounds.length) {
+            if (!isSimulationLabelMouseInputRestricted() && simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftRwyTextBounds.length) {
                 const rwById = new Map(simulationAircraftRwyTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -37748,7 +37994,7 @@ function setupSimulationCanvasInteractions() {
             }
 
             // DCT click (DL mode, not monitor-only): left-click on HDG/DCT field opens waypoint picker (opaque label only)
-            if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftHdgDctTextBounds.length) {
+            if (!isSimulationLabelMouseInputRestricted() && simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftHdgDctTextBounds.length) {
                 const hdgById = new Map(simulationAircraftHdgDctTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -37765,7 +38011,7 @@ function setupSimulationCanvasInteractions() {
             }
 
             // Speed select (left click on IAS/MACH field) opens IAS/MACH picker (not monitor-only)
-            if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftSpeedTextBounds.length) {
+            if (!isSimulationLabelMouseInputRestricted() && simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftSpeedTextBounds.length) {
                 const spById = new Map(simulationAircraftSpeedTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -37782,7 +38028,7 @@ function setupSimulationCanvasInteractions() {
             }
 
             // ROC/D select (left click on rate-of-climb field) opens ROC/D picker
-            if (canUseSimulationLabelFieldPickers() && simulationAircraftRocTextBounds.length) {
+            if (!isSimulationLabelMouseInputRestricted() && canUseSimulationLabelFieldPickers() && simulationAircraftRocTextBounds.length) {
                 const rocById = new Map(simulationAircraftRocTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -37802,7 +38048,7 @@ function setupSimulationCanvasInteractions() {
             }
 
             // Free-text icon click (topmost label first; disabled when monitor-only)
-            if (!simulationIsMonitorOnly && labelLayoutHasFreeText() && simulationAircraftFreeTextIconBounds.length) {
+            if (!isSimulationLabelMouseInputRestricted() && !simulationIsMonitorOnly && labelLayoutHasFreeText() && simulationAircraftFreeTextIconBounds.length) {
                 const iconById = new Map(simulationAircraftFreeTextIconBounds.map(b => [b.aircraftId, b]));
                 for (let zi = simulationLabelZOrder.length - 1; zi >= 0; zi--) {
                     const id = simulationLabelZOrder[zi];
@@ -37878,7 +38124,7 @@ function setupSimulationCanvasInteractions() {
                 }
                 if (onLabel) {
                     // Right-click on DCT field starts DCT path drawing (define path with waypoints, then rejoin on trajectory)
-                    if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftHdgDctTextBounds.length) {
+                    if (!isSimulationLabelMouseInputRestricted() && simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftHdgDctTextBounds.length) {
                         const hdgById = new Map(simulationAircraftHdgDctTextBounds.map(b => [b.aircraftId, b]));
                         const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                             ? simulationDraggingAircraftId
@@ -37901,7 +38147,7 @@ function setupSimulationCanvasInteractions() {
                         }
                     }
                     // Right-click on speed field cycles IAS/MACH/SELECTED for the opaque label
-                    if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftSpeedTextBounds.length) {
+                    if (!isSimulationLabelMouseInputRestricted() && simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftSpeedTextBounds.length) {
                         const spById = new Map(simulationAircraftSpeedTextBounds.map(b => [b.aircraftId, b]));
                         const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                             ? simulationDraggingAircraftId
@@ -37920,7 +38166,7 @@ function setupSimulationCanvasInteractions() {
                         }
                     }
                     // Right-click on ROC/D toggles LIVE vs SELECTED readout
-                    if (canUseSimulationLabelFieldPickers() && simulationAircraftRocTextBounds.length) {
+                    if (!isSimulationLabelMouseInputRestricted() && canUseSimulationLabelFieldPickers() && simulationAircraftRocTextBounds.length) {
                         const rocById = new Map(simulationAircraftRocTextBounds.map(b => [b.aircraftId, b]));
                         const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                             ? simulationDraggingAircraftId
@@ -37949,6 +38195,11 @@ function setupSimulationCanvasInteractions() {
                 simulationSuppressNextContextMenu = true; // prevent browser "Inspect" menu
                 cancelDctPathMode();
                 drawSimulationCanvas();
+                rightMouseDown = false;
+                return;
+            }
+
+            if (isSimulationMeasurementRestricted()) {
                 rightMouseDown = false;
                 return;
             }
@@ -38012,9 +38263,13 @@ function setupSimulationCanvasInteractions() {
             if (!window.simulationData) return;
             // (rect/clickX/clickY computed above)
 
-            // Middle-click on HDG/DCT starts heading select (opaque label only; not monitor-only)
-            if (simulationOperationModeId === 'DL' && !simulationIsMonitorOnly && simulationAircraftHdgDctTextBounds.length) {
-                if (isSimulationTtsSpeakingNow()) return;
+            // Middle-click on HDG/DCT starts heading select (opaque label only; not monitor-only).
+            // During spoken readback, skip heading select so middle-click can still move labels / other actions.
+            if (!isSimulationLabelMouseInputRestricted()
+                && !isSimulationTtsSpeakingNow()
+                && simulationOperationModeId === 'DL'
+                && !simulationIsMonitorOnly
+                && simulationAircraftHdgDctTextBounds.length) {
                 const hdgById = new Map(simulationAircraftHdgDctTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -38037,7 +38292,9 @@ function setupSimulationCanvasInteractions() {
 
             // Hold-to-probe XLV: middle-click and hold on XLV value
             const probingMode = (simulationSettings?.probingLevelMode || SIM_SETTINGS_DEFAULTS.probingLevelMode || 'off').toString().toLowerCase();
-            if ((probingMode === 'on' || probingMode === 'same_route' || probingMode === 'same_crossing_routes') && simulationAircraftXlvTextBounds.length) {
+            if (!isSimulationLabelMouseInputRestricted()
+                && (probingMode === 'on' || probingMode === 'same_route' || probingMode === 'same_crossing_routes')
+                && simulationAircraftXlvTextBounds.length) {
                 const xlvById = new Map(simulationAircraftXlvTextBounds.map(b => [b.aircraftId, b]));
                 const opaqueId = (simulationIsDraggingAircraftLabel && simulationDraggingAircraftId)
                     ? simulationDraggingAircraftId
@@ -38147,7 +38404,7 @@ function setupSimulationCanvasInteractions() {
                 return false;
             };
 
-            if (!isClickOnAnyLabel()) {
+            if (!isSimulationMeasurementRestricted() && !isClickOnAnyLabel()) {
                 // Middle-click on measurement text removes that measurement
                 // (Check in reverse order to handle overlapping measurement labels)
                 for (let i = measurementTextBounds.length - 1; i >= 0; i--) {
@@ -60700,7 +60957,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     // No backdrop dismiss: settingsModal, createExercisePopup, editExerciseModal, createSectorPopup,
     // deleteExercisesModal, deleteSectorsModal, editAircraftDbModal, editAirlinesDbModal, addFlightModal, addMultipleFlightsModal,
     // simulationEnMgmtRulesModal (close via X / Cancel / Save only — avoids losing rule edits on a stray click)
-    const modalsWithBackdropClose = [startSessionModal, selectExerciseModal, playbackModal, exerciseFlightsPopupModal, editSectorInportModal, verticalLimitsModal, airportsModal, addRunwayModal, addApproachModal, addWaypointModal, addNavaidModal, addRouteModal, addMultipleWaypointsModal, addMultipleNavaidsModal, addMultipleRoutesModal, addMultipleAtcSectorsModal, addMultipleAirportsModal, addMultipleRunwaysModal, addMultipleApproachesModal, addMultipleAreasModal, addMultipleHoldingsModal, sectorMapBackgroundPickRenameModal, sectorMapBackgroundRenameModal, atcSectorsModal, duplicateAirspaceModal, joinSessionAssignModal, aiPpPttModal, adminUnlockModal, adminSettingsModal, adminEmailSettingsModal, adminAiPilotInstructionsModal, simulationSettingsModal, simulationEnMgmtRoutesModal, simulationEnMgmtMergeRoutesModal, simulationEnMgmtAddRouteModal, simulationEnMgmtIdentifierModal, simulationEnMgmtLevelsModal, simulationEnMgmtSaveRoutesModal, simulationEnMgmtSaveRoutesOverwriteModal, simulationEnMgmtLoadRoutesModal, simulationEnMgmtLoadRoutesDeleteConfirmModal, simulationEnMgmtDeleteRoutesModal, simulationEnMgmtDeleteRouteConfirmModal, simulationDebugLogModal, stopSimulationConfirmModal, simulationLabelEditorModal, adminSingleUserLabelConfigModal, labelSetupSaveConfirmModal, labelSetupDeleteConfirmModal, simulationLabelAuthModal, loadSimSettingsPresetsModal, saveSimSettingsPresetModal, adminLoadSystemSettingModal, stcaParametersModal, flightStatusColorsModal, simulationConnectedUsersModal, runTypeModal, sectorMapBackgroundPickEditModal, sectorMapBackgroundPickDeleteModal, sectorMapBackgroundConfirmDeleteOneModal, sectorMapBackgroundConfirmDeleteAllModal, sectorMapBackgroundModal, exportDataModal, importDataModal];
+    const duplicateExerciseModal = document.getElementById('duplicateExerciseModal');
+    const modalsWithBackdropClose = [startSessionModal, selectExerciseModal, playbackModal, exerciseFlightsPopupModal, editSectorInportModal, verticalLimitsModal, airportsModal, addRunwayModal, addApproachModal, addWaypointModal, addNavaidModal, addRouteModal, addMultipleWaypointsModal, addMultipleNavaidsModal, addMultipleRoutesModal, addMultipleAtcSectorsModal, addMultipleAirportsModal, addMultipleRunwaysModal, addMultipleApproachesModal, addMultipleAreasModal, addMultipleHoldingsModal, sectorMapBackgroundPickRenameModal, sectorMapBackgroundRenameModal, atcSectorsModal, duplicateAirspaceModal, duplicateExerciseModal, joinSessionAssignModal, aiPpPttModal, adminUnlockModal, adminSettingsModal, adminEmailSettingsModal, adminAiPilotInstructionsModal, simulationSettingsModal, simulationEnMgmtRoutesModal, simulationEnMgmtMergeRoutesModal, simulationEnMgmtAddRouteModal, simulationEnMgmtIdentifierModal, simulationEnMgmtLevelsModal, simulationEnMgmtSaveRoutesModal, simulationEnMgmtSaveRoutesOverwriteModal, simulationEnMgmtLoadRoutesModal, simulationEnMgmtLoadRoutesDeleteConfirmModal, simulationEnMgmtDeleteRoutesModal, simulationEnMgmtDeleteRouteConfirmModal, simulationDebugLogModal, stopSimulationConfirmModal, simulationLabelEditorModal, adminSingleUserLabelConfigModal, labelSetupSaveConfirmModal, labelSetupDeleteConfirmModal, simulationLabelAuthModal, loadSimSettingsPresetsModal, saveSimSettingsPresetModal, adminLoadSystemSettingModal, stcaParametersModal, flightStatusColorsModal, simulationConnectedUsersModal, runTypeModal, sectorMapBackgroundPickEditModal, sectorMapBackgroundPickDeleteModal, sectorMapBackgroundConfirmDeleteOneModal, sectorMapBackgroundConfirmDeleteAllModal, sectorMapBackgroundModal, exportDataModal, importDataModal];
     modalsWithBackdropClose.forEach(modal => {
         if (modal) {
             modal.addEventListener('click', function(e) {
@@ -60905,7 +61163,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         currentEditingFlights = [];
         currentEditingAiPilotContext = '';
         currentEditingAiPilotScripts = [];
-    currentEditingSuppressedInitialPilotCalls = [];
+        currentEditingSuppressedInitialPilotCalls = [];
+        currentEditingRestrictions = defaultExerciseRestrictions();
+        syncExerciseRestrictionsControls();
         currentEditingFlows = [];
         currentEditingSector = null;
         exercisePreviewLabelOffsetsByAircraftId = {};
@@ -60975,6 +61235,35 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('exerciseViewOptionsBtn')?.addEventListener('click', function() {
         if (this.disabled) return;
         toggleExerciseViewOptionsPanel();
+    });
+    document.getElementById('exerciseRestrictionsBtn')?.addEventListener('click', function() {
+        if (this.disabled) return;
+        toggleExerciseRestrictionsPanel();
+    });
+    document.getElementById('exerciseDuplicateBtn')?.addEventListener('click', function() {
+        if (this.disabled) return;
+        openDuplicateExerciseModal();
+    });
+    document.getElementById('closeDuplicateExerciseBtn')?.addEventListener('click', () => closeModal('duplicateExerciseModal'));
+    document.getElementById('duplicateExerciseCancelBtn')?.addEventListener('click', () => closeModal('duplicateExerciseModal'));
+    document.getElementById('duplicateExerciseCreateBtn')?.addEventListener('click', () => {
+        confirmDuplicateExerciseCreate();
+    });
+    document.getElementById('duplicateExerciseNameInput')?.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            confirmDuplicateExerciseCreate();
+        }
+    });
+    [
+        'exerciseRestrictLabelMouseInputs',
+        'exerciseRestrictMeasurements',
+        'exerciseRestrictPauseDuringRun',
+        'exerciseRestrictCommandsDuringPause'
+    ].forEach((id) => {
+        document.getElementById(id)?.addEventListener('change', () => {
+            persistCurrentEditingRestrictions();
+        });
     });
     document.getElementById('exerciseAircraftLabelSizeSlider')?.addEventListener('input', function() {
         const v = Math.min(24, Math.max(8, parseInt(this.value, 10) || SIM_MAP_DEFAULTS.labelSize));
@@ -63032,6 +63321,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             duration: duration || null,
             flights: [],
             aiPilotContext: '',
+            restrictions: defaultExerciseRestrictions(),
             createdAt: new Date().toISOString()
         };
 
@@ -63948,6 +64238,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             setSimulationRate(1);
             updateSimulationSpeedStatusUI();
             updatePauseButtonUI();
+            return;
+        }
+        // Restriction: pause not allowed
+        if (!simulationIsPaused && isSimulationPauseRestricted()) {
             return;
         }
         // Otherwise: Pause/Play toggle

@@ -1305,6 +1305,8 @@
                     <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-sector-load-btn" id="exerciseSectorLoadBtn" disabled aria-pressed="false">Traffic Load</button>
                     <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-ai-pilot-btn" id="exerciseAiPilotBtn" disabled aria-pressed="false">AI Pilot</button>
                     <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-view-options-btn" id="exerciseViewOptionsBtn" disabled aria-pressed="false">View Options</button>
+                    <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-restrictions-btn" id="exerciseRestrictionsBtn" disabled aria-pressed="false">Restrictions</button>
+                    <button type="button" class="btn btn-primary edit-exercise-topbar-action-btn exercise-duplicate-btn" id="exerciseDuplicateBtn" disabled>Duplicate</button>
                     <button type="button" class="btn btn-secondary edit-exercise-topbar-action-btn exercise-save-exercise-btn" id="saveExerciseBtn" disabled>Save Exercise</button>
                 </div>
             </div>
@@ -1380,6 +1382,28 @@
                             <label class="exercise-view-option-checkbox">
                                 <input type="checkbox" id="exerciseSpeedVectorCheckbox" />
                                 <span>Speed vector (1 Minute)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="exerciseRestrictionsSection" class="exercise-sidebar-section exercise-restrictions-section">
+                        <div id="exerciseRestrictionsPanel" class="exercise-restrictions-panel" hidden>
+                            <h3 class="exercise-restrictions-title">Restrictions</h3>
+                            <p class="hint-text exercise-restrictions-hint">When checked, the action is disabled during the simulation run.</p>
+                            <label class="exercise-view-option-checkbox">
+                                <input type="checkbox" id="exerciseRestrictLabelMouseInputs" />
+                                <span>Mouse inputs in label</span>
+                            </label>
+                            <label class="exercise-view-option-checkbox">
+                                <input type="checkbox" id="exerciseRestrictMeasurements" />
+                                <span>Measurements</span>
+                            </label>
+                            <label class="exercise-view-option-checkbox">
+                                <input type="checkbox" id="exerciseRestrictPauseDuringRun" />
+                                <span>Pause during run</span>
+                            </label>
+                            <label class="exercise-view-option-checkbox">
+                                <input type="checkbox" id="exerciseRestrictCommandsDuringPause" />
+                                <span>Commands during pause</span>
                             </label>
                         </div>
                     </div>
@@ -2114,6 +2138,27 @@
                 <div class="form-actions" style="margin-top: 1rem;">
                     <button type="button" class="btn btn-success" id="duplicateAirspaceCreateBtn">Create</button>
                     <button type="button" class="btn btn-secondary" id="duplicateAirspaceCancelBtn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duplicate Exercise (from Edit Exercise) -->
+    <div id="duplicateExerciseModal" class="modal">
+        <div class="modal-content" style="max-width: 440px;">
+            <div class="modal-header">
+                <h2>Duplicate Exercise</h2>
+                <button type="button" class="modal-close" id="closeDuplicateExerciseBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: rgba(245, 247, 250, 0.9);">Create a duplicate of this exercise with all flights, scripts, and settings. What should be the name of the new exercise?</p>
+                <div class="form-group">
+                    <label class="form-label" for="duplicateExerciseNameInput">New exercise name</label>
+                    <input type="text" id="duplicateExerciseNameInput" class="form-input" maxlength="200" autocomplete="off" />
+                </div>
+                <div class="form-actions" style="margin-top: 1rem;">
+                    <button type="button" class="btn btn-success" id="duplicateExerciseCreateBtn">Create</button>
+                    <button type="button" class="btn btn-secondary" id="duplicateExerciseCancelBtn">Cancel</button>
                 </div>
             </div>
         </div>
